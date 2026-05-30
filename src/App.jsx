@@ -129,6 +129,7 @@ function ethToGreg(ey,em,ed){const jdn=1723856+(ey-1)*365+Math.floor(ey/4)+(em-1
 
 function todayStr(){return new Date().toISOString().slice(0,10);}
 function money(n){return Number(n||0).toLocaleString()+" Birr";}
+function waitMins(v){if(!v.registeredAt)return null;const diff=Math.floor((Date.now()-new Date(v.registeredAt).getTime())/60000);return diff>0?diff:0;}
 function makeId(name,phone){const n=(name||"CUS").replace(/[^a-zA-Z]/g,"").slice(0,3).toUpperCase()||"CUS";const p=(phone||"0000").replace(/\D/g,"").slice(-4)||"0000";return n+"-"+p;}
 function lineGross(l){return Number(l.price||0)*Number(l.qty||1);}
 function lineIncome(l){if(l.free)return 0;return Math.max(0,lineGross(l)-Number(l.discount||0));}
@@ -158,11 +159,11 @@ function checkConflict(bks,form,svcs){
 }
 
 const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
-const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"]};
+const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
-const dbVis=r=>({id:r.id,date:r.date,queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||""});
+const dbVis=r=>({id:r.id,date:r.date,queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||null});
 const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||"",qty:Number(r.qty),unit:Number(r.unit),total:Number(r.total)});
 const dbBk=r=>({id:r.id,date:r.date,time:r.time,customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
@@ -187,7 +188,10 @@ function EthPicker({value,onChange,label}){
         <b style={{color:"#92400e"}}>{ETH_MONTHS[(em||1)-1]} {ey}</b>
         <button onClick={()=>{let nm=em+1,ny=ey;if(nm>13){nm=1;ny++;}setEm(nm);setEy(ny);}} style={S.navBtn}>›</button>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:3}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
+        {["እሁ","ሰኞ","ማክ","ረቡ","ሐሙ","አርብ","ቅዳ"].map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:800,color:"#6b4c11",padding:"2px 0"}}>{d}</div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
         {Array.from({length:em===13?6:30},(_,i)=>i+1).map(d=><button key={d} onClick={()=>pick(ey,em,d)} style={{padding:"5px 3px",borderRadius:7,border:"none",background:d===ed?"#e0b85a":"#f9f5eb",fontWeight:d===ed?900:400,cursor:"pointer",fontSize:12}}>{d}</button>)}
       </div>
       <div style={{display:"flex",gap:6,marginTop:8}}>
@@ -227,7 +231,10 @@ export default function App(){
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});
   const[bkWarn,setBkWarn]=useState("");
+  const[showWalkIn,setShowWalkIn]=useState(false);
+  const[wiSvcId,setWiSvcId]=useState("");const[wiName,setWiName]=useState("");const[wiPhone,setWiPhone]=useState("");const[wiNote,setWiNote]=useState("");
   const[nStaff,setNStaff]=useState({id:"",name:"",role:"reception",password:""});const[editStaff,setEditStaff]=useState(null);
+  const[handoverNote,setHandoverNote]=useState("");const[handoverLog,setHandoverLog]=useState([]);
   const dRef=useRef({});const eRef=useRef({});
 
   function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
@@ -361,7 +368,7 @@ export default function App(){
     await supabase.from("customers").upsert({id:cid,name:rName.trim(),phone:rPhone.trim(),total_visits:ntv});
     if(!fc)setCusts(p=>[...p,{id:cid,name:rName.trim(),phone:rPhone.trim(),totalVisits:ntv}]);
     else setCusts(p=>p.map(c=>c.phone===rPhone.trim()?{...c,totalVisits:ntv}:c));
-    const rows=Array.from({length:cnt}).map((_,i)=>({id:gid+i,date:todayStr(),queue:tc+i+1,customer_id:cid,name:cnt>1?rName.trim()+" "+(i+1):rName.trim(),payer_name:rName.trim(),phone:rPhone.trim(),group_id:gid,group_name:gn,services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:rNote}));
+    const rows=Array.from({length:cnt}).map((_,i)=>({id:gid+i,date:todayStr(),queue:tc+i+1,customer_id:cid,name:cnt>1?rName.trim()+" "+(i+1):rName.trim(),payer_name:rName.trim(),phone:rPhone.trim(),group_id:gid,group_name:gn,services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:rNote,registered_at:new Date().toISOString()}));
     const{error}=await supabase.from("visits").insert(rows);
     if(error){alert("Error saving.");setSaving(false);return;}
     logAct(user,"Registered",rName.trim()+" x"+cnt);
@@ -394,6 +401,21 @@ export default function App(){
   async function updBk(id,status){await supabase.from("bookings").update({status}).eq("id",id);}
   async function checkIn(b){if(!window.confirm("Check in "+b.customerName+"?"))return;setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:"Booking: "+b.serviceName};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");}
   async function delBk(id){if(!window.confirm("Delete this booking?"))return;await supabase.from("bookings").delete().eq("id",id);}
+  async function addSpaWalkIn(){
+    if(!wiName.trim()||!wiPhone.trim()||!wiSvcId)return alert("Enter customer name, phone and select a service.");
+    setSaving(true);
+    const s=svcs.find(sv=>sv.id===Number(wiSvcId));
+    const cid=makeId(wiName.trim(),wiPhone.trim());
+    const fc=custs.find(c=>c.phone===wiPhone.trim()),ntv=(fc?.totalVisits||0)+1;
+    await supabase.from("customers").upsert({id:cid,name:wiName.trim(),phone:wiPhone.trim(),total_visits:ntv});
+    if(!fc)setCusts(p=>[...p,{id:cid,name:wiName.trim(),phone:wiPhone.trim(),totalVisits:ntv}]);
+    const tc=visits.filter(v=>v.date===todayStr()).length;
+    const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:wiName.trim(),payer_name:wiName.trim(),phone:wiPhone.trim(),group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(s?"Spa Walk-in: "+s.name:"Spa Walk-in")+(wiNote?" — "+wiNote:""),registered_at:new Date().toISOString()};
+    await supabase.from("visits").insert(vr);
+    logAct(user,"Spa Walk-in",wiName.trim()+(s?" — "+s.name:""));
+    setShowWalkIn(false);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");setSaving(false);
+    push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
+  }
   async function addGE(){if(!gName.trim()||!gAmt)return alert("Enter name and amount.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
   async function delE(id){if(!window.confirm("Delete?"))return;await supabase.from("expenses").delete().eq("id",id);setExps(p=>p.filter(e=>e.id!==id));}
   async function addCat(){if(!newCat.trim()||cats.includes(newCat.trim()))return;await supabase.from("categories").insert({name:newCat.trim()});setCats(p=>[...p,newCat.trim()]);setNewCat("");}
@@ -449,7 +471,7 @@ export default function App(){
         </section>
         <section style={S.card}><h2 style={S.ct}>Today's Queue</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
           {todayV.length===0&&<EMP>No customers registered yet today.</EMP>}
-          {todayV.map(v=><div key={v.id} style={S.li}><div><b style={{fontSize:15}}>#{v.queue} — {v.name}</b>{v.groupName&&<p style={S.hlp}>{v.groupName}</p>}{v.note&&<p style={S.hlp}>📝 {v.note}</p>}</div>
+          {todayV.map(v=><div key={v.id} style={S.li}><div><b style={{fontSize:15}}>#{v.queue} — {v.name}</b>{v.groupName&&<p style={S.hlp}>{v.groupName}</p>}{v.note&&<p style={S.hlp}>📝 {v.note}</p>}{!["Paid & Closed","Cancelled"].includes(v.status)&&waitMins(v)!==null&&<p style={{fontSize:11,fontWeight:700,color:waitMins(v)>30?"#991b1b":waitMins(v)>15?"#92400e":"#166534",margin:"2px 0"}}>⏱ {waitMins(v)} min waiting</p>}</div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={SB(v.status)}>{v.status}</span>{v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>Cancel</button>}</div></div>)}
         </section>
       </main>}
@@ -510,11 +532,31 @@ export default function App(){
       {tab==="Bookings"&&<section style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10,marginBottom:14}}>
           <h2 style={{...S.ct,margin:0}}>Booking Management</h2>
-          <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
             <EthPicker value={bkDate} onChange={setBkDate}/>
-            {user.role!=="supervisor"&&<button style={{...S.btnP,width:"auto",padding:"10px 20px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:bkDate,time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>}
+            {user.role!=="supervisor"&&<>
+              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>🚶 Spa Walk-in</button>
+              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:bkDate,time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>
+            </>}
           </div>
         </div>
+
+        {showWalkIn&&user.role!=="supervisor"&&<div style={{background:"#f0fdfa",border:"1px solid #0f766e",borderRadius:16,padding:18,marginBottom:16}}>
+          <h3 style={{margin:"0 0 12px",fontWeight:800,color:"#0f766e"}}>🚶 Spa Walk-in — Add to Queue Now</h3>
+          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
+            <div><L>Customer Name *</L><input style={S.inp} value={wiName} onChange={e=>setWiName(e.target.value)} placeholder="Full name"/></div>
+            <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={wiPhone} onChange={e=>setWiPhone(e.target.value)} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===wiPhone.trim());if(f)setWiName(f.name);}}>Recall</button></div></div>
+            <div style={{gridColumn:"1/-1"}}><L>Spa Service *</L>
+              <select style={{...S.inp,background:wiSvcId?"#fffdf7":"#f0fdfa"}} value={wiSvcId} onChange={e=>setWiSvcId(e.target.value)}>
+                <option value="">— Select spa service —</option>
+                {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{const items=bkSvcs.filter(s=>s.sub===sub);if(!items.length)return null;return <optgroup key={sub} label={"── "+sub+" ──"}>{items.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)}</option>)}</optgroup>;})}
+              </select>
+            </div>
+            <div style={{gridColumn:"1/-1"}}><L>Note</L><input style={S.inp} value={wiNote} onChange={e=>setWiNote(e.target.value)} placeholder="Any special requests"/></div>
+          </div>
+          <div style={S.r2}><button style={{...S.btnP,background:"#0f766e",color:"#fff"}} onClick={addSpaWalkIn}>Add to Queue</button><button style={S.btnS} onClick={()=>setShowWalkIn(false)}>Cancel</button></div>
+        </div>}
+
         {showBkF&&user.role!=="supervisor"&&<div style={{background:"#fffaf2",border:"1px solid #e0b85a",borderRadius:16,padding:18,marginBottom:16}}>
           <h3 style={{margin:"0 0 12px",fontWeight:800}}>{editBk?"Edit":"New"} Booking</h3>
           {bkWarn&&<div style={{background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:13,fontWeight:700}}>{bkWarn}</div>}
@@ -527,44 +569,56 @@ export default function App(){
                 value={String(bkF.serviceId||"")}
                 onChange={e=>{const sid=e.target.value;setBkF(p=>({...p,serviceId:sid}));if(sid){const warn=checkConflict(bks,{...bkF,serviceId:sid},svcs);setBkWarn(warn||"");}else setBkWarn("");}}>
                 <option value="">— Select a spa service —</option>
-                {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{
-                  const items=bkSvcs.filter(s=>s.sub===sub);
-                  if(!items.length)return null;
-                  return <optgroup key={sub} label={"── "+sub+" ──"}>{items.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)} ({s.durationMins}min)</option>)}</optgroup>;
-                })}
+                {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{const items=bkSvcs.filter(s=>s.sub===sub);if(!items.length)return null;return <optgroup key={sub} label={"── "+sub+" ──"}>{items.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)} ({s.durationMins}min)</option>)}</optgroup>;})}
               </select>
             </div>
             <div><EthPicker label="Date *" value={bkF.date} onChange={d=>setBkF(p=>({...p,date:d}))}/></div>
             <div><L>Time * (Ethiopian: {toEthTime(bkF.time)})</L><select style={S.inp} value={bkF.time} onChange={e=>setBkF(p=>({...p,time:e.target.value}))}>{timeSlots().map(t=><option key={t} value={t}>{t} ({toEthTime(t)})</option>)}</select></div>
             <div><L>Number of People</L><input style={S.inp} type="number" min="1" value={bkF.people} onChange={e=>setBkF(p=>({...p,people:e.target.value}))}/></div>
-            <div><L>Notes / Special Requests</L><textarea style={S.ta} value={bkF.notes} onChange={e=>setBkF(p=>({...p,notes:e.target.value}))} rows={2}/></div>
+            <div><L>Notes</L><textarea style={S.ta} value={bkF.notes} onChange={e=>setBkF(p=>({...p,notes:e.target.value}))} rows={2}/></div>
           </div>
           <div style={S.r2}><button style={S.btnP} onClick={saveBk}>Save Booking</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>Cancel</button></div>
         </div>}
-        <h3 style={S.sh}>Bookings for {bkDate}</h3>
-        {todayBk.length===0&&<p style={S.hlp}>No bookings for this date.</p>}
-        {todayBk.map(b=>{const c=BKC[b.status]||{bg:"#f3f4f6",co:"#374151"};return(<div key={b.id} style={{...S.li,flexWrap:"wrap",gap:10,alignItems:"flex-start"}}>
-          <div style={{flex:1,minWidth:200}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><span style={{background:c.bg,color:c.co,borderRadius:8,padding:"2px 10px",fontSize:12,fontWeight:700}}>{b.status}</span><b>{b.time} ({toEthTime(b.time)})</b></div>
-            <b style={{fontSize:15}}>{b.customerName}</b><p style={S.hlp}>{b.customerPhone} · {b.people} person{b.people>1?"s":""}</p>
-            <p style={S.hlp}>{b.serviceName} · {b.durationMins}min</p>{b.notes&&<p style={{...S.hlp,fontStyle:"italic"}}>"{b.notes}"</p>}
-            <p style={{...S.hlp,fontSize:10}}>By {b.createdBy}</p>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:5}}>
-            {user.role!=="supervisor"&&<>
-              {b.status==="Pending"&&<button style={S.btnS} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
-              {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"8px 14px"}} onClick={()=>checkIn(b)}>Check In</button>}
-              {b.status==="Arrived"&&<span style={{color:"#166534",fontWeight:700,fontSize:12}}>✓ Checked In</span>}
-              {!["Completed","Cancelled","No-show"].includes(b.status)&&<button style={S.btnS} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
-              {!["Completed","Cancelled"].includes(b.status)&&<><button style={S.btnD} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button><button style={S.btnD} onClick={()=>updBk(b.id,"No-show")}>No-show</button></>}
-              <button style={S.btnD} onClick={()=>delBk(b.id)}>Delete</button>
-            </>}
-            {user.role==="supervisor"&&b.status==="Arrived"&&<span style={{color:"#166534",fontWeight:700,fontSize:12}}>✓ Checked In</span>}
-          </div>
-        </div>);})}
+
+        <h3 style={S.sh}>📅 {bkDate} — Time Slot View</h3>
+        <div style={{display:"grid",gridTemplateColumns:"80px 1fr",gap:0,border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
+          {timeSlots().map(slot=>{
+            const slotBks=todayBk.filter(b=>b.time===slot&&!["Cancelled","No-show"].includes(b.status));
+            const isEmpty=slotBks.length===0;
+            return <React.Fragment key={slot}>
+              <div style={{padding:"10px 8px",background:"#f9f5eb",borderBottom:"1px solid #ecdba3",fontSize:12,fontWeight:700,color:"#6b4c11",textAlign:"center"}}>
+                <div>{slot}</div>
+                <div style={{fontSize:10,fontWeight:400,color:"#92400e"}}>{toEthTime(slot)}</div>
+              </div>
+              <div style={{padding:"8px 10px",borderBottom:"1px solid #ecdba3",background:isEmpty?"#fffdf7":"#fff",minHeight:44}}>
+                {isEmpty?<span style={{color:"#d1d5db",fontSize:12}}>Available</span>
+                :slotBks.map(b=>{const c=BKC[b.status]||{bg:"#f3f4f6",co:"#374151"};return(
+                  <div key={b.id} style={{background:c.bg,borderRadius:8,padding:"6px 10px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
+                    <div>
+                      <span style={{background:c.co,color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginRight:6}}>{b.status}</span>
+                      <b style={{fontSize:13,color:"#111827"}}>{b.customerName}</b>
+                      <span style={{fontSize:11,color:"#374151",marginLeft:6}}>{b.serviceName}</span>
+                      {b.notes&&<span style={{fontSize:10,color:"#6b7280",marginLeft:6,fontStyle:"italic"}}>"{b.notes}"</span>}
+                      <div style={{fontSize:10,color:"#6b7280",marginTop:2}}>{b.durationMins}min · {b.people} person{b.people>1?"s":""} · by {b.createdBy}</div>
+                    </div>
+                    {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                      {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
+                      {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>Check In</button>}
+                      {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
+                      {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button>}
+                    </div>}
+                    {b.status==="Arrived"&&<span style={{color:"#166534",fontWeight:700,fontSize:11}}>✓ In</span>}
+                  </div>
+                );})}
+              </div>
+            </React.Fragment>;
+          })}
+        </div>
+
         <HR/><h3 style={S.sh}>Upcoming 7 Days</h3>
-        {bks.filter(b=>b.date>todayStr()&&b.date<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&!["Cancelled","No-show","Completed"].includes(b.status)).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).map(b=><div key={b.id} style={S.li}><div><b>{b.date} at {b.time} ({toEthTime(b.time)})</b><p style={S.hlp}>{b.customerName} · {b.serviceName}</p></div><span style={SB(b.status)}>{b.status}</span></div>)}
+        {bks.filter(b=>b.date>todayStr()&&b.date<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&!["Cancelled","No-show","Completed"].includes(b.status)).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).map(b=><div key={b.id} style={S.li}><div><b style={{color:"#111827"}}>{b.date} at {b.time} ({toEthTime(b.time)})</b><p style={{...S.hlp,color:"#374151"}}>{b.customerName} · {b.serviceName}</p></div><span style={SB(b.status)}>{b.status}</span></div>)}
       </section>}
+
 
       {tab==="Service Setup"&&<section style={S.card}><h2 style={S.ct}>Service & Price Management</h2>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:20,marginBottom:16}}>
@@ -701,9 +755,24 @@ export default function App(){
         </div>)}
       </section>}
 
-      {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>Activity Log</h2><p style={S.hlp}>Last 100 actions across all staff.</p><HR/>
+      {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>Activity Log</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p><HR/>
         {actLog.length===0&&<EMP>No activity recorded yet.</EMP>}
-        {actLog.map((a,i)=><div key={i} style={S.li}><div><b>{a.action}</b>{a.detail&&<p style={S.hlp}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
+        {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
+      </section>}
+
+      {tab==="Handover"&&<section style={S.card}><h2 style={S.ct}>Shift Handover Log</h2>
+        <p style={{...S.hlp,color:"#374151"}}>Leave notes for the next shift. Visible to all staff.</p><HR/>
+        <L>Handover Note</L>
+        <textarea style={S.ta} value={handoverNote} onChange={e=>setHandoverNote(e.target.value)} placeholder="e.g. Customer X is coming back at 4pm. Room 2 needs cleaning. Booking for Marta confirmed for tomorrow 10am..." rows={4}/>
+        <button style={S.btnP} onClick={async()=>{if(!handoverNote.trim())return;const row={id:Date.now(),staff_name:user.name,role:user.role,note:handoverNote.trim(),ts:new Date().toISOString()};setHandoverLog(p=>[row,...p]);await supabase.from("activity_log").insert({staff_id:user.id,staff_name:user.name,action:"Handover Note",detail:handoverNote.trim(),ts:new Date().toISOString()});setHandoverNote("");push("Handover note saved","success");}}>Save Handover Note</button>
+        <HR/><h3 style={S.sh}>Recent Handover Notes</h3>
+        {actLog.filter(a=>a.action==="Handover Note").slice(0,20).map((a,i)=><div key={i} style={{...S.li,flexDirection:"column",alignItems:"flex-start",gap:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",width:"100%",flexWrap:"wrap",gap:4}}>
+            <span style={{background:a.role==="manager"?"#334155":a.role==="supervisor"?"#1e40af":"#f5e7c0",color:a.role==="manager"?"#e0b85a":a.role==="supervisor"?"#fff":"#6b4c11",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span>
+            <span style={{fontSize:11,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</span>
+          </div>
+          <p style={{margin:0,fontSize:13,color:"#111827",lineHeight:1.5}}>{a.detail}</p>
+        </div>)}
       </section>}
 
     </div>
@@ -722,7 +791,7 @@ function SLines({visit,emps,mode,onUpd,onRem}){
       return <div key={line.lineId} style={{background:done?"#f8fafb":"#fffaf2",border:"1px solid "+(done?"#d1d5db":"#ecdba3"),borderRadius:12,padding:10,marginBottom:7}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
           <div><b style={{fontSize:14}}>{line.name}</b>
-            <p style={{color:"#6b4c11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
+            <p style={{color:"#5c3d11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
             {line.commission>0&&<p style={{color:"#166534",fontSize:11,margin:"2px 0"}}>Commission {line.commission}% = {money(lineComm(line))}</p>}
           </div>
           {!locked&&<button style={{padding:"4px 10px",borderRadius:8,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:12}} onClick={()=>onRem(line.lineId)}>Remove</button>}
@@ -781,6 +850,6 @@ const S={
   liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fffaf2",border:"1px solid #ecdba3",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
   liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#111827",border:"none",color:"#e0b85a",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",fontWeight:900,textAlign:"left"},
   tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8},
-  hlp:   {color:"#6b4c11",fontSize:11,margin:"2px 0"},
+  hlp:   {color:"#5c3d11",fontSize:11,margin:"2px 0"},
   lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#6b4c11"},
 };
