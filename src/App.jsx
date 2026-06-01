@@ -239,6 +239,7 @@ export default function App(){
   const[wiSvcId,setWiSvcId]=useState("");const[wiName,setWiName]=useState("");const[wiPhone,setWiPhone]=useState("");const[wiNote,setWiNote]=useState("");
   const[nStaff,setNStaff]=useState({id:"",name:"",role:"reception",password:""});const[editStaff,setEditStaff]=useState(null);
   const[handoverNote,setHandoverNote]=useState("");const[handoverLog,setHandoverLog]=useState([]);
+  const[dailyTarget,setDailyTarget]=useState(()=>{try{return Number(localStorage.getItem("ambar_target")||0);}catch{return 0;}});
   const dRef=useRef({});const eRef=useRef({});
 
   function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
@@ -249,7 +250,20 @@ export default function App(){
   useEffect(()=>{const on=()=>{setOffline(false);push("Back online","success");};const off=()=>{setOffline(true);push("Offline — changes will not save","warning");};window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
 
   useEffect(()=>{
-    const t=setInterval(async()=>{const now=new Date();if(now.getHours()>=CLOSE_HOUR){const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled"].includes(v.status));for(const v of stale){await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed end of day]"}).eq("id",v.id);}}},60000);
+    const t=setInterval(async()=>{
+      const now=new Date();
+      // Auto-close stale sessions at 10PM
+      if(now.getHours()>=22){
+        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled"].includes(v.status));
+        for(const v of stale){await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed 10PM]"}).eq("id",v.id);}
+        // Generate end of day summary notification
+        if(stale.length===0&&now.getHours()===22&&now.getMinutes()<2){
+          const paid=visits.filter(v=>v.date===todayStr()&&v.status==="Paid & Closed");
+          const rev=paid.reduce((s,v)=>s+Number(v.totalService||0),0);
+          push("📊 End of Day: "+paid.length+" customers served, "+money(rev)+" revenue","success");
+        }
+      }
+    },60000);
     return()=>clearInterval(t);
   },[visits]);
 
@@ -315,7 +329,18 @@ export default function App(){
     return()=>{supabase.removeChannel(vs);supabase.removeChannel(bs);supabase.removeChannel(es);clearInterval(poll);};
   },[user]);
 
-  useEffect(()=>{if(!user)return;const m={reception:"Reception",supervisor:"Supervisor",manager:"Dashboard"};setTab(m[user.role]||"Reception");},[user]);
+  useEffect(()=>{
+    if(!user)return;
+    const m={reception:"Reception",supervisor:"Supervisor",manager:"Dashboard"};
+    setTab(m[user.role]||"Reception");
+    // Show today's booking reminder on login
+    setTimeout(()=>{
+      const todayBookings=bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show","Completed"].includes(b.status));
+      if(todayBookings.length>0){
+        push("📅 Today has "+todayBookings.length+" booking"+( todayBookings.length>1?"s":"")+" — check Bookings tab","booking");
+      }
+    },2000);
+  },[user]);
 
   useEffect(()=>{
     if(!user)return;
@@ -350,7 +375,19 @@ export default function App(){
   const clDE=clE.reduce((s,e)=>s+Number(e.total||0),0);
   const clNet=clCash-clTips-clDE;const clGr=clNet+clTr;const clPr=clRev-clDE;
   const clTipBr=useMemo(()=>{const m={};clV.forEach(v=>v.tips.forEach(t=>{m[t.employee]=(m[t.employee]||0)+Number(t.amount||0);}));return Object.entries(m).map(([e,a])=>({employee:e,amount:a}));},[clV]);
-  const svcQ=useMemo(()=>{const r=[];visits.filter(v=>v.date===todayStr()).forEach(v=>{if(["Paid & Closed","Cancelled"].includes(v.status))return;v.services.forEach(l=>{if(!["Completed","Cancelled"].includes(l.status))r.push({visit:v,line:l});});});return r;},[visits]);
+  const svcQ=useMemo(()=>{
+    const r=[];
+    visits.filter(v=>v.date===todayStr()).forEach(v=>{
+      if(["Paid & Closed","Cancelled"].includes(v.status))return;
+      v.services.forEach(l=>{
+        if(!["Completed","Cancelled"].includes(l.status))
+          r.push({visit:v,line:l});
+      });
+    });
+    // Sort by queue number so priority customers (lower number) appear first
+    r.sort((a,b)=>a.visit.queue-b.visit.queue);
+    return r;
+  },[visits]);
   const empC=useMemo(()=>emps.map(emp=>{const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");return{...emp,commissionTotal:lines.reduce((s,l)=>s+lineComm(l),0),breakdown:lines.map(l=>({name:l.name,income:lineIncome(l),commission:lineComm(l)}))};}),[emps,visits,period]);
   const fCusts=custs.filter(c=>{const q=cSearch.toLowerCase().trim();if(!q)return true;return c.name.toLowerCase().includes(q)||c.phone.includes(q)||c.id.toLowerCase().includes(q);});
   const todayBk=bks.filter(b=>b.date===bkDate).sort((a,b)=>a.time.localeCompare(b.time));
@@ -385,15 +422,44 @@ export default function App(){
   async function updLine(vid,lid2,f,v){
     const vis=visits.find(x=>x.id===vid);if(!vis)return;
     const tf=["employee","preferredEmployee","status"];const nv=tf.includes(f)?v:f==="free"?v:Number(v)||0;
-    // Record service duration when marked Completed
+
+    // When a service is marked Completed → unlock On Hold services for this customer
     if(f==="status"&&v==="Completed"){
       const line=vis.services.find(l=>l.lineId===lid2);
       const dur=svcMins(lid2);
-      if(line&&dur){
+      if(line){
         const emp=line.employee||"Unknown";
-        logAct(user,"Service completed",`${line.name} by ${emp} — ${dur} min (expected ${line.durationMins||"?"}min)`);
+        if(dur)logAct(user,"Service completed",line.name+" by "+emp+" — "+dur+" min (expected "+(line.durationMins||"?")+"min)");
       }
+      // Unlock: any "On Hold" services for this customer → set to Waiting
+      // This gives them priority since their queue number is preserved
+      const upd=vis.services.map(l=>{
+        if(l.lineId===lid2)return{...l,status:"Completed"};
+        if(l.status==="On Hold")return{...l,status:"Waiting"};
+        return l;
+      });
+      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
+      // Notify supervisor
+      const unlocked=vis.services.filter(l=>l.lineId!==lid2&&l.status==="On Hold");
+      if(unlocked.length>0){
+        push("⭐ "+vis.name+" finished "+line.name+" — now has PRIORITY for: "+unlocked.map(l=>l.name).join(", "),"success");
+      }
+      return;
     }
+
+    // When setting In Progress → auto set other services of same customer to On Hold
+    if(f==="status"&&v==="In Progress"){
+      markSvcStart(lid2);
+      const upd=vis.services.map(l=>{
+        if(l.lineId===lid2)return{...l,status:"In Progress"};
+        // Put other waiting services on hold while this one is active
+        if(l.status==="Waiting")return{...l,status:"On Hold"};
+        return l;
+      });
+      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
+      return;
+    }
+
     const upd=vis.services.map(l=>l.lineId!==lid2?l:{...l,[f]:nv});
     await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
   }
@@ -491,8 +557,32 @@ export default function App(){
         </section>
         <section style={S.card}><h2 style={S.ct}>Today's Queue</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
           {todayV.length===0&&<EMP>No customers registered yet today.</EMP>}
-          {todayV.map(v=><div key={v.id} style={S.li}><div><b style={{fontSize:15}}>#{v.queue} — {v.name}</b>{v.groupName&&<p style={S.hlp}>{v.groupName}</p>}{v.note&&<p style={S.hlp}>📝 {v.note}</p>}{!["Paid & Closed","Cancelled"].includes(v.status)&&<WaitTimer vid={v.id}/>}</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={SB(v.status)}>{v.status}</span>{v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>Cancel</button>}</div></div>)}
+          {todayV.map((v,idx)=>{
+            const activeAhead=todayV.slice(0,idx).filter(x=>!["Paid & Closed","Cancelled"].includes(x.status)).length;
+            const isInProgress=v.status==="In Service"||v.services.some(l=>l.status==="In Progress");
+            const isWaiting=v.status==="Waiting for Supervisor"||v.status==="In Service"&&v.services.every(l=>l.status==="Waiting"||l.status==="Completed"||l.status==="Cancelled");
+            const isDone=["Paid & Closed","Cancelled"].includes(v.status);
+            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#d1d5db":isInProgress?"#1e40af":"#e0b85a"),background:isDone?"#f9fafb":isInProgress?"#eff6ff":"#fffaf2"}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                  <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
+                  {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🔄 In Progress</span>}
+                  {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
+                  {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>💳 Ready</span>}
+                  {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
+                </div>
+                {v.groupName&&<p style={{...S.hlp,color:"#374151"}}>{v.groupName}</p>}
+                {v.note&&<p style={{...S.hlp,color:"#374151"}}>📝 {v.note}</p>}
+                {!isDone&&activeAhead>0&&<p style={{fontSize:11,color:"#6b7280",margin:"2px 0"}}>👥 {activeAhead} customer{activeAhead>1?"s":""} ahead</p>}
+                {!isDone&&activeAhead===0&&<p style={{fontSize:11,color:"#166534",fontWeight:700,margin:"2px 0"}}>✓ You're next!</p>}
+                {!isDone&&<WaitTimer vid={v.id}/>}
+                {isInProgress&&v.services.filter(l=>l.status==="In Progress").map(l=><SvcTimer key={l.lineId} lineId={l.lineId} status={l.status}/>)}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>Cancel</button>}
+              </div>
+            </div>;
+          })}
         </section>
       </main>}
 
@@ -500,10 +590,38 @@ export default function App(){
         <section style={S.card}><h2 style={S.ct}>Queue Overview</h2>
           <h3 style={S.sh}>⏳ Waiting</h3>
           {visits.filter(v=>v.status==="Waiting for Supervisor"&&v.date===todayStr()).length===0?<p style={S.hlp}>No one waiting.</p>
-            :visits.filter(v=>v.status==="Waiting for Supervisor"&&v.date===todayStr()).map(v=><button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}><span><b>#{v.queue} — {v.name}</b>{v.note&&<span style={{...S.hlp,marginLeft:8}}>({v.note})</span>}</span><span style={SB("Waiting for Supervisor")}>New</span></button>)}
+            :visits.filter(v=>v.status==="Waiting for Supervisor"&&v.date===todayStr()).map((v,i,arr)=>{
+              const ahead=arr.slice(0,i).length;
+              return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}>
+                <span>
+                  <b>#{v.queue} — {v.name}</b>
+                  {v.note&&<span style={{...S.hlp,marginLeft:8}}>({v.note})</span>}
+                  <span style={{fontSize:10,color:actId===v.id?"#e0b85a":"#6b7280",marginLeft:8}}>{ahead===0?"Next up":"Position "+(ahead+1)}</span>
+                </span>
+                <span style={SB("Waiting for Supervisor")}>New</span>
+              </button>;
+            })}
           <HR/><h3 style={S.sh}>🔄 Active Services</h3>
           {svcQ.length===0&&<p style={S.hlp}>No active queues.</p>}
-          {svcs.map(svc=>{const rows=svcQ.filter(r=>r.line.serviceId===svc.id);if(!rows.length)return null;return(<div key={svc.id} style={{background:"#fefaf0",border:"1px solid #ecdba3",borderRadius:12,padding:10,marginBottom:8}}><b style={{fontSize:13}}>{svc.name}</b><span style={{...S.hlp,marginLeft:8}}>{rows.length} in queue</span>{rows.map(({visit:vv,line})=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}><span>#{vv.queue} — {vv.name}</span><span style={SB(line.status)}>{line.status}</span></button>)}</div>);})}
+          {svcs.map(svc=>{const rows=svcQ.filter(r=>r.line.serviceId===svc.id);if(!rows.length)return null;
+              const active=rows.filter(r=>!["On Hold"].includes(r.line.status));
+              const onHold=rows.filter(r=>r.line.status==="On Hold");
+              return(<div key={svc.id} style={{background:"#fefaf0",border:"1px solid #ecdba3",borderRadius:12,padding:10,marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <b style={{fontSize:13}}>{svc.name}</b>
+                  <span style={{...S.hlp}}>{active.length} active{onHold.length>0?" · "+onHold.length+" on hold":""}</span>
+                </div>
+                {active.map(({visit:vv,line})=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}>
+                  <span><b>#{vv.queue}</b> {vv.name}</span><span style={SB(line.status)}>{line.status}</span>
+                </button>)}
+                {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #ecdba3"}}>
+                  <p style={{...S.hlp,marginBottom:4,fontWeight:700}}>⏸ On Hold (finishing another service)</p>
+                  {onHold.map(({visit:vv,line})=><div key={line.lineId} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:"#f3e8ff",borderRadius:8,marginBottom:3}}>
+                    <span style={{fontSize:12,color:"#6b21a8"}}><b>#{vv.queue}</b> {vv.name} — waiting to finish current service</span>
+                    <span style={SB("On Hold")}>On Hold</span>
+                  </div>)}
+                </div>}
+              </div>);})}
         </section>
         <section style={S.card}>
           {!act?<EMP>← Select a customer to assign services.</EMP>:<>
@@ -516,6 +634,7 @@ export default function App(){
               <div style={S.r2}><select style={S.inp} value={svCat} onChange={e=>{setSvCat(e.target.value);setSvSub("All");setSvSvcId("");}}>{cats.map(c=><option key={c}>{c}</option>)}</select><select style={S.inp} value={svSub} onChange={e=>{setSvSub(e.target.value);setSvSvcId("");}}>{svSubs.map(x=><option key={x}>{x}</option>)}</select></div>
               <select style={S.inp} value={svSvcId} onChange={e=>setSvSvcId(e.target.value)}><option value="">Select a service...</option>{svAvail.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)}</option>)}</select>
               <button style={S.btnS} onClick={addSvc}>+ Add Service</button>
+              {act.services.some(l=>l.status==="On Hold")&&<div style={{background:"#f3e8ff",border:"1px solid #c084fc",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#6b21a8",fontWeight:600}}>⏸ Some services are On Hold — they will auto-activate when the current service is completed and this customer gets priority.</div>}
             </>}
             <SLines visit={act} emps={emps} mode="supervisor" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)}/>
             {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnP} onClick={markReady}>✓ Mark Ready for Payment</button>}
@@ -750,6 +869,16 @@ export default function App(){
           <SC label="Total Visits"     value={visits.length}/><SC label="Customers"        value={custs.length}/><SC label="Active Employees" value={emps.filter(e=>e.active).length}/><SC label="Revenue Today" value={money(todayV.filter(v=>v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0))} highlight/>
           <SC label="Bookings Today"   value={bks.filter(b=>b.date===todayStr()).length}/><SC label="Pending Bookings" value={bks.filter(b=>b.status==="Pending").length} accent/><SC label="General Expenses" value={money(exps.filter(e=>e.type==="General").reduce((s,e)=>s+Number(e.total||0),0))} accent/><SC label="Services Listed" value={svcs.length}/>
         </div>
+        <HR/>
+        <div style={{background:"#fffaf2",border:"1px solid #e0b85a",borderRadius:14,padding:14,marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}}>
+            <h3 style={{margin:0,fontSize:13,fontWeight:800,color:"#6b4c11"}}>Daily Revenue Target</h3>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <input type="number" value={dailyTarget||""} onChange={e=>{const v=Number(e.target.value)||0;setDailyTarget(v);try{localStorage.setItem("ambar_target",v);}catch(e){}}} placeholder="Set target (Birr)" style={{...S.ii,width:160}}/>
+            </div>
+          </div>
+          {dailyTarget>0&&(()=>{const rev=todayV.filter(v=>v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0);const pct=Math.min(100,Math.round((rev/dailyTarget)*100));const col=pct>=100?"#166534":pct>=60?"#92400e":"#991b1b";return(<><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}><span style={{color:col,fontWeight:700}}>{pct}% of target reached</span><span style={{color:"#374151"}}>{money(rev)} / {money(dailyTarget)}</span></div><div style={{background:"#e5e7eb",borderRadius:8,height:14,overflow:"hidden"}}><div style={{background:pct>=100?"#166534":pct>=60?"#e0b85a":"#ef4444",height:"100%",width:pct+"%",borderRadius:8,transition:"width 0.5s"}}/></div>{pct>=100&&<p style={{color:"#166534",fontWeight:800,fontSize:13,margin:"6px 0 0"}}>🎉 Target reached!</p>}</>);})()}
+        </div>
         <HR/><h3 style={S.sh}>Commission This Period — {period.label}</h3>
         {empC.filter(e=>e.active).map(emp=><div key={emp.id} style={S.li}><span>{emp.name} ({emp.section})</span><b style={{color:"#166534"}}>{money(emp.commissionTotal)}</b></div>)}
         <HR/><h3 style={S.sh}>Revenue by Category</h3>
@@ -824,7 +953,7 @@ function SLines({visit,emps,mode,onUpd,onRem}){
           </>}
           <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
           <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>On Hold</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
           <SvcTimer lineId={line.lineId} status={line.status}/>
         </div>
       </div>;
@@ -879,7 +1008,7 @@ function HR(){return <div style={{borderTop:"1px solid #ecdba3",margin:"16px 0"}
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#111827":accent?"#fff5f5":"#fff",color:highlight?"#e0b85a":"#111827",borderRadius:14,padding:"12px 14px",border:"1px solid "+(highlight?"transparent":accent?"#fca5a5":"#e6c977")}}><p style={{margin:0,fontSize:10,fontWeight:700,color:highlight?"#e0b85a":accent?"#b91c1c":"#6b4c11"}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:900}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
+function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
 const S={
   card:  {background:"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e6c977",boxShadow:"0 8px 28px rgba(0,0,0,0.08)",marginBottom:16},
   ct:    {margin:"0 0 14px",fontSize:18,fontWeight:900},
