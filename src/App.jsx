@@ -142,6 +142,42 @@ function getPayPeriod(d){const dt=new Date(d||todayStr());const day=dt.getDate()
 function toEthTime(t){if(!t)return"";const[h,m]=t.split(":").map(Number);let e=h-6;if(e<=0)e+=12;return e+":"+String(m).padStart(2,"0")+" "+(h<18?"ቀን":"ማታ");}
 function timeSlots(){const s=[];for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++)for(let m=0;m<60;m+=30)s.push(String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"));return s;}
 function exportCSV(rows,fn){const k=Object.keys(rows[0]||{});const csv=[k.join(","),...rows.map(r=>k.map(x=>JSON.stringify(r[x]??"")).join(","))].join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download=fn;a.click();}
+function printReceipt(visit,emps){
+  const w=window.open("","_blank","width=400,height=600");
+  const tips=visit.tips||[];const tipTotal=tips.reduce((s,t)=>s+Number(t.amount||0),0);
+  const lines=visit.services.filter(l=>l.status!=="Cancelled");
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>
+    body{font-family:Arial,sans-serif;padding:20px;max-width:320px;margin:0 auto;font-size:13px;}
+    h2{text-align:center;margin:0 0 4px;font-size:18px;}
+    .center{text-align:center;} .line{border-top:1px dashed #ccc;margin:8px 0;}
+    .row{display:flex;justify-content:space-between;margin:3px 0;}
+    .bold{font-weight:bold;} .total{font-size:16px;font-weight:900;}
+    .footer{text-align:center;color:#666;font-size:11px;margin-top:12px;}
+  </style></head><body>
+    <h2>Ambar Spa & Beauty</h2>
+    <p class="center" style="color:#666;font-size:11px;margin:0 0 8px">አምባር ስፓ & ቢውቲ</p>
+    <div class="line"></div>
+    <div class="row"><span>Customer:</span><span class="bold">${visit.name}</span></div>
+    <div class="row"><span>Queue #:</span><span>${visit.queue}</span></div>
+    <div class="row"><span>Date:</span><span>${visit.date}</span></div>
+    <div class="row"><span>Payment:</span><span>${visit.paymentMethod}</span></div>
+    <div class="line"></div>
+    <div class="bold" style="margin-bottom:6px">Services:</div>
+    ${lines.map(l=>`<div class="row"><span>${l.name}${l.qty>1?" x"+l.qty:""}</span><span>${l.free?"FREE":Number(lineIncome(l)).toLocaleString()+" Birr"}</span></div>`).join("")}
+    ${lines.some(l=>l.discount>0)?`<div class="row" style="color:#991b1b"><span>Discounts applied</span><span>-${lines.reduce((s,l)=>s+Number(l.discount||0),0).toLocaleString()} Birr</span></div>`:""}
+    <div class="line"></div>
+    <div class="row total"><span>Total Paid</span><span>${Number(visit.totalService).toLocaleString()} Birr</span></div>
+    ${tipTotal>0?`<div class="row" style="color:#166534"><span>Tips (to staff)</span><span>${tipTotal.toLocaleString()} Birr</span></div>`:""}
+    ${tips.map(t=>`<div class="row" style="font-size:11px;color:#6b7280"><span>  → ${t.employee}</span><span>${Number(t.amount).toLocaleString()} Birr</span></div>`).join("")}
+    <div class="line"></div>
+    <div class="footer">
+      <p>Thank you for visiting Ambar Spa & Beauty!</p>
+      <p>እናመሰግናለን 🌸</p>
+      <p style="margin-top:6px;font-size:10px">Printed: ${new Date().toLocaleString()}</p>
+    </div>
+  </body></html>`);
+  w.document.close();w.focus();setTimeout(()=>w.print(),500);
+}
 function logAct(user,action,detail=""){supabase.from("activity_log").insert({staff_id:user.id,staff_name:user.name,action,detail,ts:new Date().toISOString()}).then(()=>{});}
 
 function chime(type="info"){
@@ -224,6 +260,7 @@ export default function App(){
   const[svCat,setSvCat]=useState(DC[0]);const[svSub,setSvSub]=useState("All");const[svSvcId,setSvSvcId]=useState("");
   const[coQ,setCoQ]=useState("");const[payM,setPayM]=useState("Cash");
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
+  const[splitMode,setSplitMode]=useState(false);const[splitPayments,setSplitPayments]=useState([]);
   const[rName,setRName]=useState("");const[rPhone,setRPhone]=useState("");const[rPpl,setRPpl]=useState(1);const[rNote,setRNote]=useState("");const[rmsg,setRmsg]=useState("");
   const[deItem,setDeItem]=useState("");const[deQty,setDeQty]=useState(1);const[deUnit,setDeUnit]=useState("");
   const[gDate,setGDate]=useState(todayStr());const[gName,setGName]=useState("");const[gRsn,setGRsn]=useState("");const[gAmt,setGAmt]=useState("");
@@ -234,13 +271,13 @@ export default function App(){
   const[showFired,setShowFired]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});
-  const[bkWarn,setBkWarn]=useState("");
+  const[bkWarn,setBkWarn]=useState("");const[bkSearch,setBkSearch]=useState("");
   const[showWalkIn,setShowWalkIn]=useState(false);
   const[wiSvcId,setWiSvcId]=useState("");const[wiName,setWiName]=useState("");const[wiPhone,setWiPhone]=useState("");const[wiNote,setWiNote]=useState("");
   const[nStaff,setNStaff]=useState({id:"",name:"",role:"reception",password:""});const[editStaff,setEditStaff]=useState(null);
   const[handoverNote,setHandoverNote]=useState("");const[handoverLog,setHandoverLog]=useState([]);
   const[dailyTarget,setDailyTarget]=useState(()=>{try{return Number(localStorage.getItem("ambar_target")||0);}catch{return 0;}});
-  const dRef=useRef({});const eRef=useRef({});
+  const dRef=useRef({});const eRef=useRef({});const undoRef=useRef({});
 
   function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
   function dismiss(id){setNotifs(p=>p.filter(n=>n.id!==id));}
@@ -390,7 +427,11 @@ export default function App(){
   },[visits]);
   const empC=useMemo(()=>emps.map(emp=>{const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");return{...emp,commissionTotal:lines.reduce((s,l)=>s+lineComm(l),0),breakdown:lines.map(l=>({name:l.name,income:lineIncome(l),commission:lineComm(l)}))};}),[emps,visits,period]);
   const fCusts=custs.filter(c=>{const q=cSearch.toLowerCase().trim();if(!q)return true;return c.name.toLowerCase().includes(q)||c.phone.includes(q)||c.id.toLowerCase().includes(q);});
-  const todayBk=bks.filter(b=>b.date===bkDate).sort((a,b)=>a.time.localeCompare(b.time));
+  const todayBk=useMemo(()=>{
+    let filtered=bks.filter(b=>b.date===bkDate);
+    if(bkSearch.trim()){const q=bkSearch.toLowerCase().trim();filtered=filtered.filter(b=>b.customerName.toLowerCase().includes(q)||b.customerPhone.includes(q)||b.serviceName.toLowerCase().includes(q));}
+    return filtered.sort((a,b)=>a.time.localeCompare(b.time));
+  },[bks,bkDate,bkSearch]);
   // FIXED: only bookable spa services, guaranteed true boolean
   const bkSvcs=svcs.filter(s=>s.bookable===true);
   function canAccess(t){return(TABA[t]||[]).includes(user?.role);}
@@ -398,7 +439,16 @@ export default function App(){
   const dailyTabs=allTabs.filter(t=>["Reception","Supervisor","Checkout","Bookings"].includes(t));
   const mgrTabs=allTabs.filter(t=>!dailyTabs.includes(t));
 
-  function doLogin(){const f=staff.find(s=>s.id===lid.trim()&&s.password===lpw&&s.active);if(f){setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");}else setLerr("Invalid username or password.");}
+  function doLogin(){
+    const f=staff.find(s=>s.id===lid.trim()&&s.password===lpw&&s.active);
+    if(f){
+      setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
+      supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:"Login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
+    }else{
+      setLerr("Invalid username or password.");
+      supabase.from("activity_log").insert({staff_id:lid.trim()||"unknown",staff_name:lid.trim()||"unknown",action:"Failed Login",detail:"Failed login attempt for username: "+lid.trim(),ts:new Date().toISOString()}).then(()=>{});
+    }
+  }
   function logout(){setUser(null);sessionStorage.removeItem("ambar_u");setTab("");}
   function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
@@ -463,6 +513,14 @@ export default function App(){
     const upd=vis.services.map(l=>l.lineId!==lid2?l:{...l,[f]:nv});
     await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
   }
+  async function moveLine(vid,lid2,dir){
+    const vis=visits.find(x=>x.id===vid);if(!vis)return;
+    const idx=vis.services.findIndex(l=>l.lineId===lid2);if(idx<0)return;
+    const newIdx=dir==="up"?idx-1:idx+1;
+    if(newIdx<0||newIdx>=vis.services.length)return;
+    const upd=[...vis.services];const tmp=upd[idx];upd[idx]=upd[newIdx];upd[newIdx]=tmp;
+    await supabase.from("visits").update({services:upd}).eq("id",vid);
+  }
   async function remLine(vid,lid2){if(!window.confirm("Remove this service?"))return;const vis=visits.find(x=>x.id===vid);if(!vis)return;const upd=vis.services.filter(l=>l.lineId!==lid2);await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);}
   async function markReady(){if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
   async function reopen(){await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);}
@@ -514,7 +572,13 @@ export default function App(){
   async function closePeriod(){if(!window.confirm("Close pay period "+period.label+"?"))return;const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});for(const e of emps)await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));logAct(user,"Closed period",period.label);alert("Period closed.");}
   async function saveStaff(){if(!nStaff.id.trim()||!nStaff.name.trim()||!nStaff.password.trim())return alert("Fill all fields.");const r={id:nStaff.id.trim().toLowerCase(),name:nStaff.name.trim(),role:nStaff.role,password:nStaff.password.trim(),active:true};await supabase.from("staff").upsert(r);setStaff(p=>{const i=p.findIndex(s=>s.id===r.id);if(i>=0){const n=[...p];n[i]=r;return n;}return[...p,r];});logAct(user,"Staff saved",r.name);setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);alert("Saved.");}
   async function setStaffAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;await supabase.from("staff").update({active}).eq("id",id);setStaff(p=>p.map(s=>s.id===id?{...s,active}:s));}
-  async function delCust(id){if(!window.confirm("Delete customer permanently?"))return;await supabase.from("customers").delete().eq("id",id);setCusts(p=>p.filter(c=>c.id!==id));}
+  function delCust(id){
+    const c=custs.find(x=>x.id===id);if(!c)return;
+    setCusts(p=>p.filter(x=>x.id!==id));
+    push("Customer deleted — "+c.name+" (tap to undo)","warning");
+    undoRef.current[id]=setTimeout(async()=>{await supabase.from("customers").delete().eq("id",id);},5000);
+  }
+  function undoDel(id){clearTimeout(undoRef.current[id]);delete undoRef.current[id];setCusts(p=>p.find(x=>x.id===id)?p:[...p,custs.find(x=>x.id===id)].filter(Boolean));loadAll();}
   function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:v.services.map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+t.amount,0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
@@ -636,7 +700,7 @@ export default function App(){
               <button style={S.btnS} onClick={addSvc}>+ Add Service</button>
               {act.services.some(l=>l.status==="On Hold")&&<div style={{background:"#f3e8ff",border:"1px solid #c084fc",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#6b21a8",fontWeight:600}}>⏸ Some services are On Hold — they will auto-activate when the current service is completed and this customer gets priority.</div>}
             </>}
-            <SLines visit={act} emps={emps} mode="supervisor" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)}/>
+            <SLines visit={act} emps={emps} mode="supervisor" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnP} onClick={markReady}>✓ Mark Ready for Payment</button>}
           </>}
         </section>
@@ -650,9 +714,12 @@ export default function App(){
         </section>
         <section style={S.card}>
           {!act?<EMP>← Select customer to process payment.</EMP>
-           :act.status==="Paid & Closed"?<div style={{background:"#dcfce7",color:"#166634",borderRadius:11,padding:16,fontSize:15,fontWeight:700}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
+           :act.status==="Paid & Closed"?<div>
+            <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
+            <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>🖨️ Print Receipt</button>
+          </div>
            :<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
-            <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)}/>
+            <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             <HR/><h3 style={{margin:"0 0 4px",fontWeight:800}}>Tips</h3><p style={S.hlp}>Tips go directly to employees, not counted as revenue.</p>
             <div style={S.r2}><select style={S.inp} value={tipEmp} onChange={e=>setTipEmp(e.target.value)}><option value="">Select employee</option>{emps.filter(e=>e.active).map(e=><option key={e.id}>{e.name}</option>)}</select><input style={S.inp} type="number" value={tipAmt} onChange={e=>setTipAmt(e.target.value)} placeholder="Amount (Birr)"/></div>
             <button style={S.btnS} onClick={addTip}>+ Add Tip</button>
@@ -662,8 +729,22 @@ export default function App(){
             <div style={S.tb}><span>Service Total</span><b>{money(act.totalService)}</b></div>
             {tips.length>0&&<div style={{...S.tb,background:"#1e3a2f",marginTop:6}}><span>Tips Total</span><b>{money(tips.reduce((s,t)=>s+t.amount,0))}</b></div>}
             <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span>Customer Pays</span><b>{money(act.totalService+tips.reduce((s,t)=>s+t.amount,0))}</b></div>
-            {act.groupName&&<button style={{...S.btnS,marginTop:10}} onClick={()=>confirmPay(true)}>Confirm Paid — Whole Group</button>}
-            <button style={S.btnP} onClick={()=>confirmPay(false)}>✓ Confirm Paid & Close</button>
+            {act.groupName&&<>
+              <div style={{border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:6,background:"#fffaf2"}}>
+                <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#6b4c11"}}>Group Payment Options</p>
+                <button style={{...S.btnP,marginBottom:6}} onClick={()=>confirmPay(true)}>Pay Together — Whole Group ({money(visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").reduce((s,v)=>s+v.totalService,0))})</button>
+                <button style={{...S.btnS,marginBottom:0}} onClick={()=>setSplitMode(v=>!v)}>Split Payment — Each Pays Their Own</button>
+              </div>
+              {splitMode&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:11,padding:12,marginBottom:6}}>
+                <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#166534"}}>Individual Payments</p>
+                {visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=><div key={v.id} style={{...S.li,marginBottom:6,background:v.status==="Paid & Closed"?"#dcfce7":"#fff"}}>
+                  <div><b>{v.name}</b><p style={S.hlp}>{money(v.totalService)}</p></div>
+                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700}}>✓ Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{await supabase.from("visits").update({payment_method:payM,total_paid:v.totalService,status:"Paid & Closed",tips:[]}).eq("id",v.id);}}>Pay {money(v.totalService)}</button>}
+                </div>)}
+              </div>}
+            </>}
+            {!act.groupName&&<button style={S.btnP} onClick={()=>confirmPay(false)}>✓ Confirm Paid & Close</button>}
+            {act.groupName&&!splitMode&&<button style={S.btnP} onClick={()=>confirmPay(false)}>Pay This Person Only</button>}
           </>}
         </section>
       </main>}
@@ -719,38 +800,62 @@ export default function App(){
           <div style={S.r2}><button style={S.btnP} onClick={saveBk}>Save Booking</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>Cancel</button></div>
         </div>}
 
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
+          <input style={{...S.inp,marginBottom:0,flex:1,minWidth:180}} placeholder="Search bookings by name or phone..." value={bkSearch} onChange={e=>setBkSearch(e.target.value)}/>
+          {bkSearch&&<button style={{...S.btnD,whiteSpace:"nowrap"}} onClick={()=>setBkSearch("")}>Clear</button>}
+        </div>
         <h3 style={S.sh}>📅 {bkDate} — Time Slot View</h3>
-        <div style={{display:"grid",gridTemplateColumns:"80px 1fr",gap:0,border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
+        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&bkDate===todayStr()&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16,color:"#0369a1",fontSize:13}}>No bookings for today. Use the calendar above to check other dates or add a new booking.</div>}
+        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&bkDate!==todayStr()&&<div style={{background:"#f9f5eb",border:"1px solid #ecdba3",borderRadius:12,padding:16,marginBottom:16,color:"#6b4c11",fontSize:13}}>No bookings for {bkDate}.</div>}
+        <div style={{border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
           {timeSlots().map(slot=>{
-            const slotBks=todayBk.filter(b=>b.time===slot&&!["Cancelled","No-show"].includes(b.status));
-            const isEmpty=slotBks.length===0;
-            return <React.Fragment key={slot}>
-              <div style={{padding:"10px 8px",background:"#f9f5eb",borderBottom:"1px solid #ecdba3",fontSize:12,fontWeight:700,color:"#6b4c11",textAlign:"center"}}>
+            const slotStart=new Date(bkDate+"T"+slot);
+            // Show a booking in a slot if it overlaps with that slot
+            const slotBks=todayBk.filter(b=>{
+              if(["Cancelled","No-show"].includes(b.status))return false;
+              const bStart=new Date(bkDate+"T"+b.time);
+              const bEnd=new Date(bStart.getTime()+b.durationMins*60000);
+              const slotEnd=new Date(slotStart.getTime()+30*60000);
+              return bStart<slotEnd&&bEnd>slotStart;
+            });
+            const isOccupied=slotBks.length>0;
+            const isStartSlot=slotBks.some(b=>b.time===slot);
+            return <div key={slot} style={{display:"grid",gridTemplateColumns:"80px 1fr",borderBottom:"1px solid #ecdba3",background:isOccupied?"#fff":"#fffdf7"}}>
+              <div style={{padding:"10px 8px",background:isOccupied?"#f0f9ff":"#f9f5eb",fontSize:12,fontWeight:700,color:isOccupied?"#1e40af":"#6b4c11",textAlign:"center",borderRight:"1px solid #ecdba3",display:"flex",flexDirection:"column",justifyContent:"center"}}>
                 <div>{slot}</div>
-                <div style={{fontSize:10,fontWeight:400,color:"#92400e"}}>{toEthTime(slot)}</div>
+                <div style={{fontSize:10,fontWeight:400,color:isOccupied?"#3b82f6":"#92400e"}}>{toEthTime(slot)}</div>
               </div>
-              <div style={{padding:"8px 10px",borderBottom:"1px solid #ecdba3",background:isEmpty?"#fffdf7":"#fff",minHeight:44}}>
-                {isEmpty?<span style={{color:"#d1d5db",fontSize:12}}>Available</span>
-                :slotBks.map(b=>{const c=BKC[b.status]||{bg:"#f3f4f6",co:"#374151"};return(
-                  <div key={b.id} style={{background:c.bg,borderRadius:8,padding:"6px 10px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
-                    <div>
-                      <span style={{background:c.co,color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginRight:6}}>{b.status}</span>
-                      <b style={{fontSize:13,color:"#111827"}}>{b.customerName}</b>
-                      <span style={{fontSize:11,color:"#374151",marginLeft:6}}>{b.serviceName}</span>
-                      {b.notes&&<span style={{fontSize:10,color:"#6b7280",marginLeft:6,fontStyle:"italic"}}>"{b.notes}"</span>}
-                      <div style={{fontSize:10,color:"#6b7280",marginTop:2}}>{b.durationMins}min · {b.people} person{b.people>1?"s":""} · by {b.createdBy}</div>
+              <div style={{padding:"6px 10px",minHeight:40}}>
+                {!isOccupied&&<span style={{color:"#d1d5db",fontSize:12,lineHeight:"28px"}}>Available</span>}
+                {isStartSlot&&slotBks.filter(b=>b.time===slot).map(b=>{
+                  const c=BKC[b.status]||{bg:"#f3f4f6",co:"#374151"};
+                  return <div key={b.id} style={{background:c.bg,borderRadius:8,padding:"6px 10px",marginBottom:3,border:"1px solid "+c.co+"44"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
+                      <div>
+                        <span style={{background:c.co,color:"#fff",borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:800,marginRight:6}}>{b.status}</span>
+                        <b style={{fontSize:13,color:"#111827"}}>{b.customerName}</b>
+                        <span style={{fontSize:11,color:"#374151",marginLeft:6}}>{b.serviceName}</span>
+                        <div style={{fontSize:11,color:"#374151",marginTop:2}}>
+                          ⏱ {b.durationMins}min · {b.time}–{(()=>{const e=new Date(bkDate+"T"+b.time);e.setMinutes(e.getMinutes()+b.durationMins);return String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");})()}
+                          {" · "}{b.people} person{b.people>1?"s":""}
+                          {b.notes&&<span style={{fontStyle:"italic",color:"#6b7280"}}> · "{b.notes}"</span>}
+                        </div>
+                        <div style={{fontSize:10,color:"#9ca3af",marginTop:1}}>By {b.createdBy} · {b.customerPhone}</div>
+                      </div>
+                      {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
+                        {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>Check In</button>}
+                        {b.status==="Arrived"&&<span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span>}
+                        {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
+                        {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button>}
+                        <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
+                      </div>}
                     </div>
-                    {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
-                      {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>Check In</button>}
-                      {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
-                      {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button>}
-                    </div>}
-                    {b.status==="Arrived"&&<span style={{color:"#166534",fontWeight:700,fontSize:11}}>✓ In</span>}
-                  </div>
-                );})}
+                  </div>;
+                })}
+                {isOccupied&&!isStartSlot&&<span style={{color:"#93c5fd",fontSize:11,fontStyle:"italic",lineHeight:"28px"}}>↑ Continuing from above</span>}
               </div>
-            </React.Fragment>;
+            </div>;
           })}
         </div>
 
@@ -929,7 +1034,7 @@ export default function App(){
   </div>);
 }
 
-function SLines({visit,emps,mode,onUpd,onRem}){
+function SLines({visit,emps,mode,onUpd,onRem,onMove}){
   const isSv=mode==="supervisor";const locked=["Ready for Payment","Paid & Closed"].includes(visit.status);
   return <div style={{marginBottom:14}}>
     <h3 style={{margin:"14px 0 8px",fontWeight:800}}>Services</h3>
@@ -943,7 +1048,11 @@ function SLines({visit,emps,mode,onUpd,onRem}){
             <p style={{color:"#5c3d11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
             {line.commission>0&&<p style={{color:"#166534",fontSize:11,margin:"2px 0"}}>Commission {line.commission}% = {money(lineComm(line))}</p>}
           </div>
-          {!locked&&<button style={{padding:"4px 10px",borderRadius:8,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:12}} onClick={()=>onRem(line.lineId)}>Remove</button>}
+          <div style={{display:"flex",gap:4}}>
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#f5e7c0",color:"#6b4c11",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#f5e7c0",color:"#6b4c11",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"down")}>↓</button>}
+                {!locked&&<button style={{padding:"4px 10px",borderRadius:8,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:12}} onClick={()=>onRem(line.lineId)}>Remove</button>}
+              </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
           <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",e.target.value)} disabled={locked}/></div>
