@@ -129,7 +129,11 @@ function ethToGreg(ey,em,ed){const jdn=1723856+(ey-1)*365+Math.floor(ey/4)+(em-1
 
 function todayStr(){return new Date().toISOString().slice(0,10);}
 function money(n){return Number(n||0).toLocaleString()+" Birr";}
-function waitMins(v){if(!v.registeredAt)return null;const diff=Math.floor((Date.now()-new Date(v.registeredAt).getTime())/60000);return diff>0?diff:0;}
+// Wait time tracking using localStorage (no DB column needed)
+function markArrival(id){try{const k="ambar_arr_"+id;if(!localStorage.getItem(k))localStorage.setItem(k,Date.now());}catch(e){}}
+function waitMins(id){try{const t=localStorage.getItem("ambar_arr_"+id);if(!t)return null;return Math.floor((Date.now()-Number(t))/60000);}catch(e){return null;}}
+function svcMins(lineId){try{const t=localStorage.getItem("ambar_svc_"+lineId);if(!t)return null;return Math.floor((Date.now()-Number(t))/60000);}catch(e){return null;}}
+function markSvcStart(lineId){try{const k="ambar_svc_"+lineId;if(!localStorage.getItem(k))localStorage.setItem(k,Date.now());}catch(e){}}
 function makeId(name,phone){const n=(name||"CUS").replace(/[^a-zA-Z]/g,"").slice(0,3).toUpperCase()||"CUS";const p=(phone||"0000").replace(/\D/g,"").slice(-4)||"0000";return n+"-"+p;}
 function lineGross(l){return Number(l.price||0)*Number(l.qty||1);}
 function lineIncome(l){if(l.free)return 0;return Math.max(0,lineGross(l)-Number(l.discount||0));}
@@ -163,7 +167,7 @@ const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
-const dbVis=r=>({id:r.id,date:r.date,queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||null});
+const dbVis=r=>({id:r.id,date:r.date,queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||r.created_at||null});
 const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||"",qty:Number(r.qty),unit:Number(r.unit),total:Number(r.total)});
 const dbBk=r=>({id:r.id,date:r.date,time:r.time,customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
@@ -368,16 +372,31 @@ export default function App(){
     await supabase.from("customers").upsert({id:cid,name:rName.trim(),phone:rPhone.trim(),total_visits:ntv});
     if(!fc)setCusts(p=>[...p,{id:cid,name:rName.trim(),phone:rPhone.trim(),totalVisits:ntv}]);
     else setCusts(p=>p.map(c=>c.phone===rPhone.trim()?{...c,totalVisits:ntv}:c));
-    const rows=Array.from({length:cnt}).map((_,i)=>({id:gid+i,date:todayStr(),queue:tc+i+1,customer_id:cid,name:cnt>1?rName.trim()+" "+(i+1):rName.trim(),payer_name:rName.trim(),phone:rPhone.trim(),group_id:gid,group_name:gn,services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:rNote,registered_at:new Date().toISOString()}));
+    const rows=Array.from({length:cnt}).map((_,i)=>({id:gid+i,date:todayStr(),queue:tc+i+1,customer_id:cid,name:cnt>1?rName.trim()+" "+(i+1):rName.trim(),payer_name:rName.trim(),phone:rPhone.trim(),group_id:gid,group_name:gn,services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:rNote}));
     const{error}=await supabase.from("visits").insert(rows);
     if(error){alert("Error saving.");setSaving(false);return;}
     logAct(user,"Registered",rName.trim()+" x"+cnt);
+    rows.forEach(r=>markArrival(r.id));
     setRName("");setRPhone("");setRPpl(1);setRNote("");setRmsg("");setSaving(false);
   }
   async function cancelV(id){const v=visits.find(x=>x.id===id);if(!v)return;if(v.services.length>0)return alert("Remove all services before cancelling.");if(!window.confirm("Cancel this customer?"))return;await supabase.from("visits").delete().eq("id",id);setVisits(p=>p.filter(x=>x.id!==id));if(actId===id)setActId(null);}
   async function addDE(){if(!deItem.trim()||!deUnit)return alert("Enter item and price.");const q=Math.max(1,Number(deQty||1)),u=Number(deUnit||0);const row={id:Date.now(),date:todayStr(),type:"Daily Operation",name:deItem,reason:"",qty:q,unit:u,total:q*u};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setDeItem("");setDeQty(1);setDeUnit("");}
   async function addSvc(){if(!act)return alert("Select a customer first.");const s=svcs.find(s=>s.id===Number(svSvcId));if(!s)return alert("Select a service.");const line={lineId:Date.now(),serviceId:s.id,name:s.name,category:s.category,sub:s.sub,price:Number(s.price),qty:1,discount:0,free:false,commission:Number(s.commission||0),employeeSection:s.employeeSection,employee:"",preferredEmployee:"",status:"Waiting"};const upd=[...act.services,line];await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0),status:"In Service"}).eq("id",act.id);setSvSvcId("");}
-  async function updLine(vid,lid2,f,v){const vis=visits.find(x=>x.id===vid);if(!vis)return;const tf=["employee","preferredEmployee","status"];const nv=tf.includes(f)?v:f==="free"?v:Number(v)||0;const upd=vis.services.map(l=>l.lineId!==lid2?l:{...l,[f]:nv});await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);}
+  async function updLine(vid,lid2,f,v){
+    const vis=visits.find(x=>x.id===vid);if(!vis)return;
+    const tf=["employee","preferredEmployee","status"];const nv=tf.includes(f)?v:f==="free"?v:Number(v)||0;
+    // Record service duration when marked Completed
+    if(f==="status"&&v==="Completed"){
+      const line=vis.services.find(l=>l.lineId===lid2);
+      const dur=svcMins(lid2);
+      if(line&&dur){
+        const emp=line.employee||"Unknown";
+        logAct(user,"Service completed",`${line.name} by ${emp} — ${dur} min (expected ${line.durationMins||"?"}min)`);
+      }
+    }
+    const upd=vis.services.map(l=>l.lineId!==lid2?l:{...l,[f]:nv});
+    await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
+  }
   async function remLine(vid,lid2){if(!window.confirm("Remove this service?"))return;const vis=visits.find(x=>x.id===vid);if(!vis)return;const upd=vis.services.filter(l=>l.lineId!==lid2);await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);}
   async function markReady(){if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
   async function reopen(){await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);}
@@ -410,10 +429,11 @@ export default function App(){
     await supabase.from("customers").upsert({id:cid,name:wiName.trim(),phone:wiPhone.trim(),total_visits:ntv});
     if(!fc)setCusts(p=>[...p,{id:cid,name:wiName.trim(),phone:wiPhone.trim(),totalVisits:ntv}]);
     const tc=visits.filter(v=>v.date===todayStr()).length;
-    const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:wiName.trim(),payer_name:wiName.trim(),phone:wiPhone.trim(),group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(s?"Spa Walk-in: "+s.name:"Spa Walk-in")+(wiNote?" — "+wiNote:""),registered_at:new Date().toISOString()};
+    const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:wiName.trim(),payer_name:wiName.trim(),phone:wiPhone.trim(),group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(s?"Spa Walk-in: "+s.name:"Spa Walk-in")+(wiNote?" — "+wiNote:"")};
     await supabase.from("visits").insert(vr);
     logAct(user,"Spa Walk-in",wiName.trim()+(s?" — "+s.name:""));
     setShowWalkIn(false);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");setSaving(false);
+    markArrival(vr.id);
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
   async function addGE(){if(!gName.trim()||!gAmt)return alert("Enter name and amount.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
@@ -471,7 +491,7 @@ export default function App(){
         </section>
         <section style={S.card}><h2 style={S.ct}>Today's Queue</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
           {todayV.length===0&&<EMP>No customers registered yet today.</EMP>}
-          {todayV.map(v=><div key={v.id} style={S.li}><div><b style={{fontSize:15}}>#{v.queue} — {v.name}</b>{v.groupName&&<p style={S.hlp}>{v.groupName}</p>}{v.note&&<p style={S.hlp}>📝 {v.note}</p>}{!["Paid & Closed","Cancelled"].includes(v.status)&&waitMins(v)!==null&&<p style={{fontSize:11,fontWeight:700,color:waitMins(v)>30?"#991b1b":waitMins(v)>15?"#92400e":"#166534",margin:"2px 0"}}>⏱ {waitMins(v)} min waiting</p>}</div>
+          {todayV.map(v=><div key={v.id} style={S.li}><div><b style={{fontSize:15}}>#{v.queue} — {v.name}</b>{v.groupName&&<p style={S.hlp}>{v.groupName}</p>}{v.note&&<p style={S.hlp}>📝 {v.note}</p>}{!["Paid & Closed","Cancelled"].includes(v.status)&&<WaitTimer vid={v.id}/>}</div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={SB(v.status)}>{v.status}</span>{v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>Cancel</button>}</div></div>)}
         </section>
       </main>}
@@ -804,12 +824,41 @@ function SLines({visit,emps,mode,onUpd,onRem}){
           </>}
           <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
           <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>onUpd(line.lineId,"status",e.target.value)} disabled={locked}><option>Waiting</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
+          <SvcTimer lineId={line.lineId} status={line.status}/>
         </div>
       </div>;
     })}
     <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700}}>Total Income</span><b style={{fontSize:15}}>{money(visit.totalService)}</b></div>
   </div>;
+}
+
+// Live wait timer for reception queue
+function WaitTimer({vid}){
+  const[mins,setMins]=useState(()=>waitMins(vid)||0);
+  useEffect(()=>{markArrival(vid);const t=setInterval(()=>setMins(waitMins(vid)||0),15000);return()=>clearInterval(t);},[vid]);
+  if(mins===null||mins===0)return null;
+  const col=mins>30?"#991b1b":mins>15?"#92400e":"#166534";
+  const bg=mins>30?"#fee2e2":mins>15?"#fef3c7":"#dcfce7";
+  return <p style={{fontSize:11,fontWeight:700,color:col,background:bg,borderRadius:6,padding:"1px 7px",margin:"2px 0",display:"inline-block"}}>⏱ {mins} min waiting</p>;
+}
+
+// Live service timer component
+function SvcTimer({lineId,status}){
+  const[mins,setMins]=useState(()=>svcMins(lineId)||0);
+  useEffect(()=>{
+    if(!["In Progress","Waiting"].includes(status))return;
+    const t=setInterval(()=>setMins(svcMins(lineId)||0),15000);
+    return()=>clearInterval(t);
+  },[lineId,status]);
+  if(status==="Waiting")return null;
+  if(status==="Completed"||status==="Cancelled"){
+    const m=svcMins(lineId);
+    if(!m)return null;
+    return <div style={{fontSize:10,fontWeight:700,color:"#166534",background:"#dcfce7",borderRadius:6,padding:"2px 8px",alignSelf:"flex-end"}}>Done in {m} min</div>;
+  }
+  if(status==="In Progress"&&mins>0)return <div style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#dbeafe",borderRadius:6,padding:"3px 8px",alignSelf:"flex-end"}}>⏱ {mins} min</div>;
+  return null;
 }
 
 function PS({emps,empC,period}){return <div style={{fontFamily:"Arial,sans-serif",padding:32}}>
