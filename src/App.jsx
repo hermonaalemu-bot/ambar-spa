@@ -270,30 +270,60 @@ function Notifs({items,dismiss}){if(!items.length)return null;return <div style=
 function EthPicker({value,onChange,label,...props}){
   const e=gregToEth(value||todayStr());
   const[ey,setEy]=useState(e.y);const[em,setEm]=useState(e.m);const[ed,setEd]=useState(e.d);const[show,setShow]=useState(false);
-  const greg=value?new Date(value).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
   useEffect(()=>{const e=gregToEth(value||todayStr());setEy(e.y);setEm(e.m);setEd(e.d);},[value]);
   function pick(y,m,d){const g=ethToGreg(y,m,d);if(props.minDate&&g<props.minDate)return;onChange(g);setShow(false);}
+  const gregStr=value?new Date(value+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
+  const firstDayGreg=ethToGreg(ey,em,1);
+  const firstDow=new Date(firstDayGreg+"T12:00:00Z").getDay();
+  const startOffset=(firstDow+6)%7; // Mon=0
+  const daysInMonth=em===13?6:30;
+  const DAY_LABELS=["ሰ","ማ","ረ","ሐ","ዓ","ቅ","እ"];
+  const todayEth=gregToEth(todayStr());
+  const isToday=(d)=>d===todayEth.d&&em===todayEth.m&&ey===todayEth.y;
   return <div style={{position:"relative",marginBottom:8}}>
-    {label&&<p style={S.lbl}>{label}</p>}
-    <div style={{display:"flex",gap:6}}>
-      <button type="button" onClick={()=>setShow(v=>!v)} style={{flex:1,padding:"10px 12px",borderRadius:10,border:"1px solid #d1d5db",background:"#f9fafb",color:"#111827",fontWeight:700,cursor:"pointer",textAlign:"left",fontSize:13}}>🇪🇹 {ETH_MONTHS[(em||1)-1]} {ed}, {ey}</button>
-      <div style={{flex:1,padding:"10px 12px",borderRadius:10,border:"1px solid #bfdbfe",background:"#eff6ff",color:"#1d4ed8",fontSize:12,display:"flex",alignItems:"center",fontWeight:600}}>📅 {greg}</div>
-    </div>
-    {show&&<div style={{position:"absolute",top:"105%",left:0,zIndex:999,background:"#fff",border:"1px solid #e0b85a",borderRadius:14,padding:14,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",minWidth:280,marginTop:2}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <button onClick={()=>{let nm=em-1,ny=ey;if(nm<1){nm=13;ny--;}setEm(nm);setEy(ny);}} style={S.navBtn}>‹</button>
-        <b style={{color:"#92400e"}}>{ETH_MONTHS[(em||1)-1]} {ey}</b>
-        <button onClick={()=>{let nm=em+1,ny=ey;if(nm>13){nm=1;ny++;}setEm(nm);setEy(ny);}} style={S.navBtn}>›</button>
+    {label&&<p style={{margin:"0 0 4px",fontSize:12,fontWeight:700,color:"#374151"}}>{label}</p>}
+    <button type="button" onClick={()=>setShow(v=>!v)} style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+      <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>{ETH_MONTHS[(em||1)-1]} {ed}, {ey}</div>
+      <div style={{fontSize:11,color:"#6b7280",marginTop:1}}>{gregStr}</div>
+    </button>
+    {show&&<div style={{position:"absolute",top:"105%",left:0,zIndex:1000,background:"#fff",borderRadius:16,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",minWidth:300,marginTop:4,overflow:"hidden",border:"1px solid #f1f5f9"}}>
+      <div style={{background:"#1d4ed8",padding:"14px 16px 12px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <button onClick={()=>{let nm=em-1,ny=ey;if(nm<1){nm=13;ny--;}setEm(nm);setEy(ny);}} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,width:34,height:34,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+          <div style={{textAlign:"center"}}>
+            <div style={{color:"rgba(255,255,255,0.65)",fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:2}}>{ey}</div>
+            <div style={{color:"#fff",fontSize:20,fontWeight:900}}>{ETH_MONTHS[(em||1)-1]}</div>
+          </div>
+          <button onClick={()=>{let nm=em+1,ny=ey;if(nm>13){nm=1;ny++;}setEm(nm);setEy(ny);}} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,width:34,height:34,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+        </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
-        {["እሁ","ሰኞ","ማክ","ረቡ","ሐሙ","አርብ","ቅዳ"].map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:800,color:"#6b4c11",padding:"2px 0"}}>{d}</div>)}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#f8fafc",borderBottom:"1px solid #f1f5f9"}}>
+        {DAY_LABELS.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:800,color:"#6b7280",padding:"7px 2px"}}>{d}</div>)}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-        {Array.from({length:em===13?6:30},(_,i)=>i+1).map(d=>{const g=ethToGreg(ey,em,d);const isPast=props.minDate&&g<props.minDate;return <button key={d} onClick={()=>!isPast&&pick(ey,em,d)} style={{padding:"5px 3px",borderRadius:7,border:"none",background:d===ed?"#e0b85a":isPast?"#f3f4f6":"#f9f5eb",fontWeight:d===ed?900:400,cursor:isPast?"not-allowed":"pointer",fontSize:12,color:isPast?"#d1d5db":"inherit",textDecoration:isPast?"line-through":"none"}}>{d}</button>;})}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,padding:"8px 8px 4px"}}>
+        {Array.from({length:startOffset}).map((_,i)=><div key={"e"+i}/>)}
+        {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+          const g=ethToGreg(ey,em,d);
+          const isPast=props.minDate&&g<props.minDate;
+          const isSel=d===ed;
+          const isT=isToday(d);
+          return <button key={d} onClick={()=>!isPast&&pick(ey,em,d)} style={{
+            padding:"7px 2px",borderRadius:8,border:"none",
+            background:isSel?"#1d4ed8":isT?"#dbeafe":"transparent",
+            fontWeight:isSel||isT?700:400,
+            cursor:isPast?"default":"pointer",
+            fontSize:13,
+            color:isSel?"#fff":isPast?"#d1d5db":isT?"#1d4ed8":"#111827",
+            opacity:isPast?0.35:1,
+          }}>{d}</button>;
+        })}
       </div>
-      <div style={{display:"flex",gap:6,marginTop:8}}>
-        <input type="number" value={ey} onChange={e=>setEy(Number(e.target.value))} style={{...S.ii,width:70}}/>
-        <select value={em} onChange={e=>setEm(Number(e.target.value))} style={S.ii}>{ETH_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+      <div style={{borderTop:"1px solid #f1f5f9",padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fafafa"}}>
+        <span style={{fontSize:11,color:"#6b7280",fontStyle:"italic"}}>{gregStr}</span>
+        <div style={{display:"flex",gap:4}}>
+          <input type="number" value={ey} onChange={e=>setEy(Number(e.target.value))} style={{width:58,padding:"3px 6px",borderRadius:6,border:"1px solid #e5e7eb",fontSize:11,color:"#111827",background:"#fff"}}/>
+          <select value={em} onChange={e=>setEm(Number(e.target.value))} style={{padding:"3px 5px",borderRadius:6,border:"1px solid #e5e7eb",fontSize:11,color:"#111827",background:"#fff"}}>{ETH_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
+        </div>
       </div>
     </div>}
   </div>;
@@ -668,7 +698,11 @@ export default function App(){
   async function markReady(){if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
   async function reopen(){await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);}
   function addTip(){if(!tipEmp||!tipAmt)return alert("Select employee and enter amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
-  async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" "+payM);setTips([]);setActId(null);}
+  async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" "+payM);
+    // Mark related booking as Completed if exists
+    const relBk=bks.find(b=>b.visitId&&ids.includes(b.visitId));
+    if(relBk)await supabase.from("bookings").update({status:"Completed"}).eq("id",relBk.id);
+    setTips([]);setActId(null);}
   async function saveBk(){
     const sid=Number(bkF.serviceId)||0;
     const s=sid?svcs.find(sv=>sv.id===sid&&sv.bookable===true):null;
@@ -681,7 +715,7 @@ export default function App(){
     const row={id:editBk?.id||Date.now(),date:(bkF.date||'').slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
     if(editBk)await supabase.from("bookings").update(row).eq("id",editBk.id);
     else await supabase.from("bookings").insert(row);
-    logAct(user,editBk?"Edited booking":"New booking",bkF.customerName+" — "+s.name);
+    logAct(user,editBk?"Edited booking":"New booking",bkF.customerName+" — "+(s?s.name:"TBD"));
     setShowBkF(false);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});setBkWarn("");setSaving(false);
   }
   async function updBk(id,status){
@@ -689,7 +723,7 @@ export default function App(){
     setBks(prev=>prev.map(b=>b.id===id?{...b,status}:b));
     await dbRetry(()=>supabase.from("bookings").update({status}).eq("id",id));
   }
-  async function checkIn(b){if(!window.confirm("Check in "+b.customerName+"?"))return;setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:"Booking: "+b.serviceName};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");}
+  async function checkIn(b){if(!window.confirm("Check in "+b.customerName+"?"))return;setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");}
   async function delBk(id){if(!window.confirm("Delete this booking?"))return;await supabase.from("bookings").delete().eq("id",id);}
   async function addSpaWalkIn(){
     if(!wiName.trim()||!wiPhone.trim()||!wiSvcId)return alert("Enter customer name, phone and select a service.");
@@ -957,7 +991,7 @@ export default function App(){
           {bkSearch&&<button style={{...S.btnD,whiteSpace:"nowrap"}} onClick={()=>setBkSearch("")}>Clear</button>}
           <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={()=>supabase.from("bookings").select("*").order("date").order("time").then(({data})=>{if(data)setBks(data.map(dbBk));push("Bookings refreshed","success");})}>🔄 Refresh</button>
         </div>
-        <h3 style={S.sh}>📅 {bkDate} — Time Slot View <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.length} booking{todayBk.length!==1?"s":""} found)</span></h3>
+        <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
         {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16,color:"#0369a1",fontSize:13}}>No bookings found for {bkDate}. Try clicking 🔄 Refresh or create a new booking.</div>}
         
         <div style={{border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
@@ -999,7 +1033,7 @@ export default function App(){
                       {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                         {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
                         {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>Check In</button>}
-                        {b.status==="Arrived"&&<span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span>}
+                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>Mark Done</button></>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
                         {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button>}
                         <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
