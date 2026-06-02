@@ -939,7 +939,7 @@ export default function App(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10,marginBottom:14}}>
           <h2 style={{...S.ct,margin:0}}>Booking Management</h2>
           <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-            <EthPicker value={bkDate} onChange={setBkDate} minDate={todayStr()}/>
+            <EthPicker value={bkDate} onChange={setBkDate}/>
             {user.role!=="supervisor"&&<>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>🚶 Spa Walk-in</button>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:bkDate,time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>
