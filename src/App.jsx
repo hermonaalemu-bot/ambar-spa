@@ -268,65 +268,148 @@ function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h
 function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
 
 function EthPicker({value,onChange,label,...props}){
-  const e=gregToEth(value||todayStr());
-  const[ey,setEy]=useState(e.y);const[em,setEm]=useState(e.m);const[ed,setEd]=useState(e.d);const[show,setShow]=useState(false);
-  useEffect(()=>{const e=gregToEth(value||todayStr());setEy(e.y);setEm(e.m);setEd(e.d);},[value]);
-  function pick(y,m,d){const g=ethToGreg(y,m,d);if(props.minDate&&g<props.minDate)return;onChange(g);setShow(false);}
-  const gregStr=value?new Date(value+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
-  const firstDayGreg=ethToGreg(ey,em,1);
-  const firstDow=new Date(firstDayGreg+"T12:00:00Z").getDay();
-  const startOffset=(firstDow+6)%7; // Mon=0
-  const daysInMonth=em===13?6:30;
-  const DAY_LABELS=["ሰ","ማ","ረ","ሐ","ዓ","ቅ","እ"];
-  const todayEth=gregToEth(todayStr());
-  const isToday=(d)=>d===todayEth.d&&em===todayEth.m&&ey===todayEth.y;
-  return <div style={{position:"relative",marginBottom:8}}>
-    {label&&<p style={{margin:"0 0 4px",fontSize:12,fontWeight:700,color:"#374151"}}>{label}</p>}
-    <button type="button" onClick={()=>setShow(v=>!v)} style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer",textAlign:"left",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
-      <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>{ETH_MONTHS[(em||1)-1]} {ed}, {ey}</div>
-      <div style={{fontSize:11,color:"#6b7280",marginTop:1}}>{gregStr}</div>
-    </button>
-    {show&&<div style={{position:"absolute",top:"105%",left:0,zIndex:1000,background:"#fff",borderRadius:16,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",minWidth:300,marginTop:4,overflow:"hidden",border:"1px solid #f1f5f9"}}>
-      <div style={{background:"#1d4ed8",padding:"14px 16px 12px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <button onClick={()=>{let nm=em-1,ny=ey;if(nm<1){nm=13;ny--;}setEm(nm);setEy(ny);}} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,width:34,height:34,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-          <div style={{textAlign:"center"}}>
-            <div style={{color:"rgba(255,255,255,0.65)",fontSize:11,fontWeight:600,letterSpacing:1,marginBottom:2}}>{ey}</div>
-            <div style={{color:"#fff",fontSize:20,fontWeight:900}}>{ETH_MONTHS[(em||1)-1]}</div>
+  // Parse current value into Ethiopian date
+  const toEth=g=>g?gregToEth(g):{y:2016,m:1,d:1};
+  const parsed=toEth(value);
+  // nav state = what month/year is being viewed in the picker
+  const[vy,setVy]=useState(parsed.y); // view year
+  const[vm,setVm]=useState(parsed.m); // view month
+  const[show,setShow]=useState(false);
+  // Sync view to value when value changes externally
+  useEffect(()=>{
+    const p=toEth(value);
+    setVy(p.y);setVm(p.m);
+  },[value]);
+  // Selected eth date (from value prop)
+  const selEth=toEth(value);
+  // Today in eth
+  const todEth=gregToEth(todayStr());
+  // Gregorian display string
+  const gregStr=value
+    ?new Date(value+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    :'';
+  // Days in viewed month
+  const daysInMonth=vm===13?6:30;
+  // Find weekday of day 1 of viewed month (Mon=0 ... Sun=6)
+  const day1Greg=ethToGreg(vy,vm,1);
+  const day1Dow=new Date(day1Greg+'T12:00:00Z').getDay(); // 0=Sun
+  const startOffset=(day1Dow+6)%7; // convert to Mon-based (Mon=0,Sun=6)
+  const DAY_LABELS=['ሰ','ማ','ረ','ሐ','ዓ','ቅ','እ'];
+  function prevMonth(){
+    if(vm===1){setVm(13);setVy(vy-1);}
+    else setVm(vm-1);
+  }
+  function nextMonth(){
+    if(vm===13){setVm(1);setVy(vy+1);}
+    else setVm(vm+1);
+  }
+  function pickDay(d){
+    const g=ethToGreg(vy,vm,d);
+    if(props.minDate&&g<props.minDate)return;
+    onChange(g);
+    setShow(false);
+  }
+  // Close picker when clicking outside
+  const ref=React.useRef(null);
+  useEffect(()=>{
+    if(!show)return;
+    function handler(e){if(ref.current&&!ref.current.contains(e.target))setShow(false);}
+    document.addEventListener('mousedown',handler);
+    return()=>document.removeEventListener('mousedown',handler);
+  },[show]);
+  return(
+    <div ref={ref} style={{position:'relative',marginBottom:8}}>
+      {label&&<p style={{margin:'0 0 4px',fontSize:12,fontWeight:700,color:'#374151'}}>{label}</p>}
+      {/* Trigger button */}
+      <button type="button" onClick={()=>setShow(v=>!v)}
+        style={{width:'100%',padding:'11px 14px',borderRadius:12,border:'1px solid #e5e7eb',
+          background:'#fff',cursor:'pointer',textAlign:'left',
+          boxShadow:'0 1px 3px rgba(0,0,0,0.06)',display:'block'}}>
+        <div style={{fontSize:15,fontWeight:800,color:'#111827'}}>
+          {ETH_MONTHS[(selEth.m||1)-1]} {selEth.d}, {selEth.y}
+        </div>
+        <div style={{fontSize:11,color:'#6b7280',marginTop:1}}>{gregStr}</div>
+      </button>
+      {/* Dropdown */}
+      {show&&(
+        <div style={{position:'absolute',top:'105%',left:0,zIndex:1000,background:'#fff',
+          borderRadius:16,boxShadow:'0 12px 40px rgba(0,0,0,0.2)',minWidth:300,
+          marginTop:4,overflow:'hidden',border:'1px solid #e5e7eb'}}>
+          {/* Blue header with year + month + nav */}
+          <div style={{background:'#1d4ed8',padding:'14px 16px 12px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <button onClick={prevMonth}
+                style={{background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',
+                  cursor:'pointer',fontSize:20,width:34,height:34,borderRadius:8,
+                  display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900}}>‹</button>
+              <div style={{textAlign:'center'}}>
+                <div style={{color:'rgba(255,255,255,0.7)',fontSize:11,fontWeight:600,letterSpacing:1}}>{vy}</div>
+                <div style={{color:'#fff',fontSize:20,fontWeight:900}}>{ETH_MONTHS[(vm||1)-1]}</div>
+              </div>
+              <button onClick={nextMonth}
+                style={{background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',
+                  cursor:'pointer',fontSize:20,width:34,height:34,borderRadius:8,
+                  display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900}}>›</button>
+            </div>
           </div>
-          <button onClick={()=>{let nm=em+1,ny=ey;if(nm>13){nm=1;ny++;}setEm(nm);setEy(ny);}} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,width:34,height:34,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+          {/* Day headers Mon-Sun */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:'#f8fafc',
+            borderBottom:'1px solid #f1f5f9'}}>
+            {DAY_LABELS.map(d=>(
+              <div key={d} style={{textAlign:'center',fontSize:10,fontWeight:800,
+                color:'#6b7280',padding:'7px 2px'}}>{d}</div>
+            ))}
+          </div>
+          {/* Day grid */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',
+            gap:2,padding:'8px 8px 4px'}}>
+            {/* Empty offset cells */}
+            {Array.from({length:startOffset}).map((_,i)=><div key={'x'+i}/>)}
+            {/* Day buttons */}
+            {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+              const g=ethToGreg(vy,vm,d);
+              const isPast=!!(props.minDate&&g<props.minDate);
+              const isSel=d===selEth.d&&vm===selEth.m&&vy===selEth.y;
+              const isT=d===todEth.d&&vm===todEth.m&&vy===todEth.y;
+              return(
+                <button key={d}
+                  onClick={()=>!isPast&&pickDay(d)}
+                  style={{
+                    padding:'7px 2px',borderRadius:8,border:'none',
+                    background:isSel?'#1d4ed8':isT?'#dbeafe':'transparent',
+                    fontWeight:isSel||isT?700:400,
+                    cursor:isPast?'default':'pointer',
+                    fontSize:13,
+                    color:isSel?'#fff':isPast?'#d1d5db':isT?'#1d4ed8':'#111827',
+                    opacity:isPast?0.4:1,
+                  }}>{d}</button>
+              );
+            })}
+          </div>
+          {/* Footer: gregorian + year/month jump */}
+          <div style={{borderTop:'1px solid #f1f5f9',padding:'8px 12px',
+            display:'flex',justifyContent:'space-between',alignItems:'center',
+            background:'#fafafa'}}>
+            <span style={{fontSize:11,color:'#6b7280',fontStyle:'italic'}}>{gregStr||'No date selected'}</span>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <button onClick={()=>setVy(vy-1)}
+                style={{padding:'2px 7px',border:'1px solid #e5e7eb',borderRadius:5,
+                  background:'#fff',cursor:'pointer',fontSize:12,color:'#374151',fontWeight:700}}>−</button>
+              <span style={{fontSize:12,fontWeight:700,color:'#374151',minWidth:36,textAlign:'center'}}>{vy}</span>
+              <button onClick={()=>setVy(vy+1)}
+                style={{padding:'2px 7px',border:'1px solid #e5e7eb',borderRadius:5,
+                  background:'#fff',cursor:'pointer',fontSize:12,color:'#374151',fontWeight:700}}>+</button>
+              <select value={vm} onChange={e=>setVm(Number(e.target.value))}
+                style={{padding:'3px 5px',borderRadius:6,border:'1px solid #e5e7eb',
+                  fontSize:11,color:'#111827',background:'#fff',marginLeft:4}}>
+                {ETH_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#f8fafc",borderBottom:"1px solid #f1f5f9"}}>
-        {DAY_LABELS.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:800,color:"#6b7280",padding:"7px 2px"}}>{d}</div>)}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,padding:"8px 8px 4px"}}>
-        {Array.from({length:startOffset}).map((_,i)=><div key={"e"+i}/>)}
-        {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
-          const g=ethToGreg(ey,em,d);
-          const isPast=props.minDate&&g<props.minDate;
-          const isSel=d===ed;
-          const isT=isToday(d);
-          return <button key={d} onClick={()=>!isPast&&pick(ey,em,d)} style={{
-            padding:"7px 2px",borderRadius:8,border:"none",
-            background:isSel?"#1d4ed8":isT?"#dbeafe":"transparent",
-            fontWeight:isSel||isT?700:400,
-            cursor:isPast?"default":"pointer",
-            fontSize:13,
-            color:isSel?"#fff":isPast?"#d1d5db":isT?"#1d4ed8":"#111827",
-            opacity:isPast?0.35:1,
-          }}>{d}</button>;
-        })}
-      </div>
-      <div style={{borderTop:"1px solid #f1f5f9",padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fafafa"}}>
-        <span style={{fontSize:11,color:"#6b7280",fontStyle:"italic"}}>{gregStr}</span>
-        <div style={{display:"flex",gap:4}}>
-          <input type="number" value={ey} onChange={e=>setEy(Number(e.target.value))} style={{width:58,padding:"3px 6px",borderRadius:6,border:"1px solid #e5e7eb",fontSize:11,color:"#111827",background:"#fff"}}/>
-          <select value={em} onChange={e=>setEm(Number(e.target.value))} style={{padding:"3px 5px",borderRadius:6,border:"1px solid #e5e7eb",fontSize:11,color:"#111827",background:"#fff"}}>{ETH_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
-        </div>
-      </div>
-    </div>}
-  </div>;
+      )}
+    </div>
+  );
 }
 
 export default function App(){
