@@ -266,8 +266,8 @@ function EthPicker({value,onChange,label,...props}){
   return <div style={{position:"relative",marginBottom:8}}>
     {label&&<p style={S.lbl}>{label}</p>}
     <div style={{display:"flex",gap:6}}>
-      <button type="button" onClick={()=>setShow(v=>!v)} style={{flex:1,padding:"10px 12px",borderRadius:10,border:"1px solid #c7b06a",background:"#fef3c7",color:"#92400e",fontWeight:700,cursor:"pointer",textAlign:"left",fontSize:13}}>🇪🇹 {ETH_MONTHS[(em||1)-1]} {ed}, {ey}</button>
-      <div style={{flex:1,padding:"10px 12px",borderRadius:10,border:"1px solid #c7b06a",background:"#dbeafe",color:"#1e40af",fontSize:12,display:"flex",alignItems:"center",fontWeight:600}}>📅 {greg}</div>
+      <button type="button" onClick={()=>setShow(v=>!v)} style={{flex:1,padding:"10px 12px",borderRadius:10,border:"1px solid #d1d5db",background:"#f9fafb",color:"#111827",fontWeight:700,cursor:"pointer",textAlign:"left",fontSize:13}}>🇪🇹 {ETH_MONTHS[(em||1)-1]} {ed}, {ey}</button>
+      <div style={{flex:1,padding:"10px 12px",borderRadius:10,border:"1px solid #bfdbfe",background:"#eff6ff",color:"#1d4ed8",fontSize:12,display:"flex",alignItems:"center",fontWeight:600}}>📅 {greg}</div>
     </div>
     {show&&<div style={{position:"absolute",top:"105%",left:0,zIndex:999,background:"#fff",border:"1px solid #e0b85a",borderRadius:14,padding:14,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",minWidth:280,marginTop:2}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -312,7 +312,7 @@ export default function App(){
   const[deItem,setDeItem]=useState("");const[deQty,setDeQty]=useState(1);const[deUnit,setDeUnit]=useState("");
   const[gDate,setGDate]=useState(todayStr());const[gName,setGName]=useState("");const[gRsn,setGRsn]=useState("");const[gAmt,setGAmt]=useState("");
   const[newCat,setNewCat]=useState("");
-  const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});
+  const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:EMP_SECTIONS[0],bookable:false,durationMins:60});
   const[svcF,setSvcF]=useState("All");
   const[nEmp,setNEmp]=useState({name:"",section:EMP_SECTIONS[0]||DC[0],role:"",salary:"",hireDate:todayStr()});
   const[showFired,setShowFired]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
@@ -440,15 +440,29 @@ export default function App(){
   useEffect(()=>{
     if(!user)return;
     async function seed(){
+      // Always upsert employees so new staff are added even if DB already seeded
+      await supabase.from("employees").upsert(
+        DEFAULT_EMPLOYEES.map(e=>({
+          id:e.id,name:e.name,section:e.section,role:e.role||'',
+          salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
+          other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
+          day_off:e.dayOff??null,on_leave:false
+        })),
+        {onConflict:'id',ignoreDuplicates:false}
+      );
+      // Seed categories & services only if empty
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
       if(cc===0){
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
-        await supabase.from("services").insert(FULL_SERVICES.map(s=>({id:s.id,category:s.category,sub:s.sub,name:s.name,price:s.price,commission:s.commission,employee_section:s.employeeSection,bookable:s.bookable,duration_mins:s.durationMins})));
-        await supabase.from("employees").insert(DEFAULT_EMPLOYEES.map(e=>({id:e.id,name:e.name,section:e.section,role:e.role||'',salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,day_off:e.dayOff??null,on_leave:false})));
-        await loadAll();
+        await supabase.from("services").insert(FULL_SERVICES.map(s=>({
+          id:s.id,category:s.category,sub:s.sub,name:s.name,price:s.price,
+          commission:s.commission,employee_section:s.employeeSection,
+          bookable:s.bookable,duration_mins:s.durationMins
+        })));
       }
       const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       if(sc===0)await supabase.from("staff").insert(DEFAULT_STAFF);
+      await loadAll();
     }
     seed();
   },[user]);
@@ -677,7 +691,7 @@ export default function App(){
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};await supabase.from("services").insert(r);setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
   async function updSvc(id,f,v){const df=f==="employeeSection"?"employee_section":f==="durationMins"?"duration_mins":f;const val=["price","commission","durationMins"].includes(f)?Number(v)||0:f==="bookable"?v:v;setSvcs(p=>p.map(s=>s.id===id?{...s,[f]:val}:s));clearTimeout(dRef.current[id+f]);dRef.current[id+f]=setTimeout(async()=>await supabase.from("services").update({[df]:val}).eq("id",id),800);}
   async function delSvc(id){if(!window.confirm("Remove this service?"))return;await supabase.from("services").delete().eq("id",id);setSvcs(p=>p.filter(s=>s.id!==id));}
-  async function addEmp(){if(!nEmp.name.trim()||!nEmp.salary)return alert("Enter name and salary.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};await supabase.from("employees").insert(r);setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
+  async function addEmp(){if(!nEmp.name.trim())return alert("Enter employee name.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};await supabase.from("employees").insert(r);setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
   async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Number(v)||0;setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>await supabase.from("employees").update({[df]:val}).eq("id",id),800);}
   async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;await supabase.from("employees").update({active}).eq("id",id);setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
   async function closePeriod(){if(!window.confirm("Close pay period "+period.label+"?"))return;const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});for(const e of emps)await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));logAct(user,"Closed period",period.label);alert("Period closed.");}
@@ -699,22 +713,22 @@ export default function App(){
   if(!user)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}><div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:44}}>✦</div><h1 style={{margin:"8px 0 0",fontSize:22,fontWeight:900}}>Ambar Spa & Beauty</h1><p style={{margin:"6px 0 0",color:"#6b7280",fontSize:13}}>Staff Login</p></div>{lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:700}}>{lerr}</div>}<p style={S.lbl}>Username</p><input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/><p style={S.lbl}>Password</p><input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/><button style={{...S.btnP,marginTop:8}} onClick={doLogin}>Login</button></div></div>);
 
   if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)",color:"#e0b85a"}}><div style={{textAlign:"center"}}><div style={{fontSize:56,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:700,letterSpacing:2}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#c9b077",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
-  return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f1720 0%,#1d2a36 38%,#f6efe3 38%,#fffaf2 100%)",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
+  return(<div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
     <Notifs items={notifs} dismiss={dismiss}/>
     {offline&&<div style={{background:"#b45309",color:"#fff",textAlign:"center",padding:8,fontSize:13,fontWeight:700}}>⚠ Offline — changes will not save</div>}
     {saving&&<div style={{background:"#e0b85a",color:"#111827",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
     <div style={{maxWidth:1400,margin:"0 auto",padding:sc.mob?"12px":"28px"}}>
-      <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",color:"white",marginBottom:14,flexWrap:"wrap",gap:8}}>
+      <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#111827",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
         <div><p style={{color:"#e0b85a",fontWeight:900,letterSpacing:2,margin:"0 0 2px",fontSize:11}}>AMBAR SPA & BEAUTY</p>
-          {!sc.mob&&<h1 style={{margin:0,fontSize:22,fontWeight:900}}>Salon Management System</h1>}
-          <p style={{color:"#f8ead4",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#e0b85a",color:"#111827",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6}}>{user.role}</span><button onClick={logout} style={{background:"transparent",border:"1px solid #e0b85a",color:"#e0b85a",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:8}}>Logout</button></p>
+          {!sc.mob&&<h1 style={{margin:0,fontSize:20,fontWeight:900,color:"#fff"}}>Salon Management System</h1>}
+          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#e0b85a",color:"#111827",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6}}>{user.role}</span><button onClick={logout} style={{background:"transparent",border:"1px solid #6b7280",color:"#d1d5db",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:8}}>Logout</button></p>
         </div>
-        <div style={{background:"#e0b85a",color:"#111827",borderRadius:16,padding:"10px 18px",textAlign:"center"}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:26,fontWeight:900}}>#{todayV.length+1}</h2></div>
+        <div style={{background:"#e0b85a",color:"#111827",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:26,fontWeight:900}}>#{todayV.length+1}</h2></div>
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
         <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(t=><button key={t} style={tab===t?S.tabA:S.tab} onClick={()=>setTab(t)}>{t}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#94a3b8"}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(t=><button key={t} style={tab===t?{...S.tabA,background:"#334155",color:"#e0b85a"}:{...S.tab,background:"#1e293b",color:"#cbd5e1",border:"1px solid #334155"}} onClick={()=>setTab(t)}>{t}</button>)}</div></>}</>
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#94a3b8"}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(t=><button key={t} style={tab===t?{...S.tabA,background:"#1d4ed8",color:"#fff"}:{...S.tab,background:"#f1f5f9",color:"#374151",border:"1px solid #e2e8f0"}} onClick={()=>setTab(t)}>{t}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -725,7 +739,7 @@ export default function App(){
           <L>Number of People</L><input style={S.inp} type="number" min="1" value={rPpl} onChange={e=>setRPpl(e.target.value)}/>
           <L>Note</L><textarea style={S.ta} value={rNote} onChange={e=>setRNote(e.target.value)} rows={2}/>
           <button style={S.btnP} onClick={register}>Register & Give Queue Number</button>
-          <HR/><h3 style={{margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#6b4c11"}}>Quick Daily Expense</h3>
+          <HR/><h3 style={{margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#374151"}}>Quick Daily Expense</h3>
           <input style={S.inp} value={deItem} onChange={e=>setDeItem(e.target.value)} placeholder="Item name"/>
           <div style={S.r2}><input style={S.inp} type="number" value={deQty} onChange={e=>setDeQty(e.target.value)} placeholder="Qty"/><input style={S.inp} type="number" value={deUnit} onChange={e=>setDeUnit(e.target.value)} placeholder="Unit price"/></div>
           <button style={S.btnS} onClick={addDE}>Save Expense</button>
@@ -735,8 +749,8 @@ export default function App(){
           {todayV.map((v,idx)=>{
             const activeAhead=todayV.slice(0,idx).filter(x=>!["Paid & Closed","Cancelled"].includes(x.status)).length;
             const isInProgress=v.status==="In Service"||v.services.some(l=>l.status==="In Progress");
-            const isWithSupervisor=v.status==="With Supervisor";
-            const isWaiting=v.status==="Waiting for Supervisor"||v.status==="In Service"&&v.services.every(l=>l.status==="Waiting"||l.status==="Completed"||l.status==="Cancelled");
+            const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
+            const isWaiting=v.status==="Waiting for Supervisor";
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
             return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#d1d5db":isInProgress?"#1e40af":"#e0b85a"),background:isDone?"#f9fafb":isInProgress?"#eff6ff":"#fffaf2"}}>
               <div style={{flex:1}}>
@@ -766,8 +780,8 @@ export default function App(){
       {tab==="Supervisor"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
         <section style={S.card}><h2 style={S.ct}>Queue Overview</h2>
           <h3 style={S.sh}>⏳ Waiting</h3>
-          {visits.filter(v=>v.status==="Waiting for Supervisor"&&v.date===todayStr()).length===0?<p style={S.hlp}>No one waiting.</p>
-            :visits.filter(v=>v.status==="Waiting for Supervisor"&&v.date===todayStr()).map((v,i,arr)=>{
+          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
+            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
               return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}>
                 <span>
@@ -843,8 +857,8 @@ export default function App(){
             {tips.length>0&&<div style={{...S.tb,background:"#1e3a2f",marginTop:6}}><span>Tips Total</span><b>{money(tips.reduce((s,t)=>s+t.amount,0))}</b></div>}
             <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span>Customer Pays</span><b>{money(act.totalService+tips.reduce((s,t)=>s+t.amount,0))}</b></div>
             {act.groupName&&<>
-              <div style={{border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:6,background:"#fffaf2"}}>
-                <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#6b4c11"}}>Group Payment Options</p>
+              <div style={{border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:6,background:"#fff"}}>
+                <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#374151"}}>Group Payment Options</p>
                 <button style={{...S.btnP,marginBottom:6}} onClick={()=>confirmPay(true)}>Pay Together — Whole Group ({money(visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").reduce((s,v)=>s+v.totalService,0))})</button>
                 <button style={{...S.btnS,marginBottom:0}} onClick={()=>setSplitMode(v=>!v)}>Split Payment — Each Pays Their Own</button>
               </div>
@@ -890,7 +904,7 @@ export default function App(){
           <div style={S.r2}><button style={{...S.btnP,background:"#0f766e",color:"#fff"}} onClick={addSpaWalkIn}>Add to Queue</button><button style={S.btnS} onClick={()=>setShowWalkIn(false)}>Cancel</button></div>
         </div>}
 
-        {showBkF&&user.role!=="supervisor"&&<div style={{background:"#fffaf2",border:"1px solid #e0b85a",borderRadius:16,padding:18,marginBottom:16}}>
+        {showBkF&&user.role!=="supervisor"&&<div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:16,padding:18,marginBottom:16}}>
           <h3 style={{margin:"0 0 12px",fontWeight:800}}>{editBk?"Edit":"New"} Booking</h3>
           {bkWarn&&<div style={{background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:13,fontWeight:700}}>{bkWarn}</div>}
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
@@ -941,7 +955,7 @@ export default function App(){
                 <div style={{fontSize:10,fontWeight:400,color:isOccupied?"#3b82f6":"#92400e"}}>{toEthTime(slot)}</div>
               </div>
               <div style={{padding:"6px 10px",minHeight:40}}>
-                {!isOccupied&&<span style={{color:"#d1d5db",fontSize:12,lineHeight:"28px"}}>Available</span>}
+                {!isOccupied&&<span style={{color:"#9ca3af",fontSize:11,lineHeight:"28px",fontStyle:"italic"}}>Available</span>}
                 {isStartSlot&&slotBks.filter(b=>b.time===slot).map(b=>{
                   const c=BKC[b.status]||{bg:"#f3f4f6",co:"#374151"};
                   return <div key={b.id} style={{background:c.bg,borderRadius:8,padding:"6px 10px",marginBottom:3,border:"1px solid "+c.co+"44"}}>
@@ -981,7 +995,7 @@ export default function App(){
 
       {tab==="Service Setup"&&<section style={S.card}><h2 style={S.ct}>Service & Price Management</h2>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:20,marginBottom:16}}>
-          <div><h3 style={S.sh}>Categories</h3><div style={S.r2}><input style={S.inp} value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="New category" onKeyDown={e=>e.key==="Enter"&&addCat()}/><button style={S.btnS} onClick={addCat}>+ Add</button></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{cats.map(c=><span key={c} style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700}}>{c}</span>)}</div></div>
+          <div><h3 style={S.sh}>Categories</h3><div style={S.r2}><input style={S.inp} value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="New category" onKeyDown={e=>e.key==="Enter"&&addCat()}/><button style={S.btnS} onClick={addCat}>+ Add</button></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{cats.map(c=><span key={c} style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700}}>{c}</span>)}</div></div>
           <div><h3 style={S.sh}>Add New Service</h3>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               <select style={S.inp} value={nSvc.category} onChange={e=>setNSvc({...nSvc,category:e.target.value,employeeSection:e.target.value})}>{cats.map(c=><option key={c}>{c}</option>)}</select>
@@ -1005,8 +1019,8 @@ export default function App(){
             {subs.map(sub=><div key={sub} style={{marginBottom:12}}>
               {sub&&<p style={{...S.hlp,fontWeight:800,margin:"0 0 5px",fontSize:12}}>— {sub}</p>}
               <div style={{overflowX:"auto"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 85px 55px 65px 50px 32px",gap:4,padding:"4px 8px",background:"#f5e7c0",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:800,color:"#6b4c11",minWidth:480}}><span>Name</span><span>Price</span><span>Cm%</span><span>Min</span><span>Book</span><span></span></div>
-                {catSvcs.filter(s=>s.sub===sub).map(s=><div key={s.id} style={{display:"grid",gridTemplateColumns:"1fr 85px 55px 65px 50px 32px",gap:4,padding:"4px 8px",background:"#fffaf2",borderRadius:8,marginBottom:3,alignItems:"center",border:"1px solid #ecdba3",minWidth:480}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 85px 55px 65px 50px 32px",gap:4,padding:"4px 8px",background:"#e0b85a",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:800,color:"#111827",minWidth:480}}><span>Name</span><span>Price</span><span>Cm%</span><span>Min</span><span>Book</span><span></span></div>
+                {catSvcs.filter(s=>s.sub===sub).map(s=><div key={s.id} style={{display:"grid",gridTemplateColumns:"1fr 85px 55px 65px 50px 32px",gap:4,padding:"4px 8px",background:"#fff",borderRadius:8,marginBottom:3,alignItems:"center",border:"1px solid #ecdba3",minWidth:480}}>
                   <input value={s.name} onChange={e=>updSvc(s.id,"name",e.target.value)} style={S.ii}/>
                   <input type="number" value={s.price}        onChange={e=>updSvc(s.id,"price",e.target.value)}        style={{...S.ii,textAlign:"right"}}/>
                   <input type="number" value={s.commission}   onChange={e=>updSvc(s.id,"commission",e.target.value)}   style={{...S.ii,textAlign:"right"}}/>
@@ -1051,7 +1065,7 @@ export default function App(){
 
       {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>Payroll Management</h2>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
-          <div><p style={{...S.hlp,margin:0}}>Current pay period</p><b style={{fontSize:15}}>{period.label}</b></div>
+          <div><p style={{...S.hlp,margin:0,color:"#374151"}}>Current pay period</p><b style={{fontSize:15}}>{period.label}</b></div>
           <div style={{display:"flex",gap:8}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>Close & Pay Period</button></div>
         </div>
         <div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:14,fontSize:13}}>Commissions update live. Close & Pay to freeze and reset for next period.</div>
@@ -1086,18 +1100,32 @@ export default function App(){
             </div>;
           })}
         </div>
-        {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(extra?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fffaf2",border:"1px solid #ecdba3",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
+        {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(extra?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
+            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
             <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?"Deactivate":"Reactivate"}</button>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(6,1fr)",gap:8,marginBottom:8}}>
-            <FI label="Base Salary"     value={emp.salary}         onChange={v=>updEmp(emp.id,"salary",v)}         type="number"/>
-            <FI label="Absent Days"     value={emp.absentDays}     onChange={v=>updEmp(emp.id,"absentDays",v)}     type="number"/>
-            <FI label="Loan"            value={emp.loan}           onChange={v=>updEmp(emp.id,"loan",v)}           type="number" note={emp.loanNote}  onNote={v=>updEmp(emp.id,"loanNote",v)}/>
-            <FI label="Broker Fee"      value={emp.brokerFee}      onChange={v=>updEmp(emp.id,"brokerFee",v)}      type="number"/>
-            <FI label="Other Deduction" value={emp.otherDeduction} onChange={v=>updEmp(emp.id,"otherDeduction",v)} type="number" note={emp.otherNote} onNote={v=>updEmp(emp.id,"otherNote",v)}/>
-            <div style={{background:"#fffdf5",borderRadius:10,padding:10,border:"1px solid #e0b85a"}}><p style={{...S.hlp,marginBottom:4}}>Commission</p><b style={{color:"#166534",fontSize:14}}>{money(extra?.commissionTotal||0)}</b></div>
+          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:8}}>
+            <FI label="Base Salary"      value={emp.salary}         onChange={v=>updEmp(emp.id,"salary",v)}         type="number"/>
+            <FI label="Absent Days"      value={emp.absentDays}     onChange={v=>updEmp(emp.id,"absentDays",v)}     type="number"/>
+            <FI label="Loan"             value={emp.loan}           onChange={v=>updEmp(emp.id,"loan",v)}           type="number" note={emp.loanNote}  onNote={v=>updEmp(emp.id,"loanNote",v)}/>
+            <FI label="Broker Fee"       value={emp.brokerFee}      onChange={v=>updEmp(emp.id,"brokerFee",v)}      type="number"/>
+            <FI label="Other Deduction"  value={emp.otherDeduction} onChange={v=>updEmp(emp.id,"otherDeduction",v)} type="number" note={emp.otherNote} onNote={v=>updEmp(emp.id,"otherNote",v)}/>
+            <div style={{background:"#f0fdf4",borderRadius:10,padding:10,border:"1px solid #86efac"}}><p style={{fontSize:10,fontWeight:700,color:"#166534",marginBottom:4}}>Commission</p><b style={{color:"#166534",fontSize:14}}>{money(extra?.commissionTotal||0)}</b></div>
+            <div>
+              <p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 4px"}}>Weekly Day Off</p>
+              <select value={emp.dayOff??""} onChange={e=>updEmp(emp.id,"dayOff",e.target.value===""?null:e.target.value)} style={{width:"100%",padding:"7px 9px",borderRadius:9,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}>
+                <option value="">No fixed day off</option>
+                {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=><option key={i} value={i}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 4px"}}>Availability</p>
+              <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",background:emp.onLeave?"#fee2e2":"#f0fdf4",padding:"7px 10px",borderRadius:9,border:"1px solid "+(emp.onLeave?"#fca5a5":"#86efac")}}>
+                <input type="checkbox" checked={!!emp.onLeave} onChange={e=>updEmp(emp.id,"onLeave",e.target.checked)}/>
+                <span style={{color:emp.onLeave?"#991b1b":"#166534",fontWeight:700}}>{emp.onLeave?"🤒 On Leave":"✅ Available"}</span>
+              </label>
+            </div>
           </div>
           {extra?.breakdown?.length>0&&<details style={{marginBottom:8}}><summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Breakdown ({extra.breakdown.length})</summary><div style={{paddingLeft:10,paddingTop:4}}>{extra.breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,borderBottom:"1px solid #ecdba3",padding:"2px 0"}}><span>{b.name}</span><span>{money(b.income)} → {money(b.commission)}</span></div>)}</div></details>}
           <div style={{...S.tb,padding:"10px 16px"}}><span>Net Pay</span><b style={{fontSize:16}}>{money(Math.max(0,Math.round(net)))}</b></div>
@@ -1112,9 +1140,9 @@ export default function App(){
           <SC label="Bookings Today"   value={bks.filter(b=>b.date===todayStr()).length}/><SC label="Pending Bookings" value={bks.filter(b=>b.status==="Pending").length} accent/><SC label="General Expenses" value={money(exps.filter(e=>e.type==="General").reduce((s,e)=>s+Number(e.total||0),0))} accent/><SC label="Services Listed" value={svcs.length}/>
         </div>
         <HR/>
-        <div style={{background:"#fffaf2",border:"1px solid #e0b85a",borderRadius:14,padding:14,marginBottom:14}}>
+        <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}}>
-            <h3 style={{margin:0,fontSize:13,fontWeight:800,color:"#6b4c11"}}>Daily Revenue Target</h3>
+            <h3 style={{margin:0,fontSize:13,fontWeight:800,color:"#374151"}}>Daily Revenue Target</h3>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <input type="number" value={dailyTarget||""} onChange={e=>{const v=Number(e.target.value)||0;setDailyTarget(v);try{localStorage.setItem("ambar_target",v);}catch(e){}}} placeholder="Set target (Birr)" style={{...S.ii,width:160}}/>
             </div>
@@ -1129,7 +1157,7 @@ export default function App(){
 
       {tab==="Staff"&&<section style={S.card}><h2 style={S.ct}>Staff & Password Management</h2>
         <p style={S.hlp}>Reception: Reception + Checkout + Bookings. Supervisor: Supervisor + Bookings. Manager: All.</p><HR/>
-        <div style={{background:"#fffaf2",border:"1px solid #e0b85a",borderRadius:14,padding:16,marginBottom:16}}>
+        <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16,marginBottom:16}}>
           <h3 style={{margin:"0 0 14px",fontWeight:800,fontSize:15}}>{editStaff?"Edit: "+editStaff.id:"Add / Update Staff Account"}</h3>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
             <div><L>Username</L><input style={{...S.inp,background:editStaff?"#f3f4f6":"#fffdf7"}} value={nStaff.id} onChange={e=>setNStaff(p=>({...p,id:e.target.value}))} placeholder="e.g. reception1" disabled={!!editStaff}/></div>
@@ -1153,7 +1181,7 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS on_leave boolean DEFAULT false;
 ALTER TABLE visits ADD COLUMN IF NOT EXISTS registered_at timestamptz DEFAULT now();`}</pre></details>
         <HR/>
         {actLog.length===0&&<EMP>No activity recorded yet.</EMP>}
-        {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
+        {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
       </section>}
 
       {tab==="Handover"&&<section style={S.card}><h2 style={S.ct}>Shift Handover Log</h2>
@@ -1180,36 +1208,36 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
   const isSv=mode==="supervisor";const locked=["Ready for Payment","Paid & Closed"].includes(visit.status);
   return <div style={{marginBottom:14}}>
     <h3 style={{margin:"14px 0 8px",fontWeight:800}}>Services</h3>
-    {visit.services.length===0&&<p style={{color:"#6b4c11",fontSize:13}}>No services added yet.</p>}
+    {visit.services.length===0&&<p style={{color:"#1f2937",fontSize:13}}>No services added yet.</p>}
     {visit.services.map(line=>{
       const elig=emps.filter(e=>e.section===line.employeeSection&&isEmpAvailableToday(e));
       const done=["Completed","Cancelled"].includes(line.status);
-      return <div key={line.lineId} style={{background:done?"#f8fafb":"#fffaf2",border:"1px solid "+(done?"#d1d5db":"#ecdba3"),borderRadius:12,padding:10,marginBottom:7}}>
+      return <div key={line.lineId} style={{background:done?"#f9fafb":"#f8fafc",border:"1px solid "+(done?"#e5e7eb":"#e5e7eb"),borderRadius:12,padding:10,marginBottom:7}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
           <div><b style={{fontSize:14}}>{line.name}</b>
             <p style={{color:"#5c3d11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
             {line.commission>0&&<p style={{color:"#166534",fontSize:11,margin:"2px 0"}}>Commission {line.commission}% = {money(lineComm(line))}</p>}
           </div>
           <div style={{display:"flex",gap:4}}>
-                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#f5e7c0",color:"#6b4c11",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
-                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#f5e7c0",color:"#6b4c11",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"down")}>↓</button>}
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"down")}>↓</button>}
                 {!locked&&<button style={{padding:"4px 10px",borderRadius:8,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:12}} onClick={()=>onRem(line.lineId)}>Remove</button>}
               </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",e.target.value)} disabled={locked}/></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",e.target.value)} disabled={locked}/></div>
           {!isSv&&<>
-            <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" value={line.discount} onChange={e=>onUpd(line.lineId,"discount",e.target.value)} disabled={locked}/></div>
+            <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" value={line.discount} onChange={e=>onUpd(line.lineId,"discount",e.target.value)} disabled={locked}/></div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:0}}>Free</p><input type="checkbox" checked={line.free} onChange={e=>onUpd(line.lineId,"free",e.target.checked)} disabled={locked} style={{width:16,height:16}}/></div>
           </>}
-          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>On Hold</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>On Hold</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
           <SvcTimer lineId={line.lineId} status={line.status}/>
         </div>
       </div>;
     })}
-    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700}}>Total Income</span><b style={{fontSize:15}}>{money(visit.totalService)}</b></div>
+    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700,color:"#d1d5db"}}>Total Income</span><b style={{fontSize:15,color:"#e0b85a"}}>{money(visit.totalService)}</b></div>
   </div>;
 }
 
@@ -1254,31 +1282,31 @@ function PS({emps,empC,period}){return <div style={{fontFamily:"Arial,sans-serif
   <div style={{marginTop:40,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:40}}>{["Prepared by","Reviewed by","Approved by"].map(l=><div key={l} style={{borderTop:"1px solid #000",paddingTop:6,fontSize:11}}>{l}</div>)}</div>
 </div>;}
 
-function L({children}){return <p style={{margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#6b4c11"}}>{children}</p>;}
+function L({children}){return <p style={{margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#374151"}}>{children}</p>;}
 function HR(){return <div style={{borderTop:"1px solid #ecdba3",margin:"16px 0"}}/>;}
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
-function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#111827":accent?"#fff5f5":"#fff",color:highlight?"#e0b85a":"#111827",borderRadius:14,padding:"12px 14px",border:"1px solid "+(highlight?"transparent":accent?"#fca5a5":"#e6c977")}}><p style={{margin:0,fontSize:10,fontWeight:700,color:highlight?"#e0b85a":accent?"#b91c1c":"#6b4c11"}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:900}}>{value}</h3></div>;}
-function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
+function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#111827":accent?"#fef2f2":"#f9fafb",color:highlight?"#e0b85a":"#111827",borderRadius:14,padding:"12px 14px",border:"1px solid "+(highlight?"#374151":accent?"#fecaca":"#e5e7eb")}}><p style={{margin:0,fontSize:10,fontWeight:700,color:highlight?"#9ca3af":accent?"#dc2626":"#6b7280"}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:900,color:highlight?"#e0b85a":"#111827"}}>{value}</h3></div>;}
+function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
 function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"With Supervisor":{bg:"#e0f2fe",co:"#0369a1"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
 const S={
-  card:  {background:"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e6c977",boxShadow:"0 8px 28px rgba(0,0,0,0.08)",marginBottom:16},
+  card:  {background:"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e5e7eb",boxShadow:"0 4px 16px rgba(0,0,0,0.06)",marginBottom:16},
   ct:    {margin:"0 0 14px",fontSize:18,fontWeight:900},
-  sh:    {margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#6b4c11"},
-  navL:  {color:"#c9b077",margin:"12px 0 5px",fontSize:10,fontWeight:800,letterSpacing:1.5},
-  tab:   {padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:"#fff",color:"#111827",fontWeight:700,cursor:"pointer",fontSize:11},
-  tabA:  {padding:"9px 4px",borderRadius:10,border:"none",background:"#e0b85a",color:"#111827",fontWeight:900,cursor:"pointer",fontSize:11},
-  inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #c7b06a",background:"#fffdf7",color:"#111827",fontSize:13},
-  ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #c7b06a",background:"#fffdf7",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box"},
-  ta:    {width:"100%",boxSizing:"border-box",padding:"9px 12px",marginBottom:8,borderRadius:10,border:"1px solid #c7b06a",background:"#fffdf7",color:"#111827",minHeight:60,fontSize:13},
+  sh:    {margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#1f2937"},
+  navL:  {color:"#e0b85a",margin:"12px 0 5px",fontSize:10,fontWeight:800,letterSpacing:1.5},
+  tab:   {padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:"#fff",color:"#1f2937",fontWeight:700,cursor:"pointer",fontSize:11},
+  tabA:  {padding:"9px 4px",borderRadius:10,border:"none",background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:11},
+  inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:13},
+  ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box"},
+  ta:    {width:"100%",boxSizing:"border-box",padding:"9px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",minHeight:60,fontSize:13},
   r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},
-  btnP:  {width:"100%",padding:12,borderRadius:11,border:0,background:"#e0b85a",color:"#111827",fontWeight:900,cursor:"pointer",fontSize:13,marginBottom:6},
-  btnS:  {width:"100%",padding:10,borderRadius:11,border:"1px solid #e0b85a",background:"#fff4d8",color:"#111827",fontWeight:700,cursor:"pointer",marginBottom:6,fontSize:12},
+  btnP:  {width:"100%",padding:12,borderRadius:11,border:0,background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:13,marginBottom:6},
+  btnS:  {width:"100%",padding:10,borderRadius:11,border:"1px solid #d1d5db",background:"#f9fafb",color:"#1f2937",fontWeight:700,cursor:"pointer",marginBottom:6,fontSize:12},
   btnD:  {padding:"5px 11px",borderRadius:7,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:11},
-  navBtn:{padding:"4px 10px",borderRadius:7,border:0,background:"#f5e7c0",color:"#6b4c11",cursor:"pointer",fontWeight:700,fontSize:14},
-  li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fffaf2",border:"1px solid #ecdba3",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6},
-  liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fffaf2",border:"1px solid #ecdba3",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
+  navBtn:{padding:"4px 10px",borderRadius:7,border:"1px solid #e5e7eb",background:"#fff",color:"#111827",cursor:"pointer",fontWeight:700,fontSize:14},
+  li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6},
+  liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
   liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#111827",border:"none",color:"#e0b85a",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",fontWeight:900,textAlign:"left"},
-  tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8},
+  tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
   hlp:   {color:"#5c3d11",fontSize:11,margin:"2px 0"},
-  lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#6b4c11"},
+  lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#1f2937"},
 };
