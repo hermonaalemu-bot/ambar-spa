@@ -177,7 +177,17 @@ function markSvcStart(lineId){try{const k="ambar_svc_"+lineId;if(!localStorage.g
 function makeId(name,phone){const n=(name||"CUS").replace(/[^a-zA-Z]/g,"").slice(0,3).toUpperCase()||"CUS";const p=(phone||"0000").replace(/\D/g,"").slice(-4)||"0000";return n+"-"+p;}
 function lineGross(l){return Number(l.price||0)*Number(l.qty||1);}
 function lineIncome(l){if(l.free)return 0;return Math.max(0,lineGross(l)-Number(l.discount||0));}
-function lineComm(l){return Math.round((lineIncome(l)*Number(l.commission||0))/100);}
+function lineComm(l){
+  let base=lineIncome(l);
+  // For ከኛ braids: deduct wig (200) and/or gel (200) costs before commission
+  if(l.sub==="Braids"&&l.name&&l.name.includes("ከኛ")){
+    if(l.name.includes("ዊግ")||l.name.toLowerCase().includes("wig"))base=Math.max(0,base-200);
+    if(l.name.includes("ጄል")||l.name.toLowerCase().includes("gel"))base=Math.max(0,base-200);
+    // All ከኛ braids deduct both wig+gel if applicable
+    if(l.wigDeduction)base=Math.max(0,base-Number(l.wigDeduction));
+  }
+  return Math.round((base*Number(l.commission||0))/100);
+}
 function getPayPeriod(d){const dt=new Date(d||todayStr());const day=dt.getDate();let sy=dt.getFullYear(),sm=dt.getMonth();if(day<11){sm--;if(sm<0){sm=11;sy--;}}const s=new Date(sy,sm,11),e=new Date(sy,sm+1,10);const fmt=x=>x.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});return{start:s.toISOString().slice(0,10),end:e.toISOString().slice(0,10),label:fmt(s)+" - "+fmt(e)};}
 function toEthTime(t){if(!t)return"";const[h,m]=t.split(":").map(Number);let e=h-6;if(e<=0)e+=12;return e+":"+String(m).padStart(2,"0")+" "+(h<18?"ቀን":"ማታ");}
 function timeSlots(){const s=[];for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++)for(let m=0;m<60;m+=30)s.push(String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"));return s;}
@@ -493,18 +503,28 @@ export default function App(){
           r.push({visit:v,line:l});
       });
     });
-    // Sort by queue number so priority customers (lower number) appear first
-    r.sort((a,b)=>a.visit.queue-b.visit.queue);
+    // Sort: In Progress first, then by queue number (lower = registered earlier = priority)
+    // On Hold customers keep their queue number priority for when they become active
+    r.sort((a,b)=>{
+      const pa=a.line.status==="In Progress"?0:a.line.status==="On Hold"?2:1;
+      const pb=b.line.status==="In Progress"?0:b.line.status==="On Hold"?2:1;
+      if(pa!==pb)return pa-pb;
+      return a.visit.queue-b.visit.queue;
+    });
     return r;
   },[visits]);
   const empC=useMemo(()=>emps.map(emp=>{const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");return{...emp,commissionTotal:lines.reduce((s,l)=>s+lineComm(l),0),breakdown:lines.map(l=>({name:l.name,income:lineIncome(l),commission:lineComm(l)}))};}),[emps,visits,period]);
   const fCusts=custs.filter(c=>{const q=cSearch.toLowerCase().trim();if(!q)return true;return c.name.toLowerCase().includes(q)||c.phone.includes(q)||c.id.toLowerCase().includes(q);});
-  // Load bookings when tab changes to Bookings
+  // Load bookings when tab changes to Bookings OR on first load
   useEffect(()=>{
-    if(tab==="Bookings"){
-      supabase.from("bookings").select("*").order("date").order("time").then(({data,error})=>{
-        if(data&&data.length>=0)setBks(data.map(dbBk));
-      });
+    if(!user)return;
+    supabase.from("bookings").select("*").order("date").order("time")
+      .then(({data})=>{if(data)setBks(data.map(dbBk));});
+  },[user]);
+  useEffect(()=>{
+    if(tab==="Bookings"&&user){
+      supabase.from("bookings").select("*").order("date").order("time")
+        .then(({data})=>{if(data)setBks(data.map(dbBk));});
     }
   },[tab]);
 
@@ -572,7 +592,9 @@ export default function App(){
   async function addSvc(){
     if(!act)return alert("Select a customer first.");
     const s=svcs.find(s=>s.id===Number(svSvcId));if(!s)return alert("Select a service.");
-    const line={lineId:Date.now(),serviceId:s.id,name:s.name,category:s.category,sub:s.sub,price:Number(s.price),qty:1,discount:0,free:false,commission:Number(s.commission||0),employeeSection:s.employeeSection,employee:"",preferredEmployee:"",status:"Waiting"};
+    const isKegna=s.sub==="Braids"&&s.name&&s.name.includes("ከኛ");
+    const wigDed=isKegna?(s.name.includes("ጄል")?400:200):0;
+    const line={lineId:Date.now(),serviceId:s.id,name:s.name,category:s.category,sub:s.sub,price:Number(s.price),qty:1,discount:0,free:false,commission:Number(s.commission||0),employeeSection:s.employeeSection,employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:wigDed};
     const upd=[...act.services,line];
     const newTotal=upd.reduce((s,l)=>s+lineIncome(l),0);
     // Optimistic update — screen updates instantly
@@ -603,7 +625,7 @@ export default function App(){
       // Notify supervisor
       const unlocked=vis.services.filter(l=>l.lineId!==lid2&&l.status==="On Hold");
       if(unlocked.length>0){
-        push("⭐ "+vis.name+" finished "+line.name+" — now has PRIORITY for: "+unlocked.map(l=>l.name).join(", "),"success");
+        push("⭐ "+vis.name+" #"+vis.queue+" finished "+line.name+" — NEXT in line for: "+unlocked.map(l=>l.name).join(", ")+" (after any In Progress services finish)","success");
       }
       return;
     }
@@ -728,7 +750,7 @@ export default function App(){
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
         <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(t=><button key={t} style={tab===t?S.tabA:S.tab} onClick={()=>setTab(t)}>{t}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#94a3b8"}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(t=><button key={t} style={tab===t?{...S.tabA,background:"#1d4ed8",color:"#fff"}:{...S.tab,background:"#f1f5f9",color:"#374151",border:"1px solid #e2e8f0"}} onClick={()=>setTab(t)}>{t}</button>)}</div></>}</>
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(t=><button key={t} style={tab===t?{...S.tabA,background:"#1d4ed8",color:"#fff"}:{...S.tab,background:"#f1f5f9",color:"#374151",border:"1px solid #e2e8f0"}} onClick={()=>setTab(t)}>{t}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -795,22 +817,25 @@ export default function App(){
           <HR/><h3 style={S.sh}>🔄 Active Services</h3>
           {svcQ.length===0&&<p style={S.hlp}>No active queues.</p>}
           {svcs.map(svc=>{const rows=svcQ.filter(r=>r.line.serviceId===svc.id);if(!rows.length)return null;
-              const active=rows.filter(r=>!["On Hold"].includes(r.line.status));
+              const inProg=rows.filter(r=>r.line.status==="In Progress");
+              const waiting=rows.filter(r=>r.line.status==="Waiting");
               const onHold=rows.filter(r=>r.line.status==="On Hold");
-              return(<div key={svc.id} style={{background:"#fefaf0",border:"1px solid #ecdba3",borderRadius:12,padding:10,marginBottom:8}}>
+              return(<div key={svc.id} style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:10,marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                  <b style={{fontSize:13}}>{svc.name}</b>
-                  <span style={{...S.hlp}}>{active.length} active{onHold.length>0?" · "+onHold.length+" on hold":""}</span>
+                  <b style={{fontSize:13,color:"#111827"}}>{svc.name}</b>
+                  <span style={{fontSize:11,color:"#6b7280"}}>{inProg.length>0?inProg.length+" in progress · ":""}{waiting.length} waiting{onHold.length>0?" · "+onHold.length+" on hold":""}</span>
                 </div>
-                {active.map(({visit:vv,line})=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}>
-                  <span><b>#{vv.queue}</b> {vv.name}</span><span style={SB(line.status)}>{line.status}</span>
+                {inProg.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#eff6ff",border:"1px solid #bfdbfe"}} onClick={()=>setActId(vv.id)}>
+                  <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{background:"#1d4ed8",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>IN PROGRESS</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("In Progress")}>{line.status}</span>
                 </button>)}
-                {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #ecdba3"}}>
-                  <p style={{...S.hlp,marginBottom:4,fontWeight:700}}>⏸ On Hold (finishing another service)</p>
-                  {onHold.map(({visit:vv,line})=><div key={line.lineId} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:"#f3e8ff",borderRadius:8,marginBottom:3}}>
-                    <span style={{fontSize:12,color:"#6b21a8"}}><b>#{vv.queue}</b> {vv.name} — waiting to finish current service</span>
-                    <span style={SB("On Hold")}>On Hold</span>
-                  </div>)}
+                {waiting.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}>
+                  <span style={{display:"flex",alignItems:"center",gap:6}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#e0b85a",color:"#111827",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
+                </button>)}
+                {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #e5e7eb"}}>
+                  <p style={{fontSize:11,color:"#6b21a8",fontWeight:700,margin:"0 0 4px"}}>⏸ On Hold — will get priority when current service completes</p>
+                  {onHold.map(({visit:vv,line})=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#faf5ff",border:"1px solid #e9d5ff"}} onClick={()=>setActId(vv.id)}>
+                    <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{background:"#7c3aed",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>HOLD</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("On Hold")}>On Hold</span>
+                  </button>)}
                 </div>}
               </div>);})}
         </section>
@@ -880,7 +905,7 @@ export default function App(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10,marginBottom:14}}>
           <h2 style={{...S.ct,margin:0}}>Booking Management</h2>
           <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-            <EthPicker value={bkDate} onChange={setBkDate}/>
+            <EthPicker value={bkDate} onChange={setBkDate} minDate={todayStr()}/>
             {user.role!=="supervisor"&&<>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>🚶 Spa Walk-in</button>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:bkDate,time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>
@@ -894,7 +919,7 @@ export default function App(){
             <div><L>Customer Name *</L><input style={S.inp} value={wiName} onChange={e=>setWiName(e.target.value)} placeholder="Full name"/></div>
             <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={wiPhone} onChange={e=>setWiPhone(e.target.value)} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===wiPhone.trim());if(f)setWiName(f.name);}}>Recall</button></div></div>
             <div style={{gridColumn:"1/-1"}}><L>Spa Service *</L>
-              <select style={{...S.inp,background:wiSvcId?"#fffdf7":"#f0fdfa"}} value={wiSvcId} onChange={e=>setWiSvcId(e.target.value)}>
+              <select style={{...S.inp,background:"#fff",color:"#111827"}} value={wiSvcId} onChange={e=>setWiSvcId(e.target.value)}>
                 <option value="">— Select spa service —</option>
                 {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{const items=bkSvcs.filter(s=>s.sub===sub);if(!items.length)return null;return <optgroup key={sub} label={"── "+sub+" ──"}>{items.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)}</option>)}</optgroup>;})}
               </select>
@@ -912,7 +937,7 @@ export default function App(){
             <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={bkF.customerPhone} onChange={e=>setBkF(p=>({...p,customerPhone:e.target.value}))} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===bkF.customerPhone.trim());if(f)setBkF(p=>({...p,customerName:f.name}));}}>Recall</button></div></div>
             <div style={{gridColumn:"1/-1"}}>
               <L>Service * (Spa services only)</L>
-              <select style={{...S.inp,background:bkF.serviceId?"#fffdf7":"#fff9f0",borderColor:bkF.serviceId?"#c7b06a":"#e0b85a"}}
+              <select style={{...S.inp,background:"#fff",color:"#111827",borderColor:bkF.serviceId?"#111827":"#d1d5db"}}
                 value={String(bkF.serviceId||"")}
                 onChange={e=>{const sid=e.target.value;setBkF(p=>({...p,serviceId:sid}));if(sid){const warn=checkConflict(bks,{...bkF,serviceId:sid},svcs);setBkWarn(warn||"");}else setBkWarn("");}}>
                 <option value="">— To Be Confirmed (TBD) —</option>
@@ -1200,7 +1225,7 @@ ALTER TABLE visits ADD COLUMN IF NOT EXISTS registered_at timestamptz DEFAULT no
       </section>}
 
     </div>
-    <style>{"@media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}"}</style>
+    <style>{"@media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
   </div>);
 }
 
@@ -1216,7 +1241,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
           <div><b style={{fontSize:14}}>{line.name}</b>
             <p style={{color:"#5c3d11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
-            {line.commission>0&&<p style={{color:"#166534",fontSize:11,margin:"2px 0"}}>Commission {line.commission}% = {money(lineComm(line))}</p>}
+            {line.commission>0&&<p style={{color:"#166534",fontSize:11,margin:"2px 0"}}>Commission {line.commission}%{line.wigDeduction>0?" (after "+money(line.wigDeduction)+" material deduction)":""} = {money(lineComm(line))}</p>}
           </div>
           <div style={{display:"flex",gap:4}}>
                 {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
@@ -1295,8 +1320,8 @@ const S={
   navL:  {color:"#e0b85a",margin:"12px 0 5px",fontSize:10,fontWeight:800,letterSpacing:1.5},
   tab:   {padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:"#fff",color:"#1f2937",fontWeight:700,cursor:"pointer",fontSize:11},
   tabA:  {padding:"9px 4px",borderRadius:10,border:"none",background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:11},
-  inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:13},
-  ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box"},
+  inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:13,WebkitAppearance:"auto"},
+  ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box",WebkitAppearance:"auto"},
   ta:    {width:"100%",boxSizing:"border-box",padding:"9px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",minHeight:60,fontSize:13},
   r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},
   btnP:  {width:"100%",padding:12,borderRadius:11,border:0,background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:13,marginBottom:6},
