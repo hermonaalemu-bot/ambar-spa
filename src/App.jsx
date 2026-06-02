@@ -16,74 +16,77 @@ const FS=[
   {id:102,cat:"Barbershop",sub:"Hair",  name:"Child Haircut",price:300, cm:35,es:"Barbershop",bk:false,dm:20},
   {id:103,cat:"Barbershop",sub:"Beard", name:"Beard Trim",   price:200, cm:35,es:"Barbershop",bk:false,dm:20},
   // ── Beauty Salon: Nails ──────────────────────────────────
-  {id:201,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ፔዲኪዩር",price:1500,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:202,cat:"Beauty Salon",sub:"Nails",  name:"ኖርማል ፔዲኪዩር",price:1000,cm:0,es:"Beauty Salon",bk:false,dm:45},
-  {id:203,cat:"Beauty Salon",sub:"Nails",  name:"ማኒኪዩር",price:800,cm:0,es:"Beauty Salon",bk:false,dm:45},
-  {id:204,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ማኒኪዩር",price:1000,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:205,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ ማስለቀቅ",price:150,cm:0,es:"Beauty Salon",bk:false,dm:20},
-  {id:206,cat:"Beauty Salon",sub:"Nails",  name:"ጄል ማስለቀቅ",price:300,cm:0,es:"Beauty Salon",bk:false,dm:20},
-  {id:207,cat:"Beauty Salon",sub:"Nails",  name:"ጄል በሼላክ",price:1600,cm:0,es:"Beauty Salon",bk:false,dm:75},
-  {id:208,cat:"Beauty Salon",sub:"Nails",  name:"ጄል በሜታሊክ",price:1800,cm:0,es:"Beauty Salon",bk:false,dm:75},
-  {id:209,cat:"Beauty Salon",sub:"Nails",  name:"ልጥፍ በሼላክ",price:1200,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:210,cat:"Beauty Salon",sub:"Nails",  name:"ልጥፍ በሜታሊክ",price:1600,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:211,cat:"Beauty Salon",sub:"Nails",  name:"ልጥፍ በአምብራ",price:1600,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:212,cat:"Beauty Salon",sub:"Nails",  name:"ጄል በአምብራ",price:1800,cm:0,es:"Beauty Salon",bk:false,dm:75},
-  {id:213,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ",price:600,cm:0,es:"Beauty Salon",bk:false,dm:45},
-  {id:214,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ በሜታሊክ",price:800,cm:0,es:"Beauty Salon",bk:false,dm:45},
-  {id:215,cat:"Beauty Salon",sub:"Nails",  name:"ጄል",price:1100,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:216,cat:"Beauty Salon",sub:"Nails",  name:"በጥፍር ጄል በሼላክ",price:1300,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:217,cat:"Beauty Salon",sub:"Nails",  name:"አንድ ጣት ጄል",price:150,cm:0,es:"Beauty Salon",bk:false,dm:15},
-  {id:218,cat:"Beauty Salon",sub:"Nails",  name:"አንድ ጣት ልጥፍ",price:150,cm:0,es:"Beauty Salon",bk:false,dm:15},
-  {id:219,cat:"Beauty Salon",sub:"Nails",  name:"ሬፍል በሼላክ",price:1400,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:220,cat:"Beauty Salon",sub:"Nails",  name:"ሬፍል በሜታሊክ",price:1600,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:221,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍሬሮች (1)",price:10,cm:0,es:"Beauty Salon",bk:false,dm:5},
-  {id:222,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍሬሮች (2)",price:20,cm:0,es:"Beauty Salon",bk:false,dm:5},
-  {id:223,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍሬሮች (3)",price:30,cm:0,es:"Beauty Salon",bk:false,dm:5},
-  {id:224,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍላወር ትንሽ",price:10,cm:0,es:"Beauty Salon",bk:false,dm:10},
-  {id:225,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍላወር መካከለኛ",price:30,cm:0,es:"Beauty Salon",bk:false,dm:10},
-  {id:226,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍላወር ትልቅ",price:50,cm:0,es:"Beauty Salon",bk:false,dm:10},
+  {id:201,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ፔዲኪዩር",price:1500,cm:0,es:"Nails",bk:false,dm:60},
+  {id:202,cat:"Beauty Salon",sub:"Nails",  name:"ኖርማል ፔዲኪዩር",price:1000,cm:0,es:"Nails",bk:false,dm:45},
+  {id:203,cat:"Beauty Salon",sub:"Nails",  name:"ማኒኪዩር",price:800,cm:0,es:"Nails",bk:false,dm:45},
+  {id:204,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ማኒኪዩር",price:1000,cm:0,es:"Nails",bk:false,dm:60},
+  {id:205,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ ማስለቀቅ",price:150,cm:0,es:"Nails",bk:false,dm:20},
+  {id:206,cat:"Beauty Salon",sub:"Nails",  name:"ጄል ማስለቀቅ",price:300,cm:0,es:"Nails",bk:false,dm:20},
+  {id:207,cat:"Beauty Salon",sub:"Nails",  name:"ጄል በሼላክ",price:1600,cm:0,es:"Nails",bk:false,dm:75},
+  {id:208,cat:"Beauty Salon",sub:"Nails",  name:"ጄል በሜታሊክ",price:1800,cm:0,es:"Nails",bk:false,dm:75},
+  {id:209,cat:"Beauty Salon",sub:"Nails",  name:"ልጥፍ በሼላክ",price:1200,cm:0,es:"Nails",bk:false,dm:60},
+  {id:210,cat:"Beauty Salon",sub:"Nails",  name:"ልጥፍ በሜታሊክ",price:1600,cm:0,es:"Nails",bk:false,dm:60},
+  {id:211,cat:"Beauty Salon",sub:"Nails",  name:"ልጥፍ በአምብራ",price:1600,cm:0,es:"Nails",bk:false,dm:60},
+  {id:212,cat:"Beauty Salon",sub:"Nails",  name:"ጄል በአምብራ",price:1800,cm:0,es:"Nails",bk:false,dm:75},
+  {id:213,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ",price:600,cm:0,es:"Nails",bk:false,dm:45},
+  {id:214,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ በሜታሊክ",price:800,cm:0,es:"Nails",bk:false,dm:45},
+  {id:215,cat:"Beauty Salon",sub:"Nails",  name:"ጄል",price:1100,cm:0,es:"Nails",bk:false,dm:60},
+  {id:216,cat:"Beauty Salon",sub:"Nails",  name:"በጥፍር ጄል በሼላክ",price:1300,cm:0,es:"Nails",bk:false,dm:60},
+  {id:217,cat:"Beauty Salon",sub:"Nails",  name:"አንድ ጣት ጄል",price:150,cm:0,es:"Nails",bk:false,dm:15},
+  {id:218,cat:"Beauty Salon",sub:"Nails",  name:"አንድ ጣት ልጥፍ",price:150,cm:0,es:"Nails",bk:false,dm:15},
+  {id:219,cat:"Beauty Salon",sub:"Nails",  name:"ሬፍል በሼላክ",price:1400,cm:0,es:"Nails",bk:false,dm:60},
+  {id:220,cat:"Beauty Salon",sub:"Nails",  name:"ሬፍል በሜታሊክ",price:1600,cm:0,es:"Nails",bk:false,dm:60},
+  {id:221,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍሬሮች (1)",price:10,cm:0,es:"Nails",bk:false,dm:5},
+  {id:222,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍሬሮች (2)",price:20,cm:0,es:"Nails",bk:false,dm:5},
+  {id:223,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍሬሮች (3)",price:30,cm:0,es:"Nails",bk:false,dm:5},
+  {id:224,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍላወር ትንሽ",price:10,cm:0,es:"Nails",bk:false,dm:10},
+  {id:225,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍላወር መካከለኛ",price:30,cm:0,es:"Nails",bk:false,dm:10},
+  {id:226,cat:"Beauty Salon",sub:"Nails",  name:"የጥፍር ፍላወር ትልቅ",price:50,cm:0,es:"Nails",bk:false,dm:10},
   // ── Beauty Salon: Braids ─────────────────────────────────
-  {id:301,cat:"Beauty Salon",sub:"Braids", name:"ስፌት",price:800,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:302,cat:"Beauty Salon",sub:"Braids", name:"ሸሩባ በጎጥር + ጄል",price:700,cm:10,es:"Beauty Salon",bk:false,dm:60},
-  {id:303,cat:"Beauty Salon",sub:"Braids", name:"ቁጥርጥር በጎጥር",price:500,cm:10,es:"Beauty Salon",bk:false,dm:45},
-  {id:304,cat:"Beauty Salon",sub:"Braids", name:"ቁጥርጥር በ1 ዊግ (ከኛ በወፍራም)",price:800,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:305,cat:"Beauty Salon",sub:"Braids", name:"ቁጥርጥር በ1 ዊግ (ከነሱ በወፍራም)",price:600,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:306,cat:"Beauty Salon",sub:"Braids", name:"ቁጥርጥር በ1 ዊግ (ከኛ በቁጭን)",price:900,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:307,cat:"Beauty Salon",sub:"Braids", name:"ቁጥርጥር በ1 ዊግ (ከነሱ በቁጭን)",price:600,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:308,cat:"Beauty Salon",sub:"Braids", name:"ቦሃ ብሬድ ከኛ (ፍሬዝ)",price:1300,cm:10,es:"Beauty Salon",bk:false,dm:120},
-  {id:309,cat:"Beauty Salon",sub:"Braids", name:"ቦሃ ብሬድ ከነሱ",price:600,cm:10,es:"Beauty Salon",bk:false,dm:120},
-  {id:310,cat:"Beauty Salon",sub:"Braids", name:"ፍሬንች ከርል ከኛ",price:1000,cm:10,es:"Beauty Salon",bk:false,dm:120},
-  {id:311,cat:"Beauty Salon",sub:"Braids", name:"ፍሬንች ከርል ከነሱ",price:600,cm:10,es:"Beauty Salon",bk:false,dm:120},
-  {id:312,cat:"Beauty Salon",sub:"Braids", name:"ትዌስት በጎጥር",price:600,cm:10,es:"Beauty Salon",bk:false,dm:60},
-  {id:313,cat:"Beauty Salon",sub:"Braids", name:"ትዌስት በጎጥር + ጄል",price:700,cm:10,es:"Beauty Salon",bk:false,dm:75},
-  {id:314,cat:"Beauty Salon",sub:"Braids", name:"ትዌስት በ1 ዊግ (ከኛ በወፍራም)",price:900,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:315,cat:"Beauty Salon",sub:"Braids", name:"ትዌስት በ1 ዊግ (ከኛ በቁጭን)",price:1000,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:316,cat:"Beauty Salon",sub:"Braids", name:"ትዌስት በ1 ዊግ (ከነሱ በወፍራም)",price:600,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:317,cat:"Beauty Salon",sub:"Braids", name:"ትዌስት በ1 ዊግ (ከነሱ በቁጭን)",price:700,cm:10,es:"Beauty Salon",bk:false,dm:90},
-  {id:318,cat:"Beauty Salon",sub:"Braids", name:"ሒይማን እቡት",price:300,cm:10,es:"Beauty Salon",bk:false,dm:30},
-  {id:319,cat:"Beauty Salon",sub:"Braids", name:"ስዋስዋ ስፌት",price:1000,cm:10,es:"Beauty Salon",bk:false,dm:120},
-  {id:320,cat:"Beauty Salon",sub:"Braids", name:"ሒይማን መፍቻ",price:200,cm:0,es:"Beauty Salon",bk:false,dm:20},
-  {id:321,cat:"Beauty Salon",sub:"Braids", name:"ካንቱ ፍሬዝ በሒይማን",price:700,cm:0,es:"Beauty Salon",bk:false,dm:30},
-  {id:322,cat:"Beauty Salon",sub:"Braids", name:"ኮንዶቤት ፍሬዝ ከኛ",price:700,cm:0,es:"Beauty Salon",bk:false,dm:30},
-  {id:323,cat:"Beauty Salon",sub:"Braids", name:"½ ስፌት ½ ሸሩባ",price:1500,cm:10,es:"Beauty Salon",bk:false,dm:120},
+  {id:301,cat:"Beauty Salon",sub:"Braids",name:"ስፌት",price:800,cm:10,es:"Braids",bk:false,dm:90},
+  {id:302,cat:"Beauty Salon",sub:"Braids",name:"ሸሩባ በጎጥር + ጄል",price:700,cm:10,es:"Braids",bk:false,dm:60},
+  {id:303,cat:"Beauty Salon",sub:"Braids",name:"ቁጥርጥር በጎጥር",price:500,cm:10,es:"Braids",bk:false,dm:45},
+  {id:304,cat:"Beauty Salon",sub:"Braids",name:"ቁጥርጥር በ1 ዊግ (ከኛ በወፍራም)",price:800,cm:10,es:"Braids",bk:false,dm:90},
+  {id:305,cat:"Beauty Salon",sub:"Braids",name:"ቁጥርጥር በ1 ዊግ (ከነሱ በወፍራም)",price:600,cm:10,es:"Braids",bk:false,dm:90},
+  {id:306,cat:"Beauty Salon",sub:"Braids",name:"ቁጥርጥር በ1 ዊግ (ከኛ በቁጭን)",price:900,cm:10,es:"Braids",bk:false,dm:90},
+  {id:307,cat:"Beauty Salon",sub:"Braids",name:"ቁጥርጥር በ1 ዊግ (ከነሱ በቁጭን)",price:600,cm:10,es:"Braids",bk:false,dm:90},
+  {id:308,cat:"Beauty Salon",sub:"Braids",name:"ቦሃ ብሬድ ከኛ (ፍሬዝ)",price:1300,cm:10,es:"Braids",bk:false,dm:120},
+  {id:309,cat:"Beauty Salon",sub:"Braids",name:"ቦሃ ብሬድ ከነሱ",price:600,cm:10,es:"Braids",bk:false,dm:120},
+  {id:310,cat:"Beauty Salon",sub:"Braids",name:"ፍሬንች ከርል ከኛ",price:1000,cm:10,es:"Braids",bk:false,dm:120},
+  {id:311,cat:"Beauty Salon",sub:"Braids",name:"ፍሬንች ከርል ከነሱ",price:600,cm:10,es:"Braids",bk:false,dm:120},
+  {id:312,cat:"Beauty Salon",sub:"Braids",name:"ትዌስት በጎጥር",price:600,cm:10,es:"Braids",bk:false,dm:60},
+  {id:313,cat:"Beauty Salon",sub:"Braids",name:"ትዌስት በጎጥር + ጄል",price:700,cm:10,es:"Braids",bk:false,dm:75},
+  {id:314,cat:"Beauty Salon",sub:"Braids",name:"ትዌስት በ1 ዊግ (ከኛ በወፍራም)",price:900,cm:10,es:"Braids",bk:false,dm:90},
+  {id:315,cat:"Beauty Salon",sub:"Braids",name:"ትዌስት በ1 ዊግ (ከኛ በቁጭን)",price:1000,cm:10,es:"Braids",bk:false,dm:90},
+  {id:316,cat:"Beauty Salon",sub:"Braids",name:"ትዌስት በ1 ዊግ (ከነሱ በወፍራም)",price:600,cm:10,es:"Braids",bk:false,dm:90},
+  {id:317,cat:"Beauty Salon",sub:"Braids",name:"ትዌስት በ1 ዊግ (ከነሱ በቁጭን)",price:700,cm:10,es:"Braids",bk:false,dm:90},
+  {id:318,cat:"Beauty Salon",sub:"Braids",name:"ሒይማን እቡት",price:300,cm:10,es:"Braids",bk:false,dm:30},
+  {id:319,cat:"Beauty Salon",sub:"Braids",name:"ስዋስዋ ስፌት",price:1000,cm:10,es:"Braids",bk:false,dm:120},
+  {id:320,cat:"Beauty Salon",sub:"Braids",name:"ሒይማን መፍቻ",price:200,cm:0,es:"Nails",bk:false,dm:20},
+  {id:321,cat:"Beauty Salon",sub:"Braids",name:"ካንቱ ፍሬዝ በሒይማን",price:700,cm:0,es:"Nails",bk:false,dm:30},
+  {id:322,cat:"Beauty Salon",sub:"Braids",name:"ኮንዶቤት ፍሬዝ ከኛ",price:700,cm:0,es:"Nails",bk:false,dm:30},
+  {id:323,cat:"Beauty Salon",sub:"Braids",name:"½ ስፌት ½ ሸሩባ",price:1500,cm:10,es:"Braids",bk:false,dm:120},
+  // ── Beauty Salon: Materials (deducted from braid commission) ───
+  {id:291,cat:"Beauty Salon",sub:"Materials",name:"ዊግ (ከኛ)",  price:200,cm:0,es:"Braids",bk:false,dm:5},
+  {id:292,cat:"Beauty Salon",sub:"Materials",name:"ጄል (ከኛ)",  price:200,cm:0,es:"Braids",bk:false,dm:5},
   // ── Beauty Salon: Wigs ──────────────────────────────────
   {id:401,cat:"Beauty Salon",sub:"Wigs",   name:"ኪነኛ ዊግ",  price:300, cm:0,es:"Beauty Salon",bk:false,dm:30},
-  {id:402,cat:"Beauty Salon",sub:"Wigs",   name:"ሉኣም ዊግ",  price:3000,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:403,cat:"Beauty Salon",sub:"Wigs",   name:"ወተአ ዊግ",  price:2500,cm:0,es:"Beauty Salon",bk:false,dm:60},
-  {id:404,cat:"Beauty Salon",sub:"Wigs",   name:"አልባሰ",          price:2000,cm:0,es:"Beauty Salon",bk:false,dm:120},
-  {id:405,cat:"Beauty Salon",sub:"Wigs",   name:"ጎሜ",                      price:2000,cm:0,es:"Beauty Salon",bk:false,dm:90},
+  {id:402,cat:"Beauty Salon",sub:"Wigs",   name:"ሉኣም ዊግ",  price:3000,cm:0,es:"Nails",bk:false,dm:60},
+  {id:403,cat:"Beauty Salon",sub:"Wigs",   name:"ወተአ ዊግ",  price:2500,cm:0,es:"Nails",bk:false,dm:60},
+  {id:404,cat:"Beauty Salon",sub:"Wigs",   name:"አልባሰ",          price:2000,cm:0,es:"Nails",bk:false,dm:120},
+  {id:405,cat:"Beauty Salon",sub:"Wigs",   name:"ጎሜ",                      price:2000,cm:0,es:"Nails",bk:false,dm:90},
   // ── Beauty Salon: Eyebrow ──────────────────────────────
-  {id:501,cat:"Beauty Salon",sub:"Eyebrow",name:"ቅንድብ ሂና",            price:400,cm:0,es:"Beauty Salon",bk:false,dm:30},
-  {id:502,cat:"Beauty Salon",sub:"Eyebrow",name:"ቅንድብ በከር",       price:200,cm:0,es:"Beauty Salon",bk:false,dm:15},
-  {id:503,cat:"Beauty Salon",sub:"Eyebrow",name:"ቅንድብ በምላጩ", price:100,cm:0,es:"Beauty Salon",bk:false,dm:10},
+  {id:501,cat:"Beauty Salon",sub:"Eyebrow",name:"ቅንድብ ሂና",            price:400,cm:0,es:"Nails",bk:false,dm:30},
+  {id:502,cat:"Beauty Salon",sub:"Eyebrow",name:"ቅንድብ በከር",       price:200,cm:0,es:"Nails",bk:false,dm:15},
+  {id:503,cat:"Beauty Salon",sub:"Eyebrow",name:"ቅንድብ በምላጩ", price:100,cm:0,es:"Nails",bk:false,dm:10},
   // ── Beauty Salon: Wax ───────────────────────────────────
   {id:601,cat:"Beauty Salon",sub:"Wax",name:"አፈር ሊፕ",                    price:250, cm:0,es:"Beauty Salon",bk:false,dm:15},
-  {id:602,cat:"Beauty Salon",sub:"Wax",name:"አንደር አርም ዋክስ",price:350,cm:0,es:"Beauty Salon",bk:false,dm:20},
-  {id:603,cat:"Beauty Salon",sub:"Wax",name:"ፊል ላግ ዋክስ",        price:1900,cm:0,es:"Beauty Salon",bk:false,dm:45},
-  {id:604,cat:"Beauty Salon",sub:"Wax",name:"1/2 ላግ ዋክስ",                price:1000,cm:0,es:"Beauty Salon",bk:false,dm:30},
-  {id:605,cat:"Beauty Salon",sub:"Wax",name:"እጀ ምሉ ዋክስ",        price:1300,cm:0,es:"Beauty Salon",bk:false,dm:30},
+  {id:602,cat:"Beauty Salon",sub:"Wax",name:"አንደር አርም ዋክስ",price:350,cm:0,es:"Nails",bk:false,dm:20},
+  {id:603,cat:"Beauty Salon",sub:"Wax",name:"ፊል ላግ ዋክስ",        price:1900,cm:0,es:"Nails",bk:false,dm:45},
+  {id:604,cat:"Beauty Salon",sub:"Wax",name:"1/2 ላግ ዋክስ",                price:1000,cm:0,es:"Nails",bk:false,dm:30},
+  {id:605,cat:"Beauty Salon",sub:"Wax",name:"እጀ ምሉ ዋክስ",        price:1300,cm:0,es:"Nails",bk:false,dm:30},
   {id:606,cat:"Beauty Salon",sub:"Wax",name:"1/2 አርም ዋክስ",           price:600, cm:0,es:"Beauty Salon",bk:false,dm:20},
-  {id:607,cat:"Beauty Salon",sub:"Wax",name:"ጢኪኒ ዋክስ",               price:2000,cm:0,es:"Beauty Salon",bk:false,dm:30},
+  {id:607,cat:"Beauty Salon",sub:"Wax",name:"ጢኪኒ ዋክስ",               price:2000,cm:0,es:"Nails",bk:false,dm:30},
   // ── Spa: Moroccan Bath ─────────────────────────────────
   {id:701,cat:"Spa",sub:"Moroccan Bath",name:"Morocco Bath",price:2800,cm:10,es:"Spa",bk:true,dm:120},
   {id:702,cat:"Spa",sub:"Moroccan Bath",name:"Morocco Bath + Maize Powder & Honey",price:3000,cm:10,es:"Spa",bk:true,dm:120},
@@ -115,19 +118,56 @@ const FS=[
 ];
 const FULL_SERVICES=FS.map(s=>({id:s.id,category:s.cat,sub:s.sub,name:s.name,price:s.price,commission:s.cm,employeeSection:s.es,bookable:s.bk,durationMins:s.dm}));
 const DEFAULT_EMPLOYEES=[
-  {id:1,name:"Andom",          section:"Barbershop",  salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01"},
-  {id:2,name:"Haftom",         section:"Barbershop",  salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01"},
-  {id:3,name:"Beauty Staff 1", section:"Beauty Salon",salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01"},
-  {id:4,name:"Nail Staff 1",   section:"Beauty Salon",salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01"},
-  {id:5,name:"Spa Therapist 1",section:"Spa",         salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01"},
+  // Barbershop
+  {id:1, name:"አንዶም",   section:"Barbershop",  role:"Barber",         salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:2, name:"ሃፍቶም",   section:"Barbershop",  role:"Barber",         salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:3, name:"ሮዛ",     section:"Barbershop",  role:"Hair Specialist", salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  // Nails
+  {id:4, name:"Danawit", section:"Nails",       role:"Nail Artist",    salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:5, name:"Etsub",   section:"Nails",       role:"Nail Artist",    salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:6, name:"Rita",    section:"Nails",       role:"Nail Artist",    salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  // Wash & Pedicure
+  {id:7, name:"ኩሪ",     section:"Wash & Pedicure",role:"Washer/Pedicure",salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:8, name:"ማሬ",     section:"Wash & Pedicure",role:"Washer/Pedicure",salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  // Braids & Sewings
+  {id:9, name:"አባይ",    section:"Braids",      role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:10,name:"ምንትዋብ",  section:"Braids",      role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:11,name:"ሜሮን",    section:"Braids",      role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:12,name:"የማርያም",  section:"Braids",      role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:13,name:"መድሃኒት",  section:"Braids",      role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  // Hair Stylists
+  {id:14,name:"Nati",    section:"Hair Styling",role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:15,name:"Haileab", section:"Hair Styling",role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:16,name:"Sami",    section:"Hair Styling",role:"Stylist",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  // Spa
+  {id:17,name:"Beti",    section:"Spa",         role:"Spa Therapist",  salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:18,name:"Banchi",  section:"Spa",         role:"Spa Therapist",  salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:19,name:"Lidya",   section:"Spa",         role:"Spa Therapist",  salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  // Management & Support
+  {id:20,name:"Mimi",    section:"Reception",   role:"Receptionist",   salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:21,name:"Beza",    section:"Reception",   role:"Receptionist",   salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:22,name:"Sosina",  section:"Management",  role:"Supervisor",     salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:23,name:"ሜሮን",    section:"Management",  role:"Manager",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:24,name:"ሰላም",    section:"Management",  role:"Assistant",      salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:25,name:"Janitor 1",section:"Management", role:"Janitor",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
+  {id:26,name:"Janitor 2",section:"Management", role:"Janitor",        salary:0,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",active:true,hireDate:"2024-01-01",dayOff:null,onLeave:false},
 ];
+const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const EMP_SECTIONS=["Barbershop","Nails","Wash & Pedicure","Braids","Hair Styling","Spa","Reception","Management"];
 
 // Ethiopian Calendar
 const ETH_MONTHS=["መስከረም","ጥቅምት","ህዳር","ታህሳስ","ጥር","የካቲት","መጋቢት","ሚያዚያ","ግንቦት","ሰኔ","ሐምሌ","ነሃሴ","ጳጉሜ"];
-function gregToEth(g){if(!g)return{y:2016,m:1,d:1};const d=new Date(g);const jdn=Math.floor(d.getTime()/86400000)+2440588;const r=jdn-1723856;const n=Math.floor(r/1461);const r2=r%1461;const m2=Math.floor(r2/365);const rem=r2-(m2<4?m2*365:4*365);return{y:4*n+m2+(r2%365===0&&m2===4?-1:0),m:Math.min(Math.floor(rem/30)+1,13),d:Math.min(rem%30+1,30)};}
-function ethToGreg(ey,em,ed){const jdn=1723856+(ey-1)*365+Math.floor(ey/4)+(em-1)*30+ed;const l=jdn+68569;const n=Math.floor(4*l/146097);const l2=l-Math.floor((146097*n+3)/4);const i=Math.floor(4000*(l2+1)/1461001);const l3=l2-Math.floor(1461*i/4)+31;const j=Math.floor(80*l3/2447);const dd=l3-Math.floor(2447*j/80);const l4=Math.floor(j/11);return`${100*(n-49)+i+l4}-${String(j+2-12*l4).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;}
+function gregToEth(g){if(!g)return{y:2016,m:1,d:1};const s=(g||'').slice(0,10);const d=new Date(s+'T12:00:00Z');const jdn=Math.floor(d.getTime()/86400000)+2440588;const r=jdn-1723856;const n=Math.floor(r/1461);const r2=r%1461;const m2=Math.floor(r2/365);const rem=r2-(m2<4?m2*365:4*365);return{y:4*n+m2+(r2%365===0&&m2===4?-1:0),m:Math.min(Math.floor(rem/30)+1,13),d:Math.min(rem%30+1,30)};}
+function ethToGreg(ey,em,ed){const jdn=1723856+(ey-1)*365+Math.floor(ey/4)+(em-1)*30+ed;const l=jdn+68569;const n=Math.floor(4*l/146097);const l2=l-Math.floor((146097*n+3)/4);const i=Math.floor(4000*(l2+1)/1461001);const l3=l2-Math.floor(1461*i/4)+31;const j=Math.floor(80*l3/2447);const dd=l3-Math.floor(2447*j/80);const l4=Math.floor(j/11);const yr=100*(n-49)+i+l4;const mo=j+2-12*l4;const dt=new Date(Date.UTC(yr,mo-1,dd));return dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');}
 
 function todayStr(){return new Date().toISOString().slice(0,10);}
+function todayDow(){return new Date().getDay();} // 0=Sun,1=Mon...6=Sat
+function isEmpAvailableToday(emp){
+  if(!emp.active)return false;
+  if(emp.onLeave)return false;
+  if(emp.dayOff!==null&&emp.dayOff!==undefined&&emp.dayOff===todayDow())return false;
+  return true;
+}
 function money(n){return Number(n||0).toLocaleString()+" Birr";}
 // Wait time tracking using localStorage (no DB column needed)
 function markArrival(id){try{const k="ambar_arr_"+id;if(!localStorage.getItem(k))localStorage.setItem(k,Date.now());}catch(e){}}
@@ -208,7 +248,7 @@ function checkConflict(bks,form,svcs){
 const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
 const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
-const dbEmp=r=>({id:r.id,name:r.name,section:r.section,salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date});
+const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
 const dbVis=r=>({id:r.id,date:(r.date||'').slice(0,10),queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||r.created_at||null});
 const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||"",qty:Number(r.qty),unit:Number(r.unit),total:Number(r.total)});
@@ -217,12 +257,12 @@ const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
 function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
 
-function EthPicker({value,onChange,label}){
+function EthPicker({value,onChange,label,...props}){
   const e=gregToEth(value||todayStr());
   const[ey,setEy]=useState(e.y);const[em,setEm]=useState(e.m);const[ed,setEd]=useState(e.d);const[show,setShow]=useState(false);
   const greg=value?new Date(value).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"";
   useEffect(()=>{const e=gregToEth(value||todayStr());setEy(e.y);setEm(e.m);setEd(e.d);},[value]);
-  function pick(y,m,d){onChange(ethToGreg(y,m,d));setShow(false);}
+  function pick(y,m,d){const g=ethToGreg(y,m,d);if(props.minDate&&g<props.minDate)return;onChange(g);setShow(false);}
   return <div style={{position:"relative",marginBottom:8}}>
     {label&&<p style={S.lbl}>{label}</p>}
     <div style={{display:"flex",gap:6}}>
@@ -239,7 +279,7 @@ function EthPicker({value,onChange,label}){
         {["እሁ","ሰኞ","ማክ","ረቡ","ሐሙ","አርብ","ቅዳ"].map(d=><div key={d} style={{textAlign:"center",fontSize:9,fontWeight:800,color:"#6b4c11",padding:"2px 0"}}>{d}</div>)}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-        {Array.from({length:em===13?6:30},(_,i)=>i+1).map(d=><button key={d} onClick={()=>pick(ey,em,d)} style={{padding:"5px 3px",borderRadius:7,border:"none",background:d===ed?"#e0b85a":"#f9f5eb",fontWeight:d===ed?900:400,cursor:"pointer",fontSize:12}}>{d}</button>)}
+        {Array.from({length:em===13?6:30},(_,i)=>i+1).map(d=>{const g=ethToGreg(ey,em,d);const isPast=props.minDate&&g<props.minDate;return <button key={d} onClick={()=>!isPast&&pick(ey,em,d)} style={{padding:"5px 3px",borderRadius:7,border:"none",background:d===ed?"#e0b85a":isPast?"#f3f4f6":"#f9f5eb",fontWeight:d===ed?900:400,cursor:isPast?"not-allowed":"pointer",fontSize:12,color:isPast?"#d1d5db":"inherit",textDecoration:isPast?"line-through":"none"}}>{d}</button>;})}
       </div>
       <div style={{display:"flex",gap:6,marginTop:8}}>
         <input type="number" value={ey} onChange={e=>setEy(Number(e.target.value))} style={{...S.ii,width:70}}/>
@@ -274,7 +314,7 @@ export default function App(){
   const[newCat,setNewCat]=useState("");
   const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});
   const[svcF,setSvcF]=useState("All");
-  const[nEmp,setNEmp]=useState({name:"",section:DC[0],salary:"",hireDate:todayStr()});
+  const[nEmp,setNEmp]=useState({name:"",section:EMP_SECTIONS[0]||DC[0],role:"",salary:"",hireDate:todayStr()});
   const[showFired,setShowFired]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});
@@ -404,7 +444,7 @@ export default function App(){
       if(cc===0){
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
         await supabase.from("services").insert(FULL_SERVICES.map(s=>({id:s.id,category:s.category,sub:s.sub,name:s.name,price:s.price,commission:s.commission,employee_section:s.employeeSection,bookable:s.bookable,duration_mins:s.durationMins})));
-        await supabase.from("employees").insert(DEFAULT_EMPLOYEES.map(e=>({id:e.id,name:e.name,section:e.section,salary:0,absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:e.hireDate})));
+        await supabase.from("employees").insert(DEFAULT_EMPLOYEES.map(e=>({id:e.id,name:e.name,section:e.section,role:e.role||'',salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,day_off:e.dayOff??null,on_leave:false})));
         await loadAll();
       }
       const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
@@ -445,6 +485,15 @@ export default function App(){
   },[visits]);
   const empC=useMemo(()=>emps.map(emp=>{const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");return{...emp,commissionTotal:lines.reduce((s,l)=>s+lineComm(l),0),breakdown:lines.map(l=>({name:l.name,income:lineIncome(l),commission:lineComm(l)}))};}),[emps,visits,period]);
   const fCusts=custs.filter(c=>{const q=cSearch.toLowerCase().trim();if(!q)return true;return c.name.toLowerCase().includes(q)||c.phone.includes(q)||c.id.toLowerCase().includes(q);});
+  // Load bookings when tab changes to Bookings
+  useEffect(()=>{
+    if(tab==="Bookings"){
+      supabase.from("bookings").select("*").order("date").order("time").then(({data,error})=>{
+        if(data&&data.length>=0)setBks(data.map(dbBk));
+      });
+    }
+  },[tab]);
+
   const todayBk=useMemo(()=>{
     // Normalize date comparison - strip time portion if present
     const normalize=d=>(d||"").slice(0,10);
@@ -513,10 +562,10 @@ export default function App(){
     const upd=[...act.services,line];
     const newTotal=upd.reduce((s,l)=>s+lineIncome(l),0);
     // Optimistic update — screen updates instantly
-    setVisits(prev=>prev.map(v=>v.id===act.id?{...v,services:upd,totalService:newTotal,status:"In Service"}:v));
+    setVisits(prev=>prev.map(v=>v.id===act.id?{...v,services:upd,totalService:newTotal,status:"With Supervisor"}:v));
     setSvSvcId("");
     // Save in background with retry
-    await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal,status:"In Service"}).eq("id",act.id));
+    await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal,status:"With Supervisor"}).eq("id",act.id));
   }
   async function updLine(vid,lid2,f,v){
     const vis=visits.find(x=>x.id===vid);if(!vis)return;
@@ -531,7 +580,6 @@ export default function App(){
         if(dur)logAct(user,"Service completed",line.name+" by "+emp+" — "+dur+" min (expected "+(line.durationMins||"?")+"min)");
       }
       // Unlock: any "On Hold" services for this customer → set to Waiting
-      // This gives them priority since their queue number is preserved
       const upd=vis.services.map(l=>{
         if(l.lineId===lid2)return{...l,status:"Completed"};
         if(l.status==="On Hold")return{...l,status:"Waiting"};
@@ -555,7 +603,9 @@ export default function App(){
         if(l.status==="Waiting")return{...l,status:"On Hold"};
         return l;
       });
-      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
+      const hasInProgress=upd.some(l=>l.status==="In Progress");
+      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0),status:hasInProgress?"In Service":"With Supervisor"}).eq("id",vid);
+      setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd,status:hasInProgress?"In Service":"With Supervisor"}:v));
       return;
     }
 
@@ -584,15 +634,15 @@ export default function App(){
   function addTip(){if(!tipEmp||!tipAmt)return alert("Select employee and enter amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
   async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" "+payM);setTips([]);setActId(null);}
   async function saveBk(){
-    const sid=Number(bkF.serviceId);
-    const s=svcs.find(sv=>sv.id===sid&&sv.bookable===true);
-    if(!bkF.customerName.trim()||!bkF.customerPhone.trim()||!sid||!s||!bkF.date||!bkF.time)return alert("Please fill all fields and select a service.");
+    const sid=Number(bkF.serviceId)||0;
+    const s=sid?svcs.find(sv=>sv.id===sid&&sv.bookable===true):null;
+    if(!bkF.customerName.trim()||!bkF.customerPhone.trim()||!bkF.date||!bkF.time)return alert("Please fill customer name, phone, date and time.");
     const warn=checkConflict(bks,bkF,svcs);
     if(warn&&!window.confirm(warn+"\n\nProceed anyway?"))return;
     setSaving(true);
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
-    const row={id:editBk?.id||Date.now(),date:(bkF.date||'').slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid,service_name:s.name,service_category:s.category,duration_mins:s.durationMins,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
+    const row={id:editBk?.id||Date.now(),date:(bkF.date||'').slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
     if(editBk)await supabase.from("bookings").update(row).eq("id",editBk.id);
     else await supabase.from("bookings").insert(row);
     logAct(user,editBk?"Edited booking":"New booking",bkF.customerName+" — "+s.name);
@@ -627,8 +677,8 @@ export default function App(){
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};await supabase.from("services").insert(r);setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
   async function updSvc(id,f,v){const df=f==="employeeSection"?"employee_section":f==="durationMins"?"duration_mins":f;const val=["price","commission","durationMins"].includes(f)?Number(v)||0:f==="bookable"?v:v;setSvcs(p=>p.map(s=>s.id===id?{...s,[f]:val}:s));clearTimeout(dRef.current[id+f]);dRef.current[id+f]=setTimeout(async()=>await supabase.from("services").update({[df]:val}).eq("id",id),800);}
   async function delSvc(id){if(!window.confirm("Remove this service?"))return;await supabase.from("services").delete().eq("id",id);setSvcs(p=>p.filter(s=>s.id!==id));}
-  async function addEmp(){if(!nEmp.name.trim()||!nEmp.salary)return alert("Enter name and salary.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate};await supabase.from("employees").insert(r);setEmps(p=>[...p,dbEmp(r)]);setNEmp({name:"",section:DC[0],salary:"",hireDate:todayStr()});}
-  async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote"].includes(f)?v:Number(v)||0;setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>await supabase.from("employees").update({[df]:val}).eq("id",id),800);}
+  async function addEmp(){if(!nEmp.name.trim()||!nEmp.salary)return alert("Enter name and salary.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};await supabase.from("employees").insert(r);setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
+  async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Number(v)||0;setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>await supabase.from("employees").update({[df]:val}).eq("id",id),800);}
   async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;await supabase.from("employees").update({active}).eq("id",id);setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
   async function closePeriod(){if(!window.confirm("Close pay period "+period.label+"?"))return;const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});for(const e of emps)await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));logAct(user,"Closed period",period.label);alert("Period closed.");}
   async function saveStaff(){if(!nStaff.id.trim()||!nStaff.name.trim()||!nStaff.password.trim())return alert("Fill all fields.");const r={id:nStaff.id.trim().toLowerCase(),name:nStaff.name.trim(),role:nStaff.role,password:nStaff.password.trim(),active:true};await supabase.from("staff").upsert(r);setStaff(p=>{const i=p.findIndex(s=>s.id===r.id);if(i>=0){const n=[...p];n[i]=r;return n;}return[...p,r];});logAct(user,"Staff saved",r.name);setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);alert("Saved.");}
@@ -685,6 +735,7 @@ export default function App(){
           {todayV.map((v,idx)=>{
             const activeAhead=todayV.slice(0,idx).filter(x=>!["Paid & Closed","Cancelled"].includes(x.status)).length;
             const isInProgress=v.status==="In Service"||v.services.some(l=>l.status==="In Progress");
+            const isWithSupervisor=v.status==="With Supervisor";
             const isWaiting=v.status==="Waiting for Supervisor"||v.status==="In Service"&&v.services.every(l=>l.status==="Waiting"||l.status==="Completed"||l.status==="Cancelled");
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
             return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#d1d5db":isInProgress?"#1e40af":"#e0b85a"),background:isDone?"#f9fafb":isInProgress?"#eff6ff":"#fffaf2"}}>
@@ -692,6 +743,7 @@ export default function App(){
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
                   <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
                   {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🔄 In Progress</span>}
+                  {isWithSupervisor&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
                   {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
                   {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>💳 Ready</span>}
                   {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
@@ -849,11 +901,11 @@ export default function App(){
               <select style={{...S.inp,background:bkF.serviceId?"#fffdf7":"#fff9f0",borderColor:bkF.serviceId?"#c7b06a":"#e0b85a"}}
                 value={String(bkF.serviceId||"")}
                 onChange={e=>{const sid=e.target.value;setBkF(p=>({...p,serviceId:sid}));if(sid){const warn=checkConflict(bks,{...bkF,serviceId:sid},svcs);setBkWarn(warn||"");}else setBkWarn("");}}>
-                <option value="">— Select a spa service —</option>
+                <option value="">— To Be Confirmed (TBD) —</option>
                 {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{const items=bkSvcs.filter(s=>s.sub===sub);if(!items.length)return null;return <optgroup key={sub} label={"── "+sub+" ──"}>{items.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)} ({s.durationMins}min)</option>)}</optgroup>;})}
               </select>
             </div>
-            <div><EthPicker label="Date *" value={bkF.date} onChange={d=>setBkF(p=>({...p,date:d}))}/></div>
+            <div><EthPicker label="Date *" value={bkF.date} onChange={d=>setBkF(p=>({...p,date:d}))} minDate={todayStr()}/></div>
             <div><L>Time * (Ethiopian: {toEthTime(bkF.time)})</L><select style={S.inp} value={bkF.time} onChange={e=>setBkF(p=>({...p,time:e.target.value}))}>{timeSlots().map(t=><option key={t} value={t}>{t} ({toEthTime(t)})</option>)}</select></div>
             <div><L>Number of People</L><input style={S.inp} type="number" min="1" value={bkF.people} onChange={e=>setBkF(p=>({...p,people:e.target.value}))}/></div>
             <div><L>Notes</L><textarea style={S.ta} value={bkF.notes} onChange={e=>setBkF(p=>({...p,notes:e.target.value}))} rows={2}/></div>
@@ -1004,17 +1056,39 @@ export default function App(){
         </div>
         <div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:14,fontSize:13}}>Commissions update live. Close & Pay to freeze and reset for next period.</div>
         <h3 style={S.sh}>Add Employee</h3>
-        <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1.5fr 1fr 1fr 1fr auto",gap:8,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"1fr 1fr 1fr 1fr 1fr auto",gap:8,marginBottom:16}}>
           <input style={S.inp} value={nEmp.name} onChange={e=>setNEmp({...nEmp,name:e.target.value})} placeholder="Full name"/>
-          <select style={S.inp} value={nEmp.section} onChange={e=>setNEmp({...nEmp,section:e.target.value})}>{cats.map(c=><option key={c}>{c}</option>)}</select>
+          <select style={S.inp} value={nEmp.section} onChange={e=>setNEmp({...nEmp,section:e.target.value})}>{EMP_SECTIONS.map(c=><option key={c}>{c}</option>)}</select>
+          <input style={S.inp} value={nEmp.role} onChange={e=>setNEmp({...nEmp,role:e.target.value})} placeholder="Role (e.g. Nail Artist)"/>
           <input style={S.inp} type="number" value={nEmp.salary} onChange={e=>setNEmp({...nEmp,salary:e.target.value})} placeholder="Base salary"/>
           <input style={S.inp} type="date" value={nEmp.hireDate} onChange={e=>setNEmp({...nEmp,hireDate:e.target.value})}/>
           <button style={{...S.btnP,width:"auto",padding:"0 18px"}} onClick={addEmp}>+ Add</button>
         </div>
         <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",marginBottom:10}}><input type="checkbox" checked={showFired} onChange={e=>setShowFired(e.target.checked)}/> Show inactive</label>
+
+        {/* ── Availability Overview ── */}
+        <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:14,padding:14,marginBottom:16}}>
+          <h3 style={{margin:"0 0 10px",fontSize:13,fontWeight:800,color:"#166534"}}>📅 Today's Availability — {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</h3>
+          {EMP_SECTIONS.map(sec=>{
+            const secEmps=emps.filter(e=>e.section===sec&&e.active);
+            if(!secEmps.length)return null;
+            const avail=secEmps.filter(e=>isEmpAvailableToday(e));
+            const off=secEmps.filter(e=>!isEmpAvailableToday(e));
+            return <div key={sec} style={{marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <b style={{fontSize:12,color:"#166534"}}>{sec}</b>
+                <span style={{fontSize:11,fontWeight:700,background:avail.length>0?"#dcfce7":"#fee2e2",color:avail.length>0?"#166534":"#991b1b",borderRadius:8,padding:"1px 8px"}}>{avail.length} available</span>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {avail.map(e=><span key={e.id} style={{background:"#fff",border:"1px solid #86efac",borderRadius:8,padding:"2px 8px",fontSize:11,color:"#166534",fontWeight:600}}>✅ {e.name}</span>)}
+                {off.map(e=><span key={e.id} style={{background:"#fff",border:"1px solid #fca5a5",borderRadius:8,padding:"2px 8px",fontSize:11,color:"#991b1b",fontWeight:600}}>{e.onLeave?"🤒 On Leave":"📅 Day Off"} {e.name}</span>)}
+              </div>
+            </div>;
+          })}
+        </div>
         {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(extra?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fffaf2",border:"1px solid #ecdba3",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:8}}>{emp.section}</span></div>
+            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
             <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?"Deactivate":"Reactivate"}</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(6,1fr)",gap:8,marginBottom:8}}>
@@ -1072,7 +1146,12 @@ export default function App(){
         </div>)}
       </section>}
 
-      {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>Activity Log</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p><HR/>
+      {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>Activity Log</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
+        <details style={{marginBottom:12}}><summary style={{fontSize:11,color:"#6b7280",cursor:"pointer"}}>⚙️ Database setup required? Run this SQL in Supabase once</summary><pre style={{background:"#1e293b",color:"#e2e8f0",padding:12,borderRadius:10,fontSize:10,overflow:"auto",marginTop:8}}>{`ALTER TABLE employees ADD COLUMN IF NOT EXISTS role text DEFAULT '';
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS day_off integer DEFAULT NULL;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS on_leave boolean DEFAULT false;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS registered_at timestamptz DEFAULT now();`}</pre></details>
+        <HR/>
         {actLog.length===0&&<EMP>No activity recorded yet.</EMP>}
         {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#f5e7c0",color:"#6b4c11",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
       </section>}
@@ -1103,7 +1182,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
     <h3 style={{margin:"14px 0 8px",fontWeight:800}}>Services</h3>
     {visit.services.length===0&&<p style={{color:"#6b4c11",fontSize:13}}>No services added yet.</p>}
     {visit.services.map(line=>{
-      const elig=emps.filter(e=>e.section===line.employeeSection&&e.active);
+      const elig=emps.filter(e=>e.section===line.employeeSection&&isEmpAvailableToday(e));
       const done=["Completed","Cancelled"].includes(line.status);
       return <div key={line.lineId} style={{background:done?"#f8fafb":"#fffaf2",border:"1px solid "+(done?"#d1d5db":"#ecdba3"),borderRadius:12,padding:10,marginBottom:7}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
@@ -1180,7 +1259,7 @@ function HR(){return <div style={{borderTop:"1px solid #ecdba3",margin:"16px 0"}
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#111827":accent?"#fff5f5":"#fff",color:highlight?"#e0b85a":"#111827",borderRadius:14,padding:"12px 14px",border:"1px solid "+(highlight?"transparent":accent?"#fca5a5":"#e6c977")}}><p style={{margin:0,fontSize:10,fontWeight:700,color:highlight?"#e0b85a":accent?"#b91c1c":"#6b4c11"}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:900}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
+function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"With Supervisor":{bg:"#e0f2fe",co:"#0369a1"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
 const S={
   card:  {background:"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e6c977",boxShadow:"0 8px 28px rgba(0,0,0,0.08)",marginBottom:16},
   ct:    {margin:"0 0 14px",fontSize:18,fontWeight:900},
