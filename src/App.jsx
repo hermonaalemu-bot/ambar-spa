@@ -687,6 +687,7 @@ export default function App(){
   const todayBk=useMemo(()=>{
     const norm=d=>(d||"").trim().slice(0,10);
     const target=norm(bkDate);
+    console.log("bkDate:",bkDate,"target:",target,"total bks:",bks.length,"matching:",bks.filter(b=>norm(b.date)===target).length);
     let filtered=bks.filter(b=>norm(b.date)===target);
     if(bkSearch.trim()){
       const q=bkSearch.toLowerCase().trim();
@@ -839,10 +840,25 @@ export default function App(){
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
     const row={id:editBk?.id||Date.now(),date:(bkF.date||bkDate||todayStr()).trim().slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
-    if(editBk)await supabase.from("bookings").update(row).eq("id",editBk.id);
-    else await supabase.from("bookings").insert(row);
+    // Optimistic: add to screen immediately
+    const optimistic=dbBk({...row,customer_id:row.customer_id,customer_name:row.customer_name,customer_phone:row.customer_phone,service_id:row.service_id,service_name:row.service_name,service_category:row.service_category,duration_mins:row.duration_mins,created_by:row.created_by,visit_id:null});
+    if(!editBk)setBks(prev=>[...prev,optimistic]);
+    else setBks(prev=>prev.map(b=>b.id===row.id?optimistic:b));
+    let saveError=null;
+    if(editBk){const{error}=await supabase.from("bookings").update(row).eq("id",editBk.id);saveError=error;}
+    else{const{error}=await supabase.from("bookings").insert(row);saveError=error;}
+    if(saveError){alert("Error saving booking: "+saveError.message);setSaving(false);return;}
     logAct(user,editBk?"Edited booking":"New booking",bkF.customerName+" — "+(s?s.name:"TBD"));
-    setShowBkF(false);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});setBkWarn("");setSaving(false);
+    // Reload ALL bookings so new one appears immediately
+    const{data:freshBks}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});
+    if(freshBks)setBks(freshBks.map(dbBk));
+    // Stay on the same date
+    const savedDate=row.date;
+    setShowBkF(false);setEditBk(null);
+    setBkF({customerName:"",customerPhone:"",serviceId:"",date:savedDate,time:"10:00",people:1,notes:""});
+    setBkDate(savedDate);
+    setBkWarn("");setSaving(false);
+    push("Booking saved for "+savedDate,"success");
   }
   async function updBk(id,status){
     // Optimistic
@@ -1112,10 +1128,13 @@ export default function App(){
           <div style={S.r2}><button style={S.btnP} onClick={saveBk}>Save Booking</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>Cancel</button></div>
         </div>}
 
-        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
-          <input style={{...S.inp,marginBottom:0,flex:1,minWidth:180}} placeholder="Search bookings by name or phone..." value={bkSearch} onChange={e=>setBkSearch(e.target.value)}/>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
+          <input style={{...S.inp,marginBottom:0,flex:1,minWidth:180}} placeholder="Search by name, phone or service..." value={bkSearch} onChange={e=>setBkSearch(e.target.value)}/>
           {bkSearch&&<button style={{...S.btnD,whiteSpace:"nowrap"}} onClick={()=>setBkSearch("")}>Clear</button>}
           <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={async()=>{const{data,error}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});if(data){setBks(data.map(dbBk));push("Loaded "+data.length+" bookings","success");}if(error)push("Error: "+error.message,"warning");}}>🔄 Refresh</button>
+        </div>
+        <div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#0369a1"}}>
+          📊 {bks.length} total bookings in system · {bks.filter(b=>b.date===bkDate).length} on selected date · {bks.filter(b=>b.status==="Pending").length} pending
         </div>
         <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
         {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
