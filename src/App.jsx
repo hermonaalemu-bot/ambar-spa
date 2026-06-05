@@ -262,7 +262,7 @@ const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Nu
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
 const dbVis=r=>({id:r.id,date:(r.date||'').slice(0,10),queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||r.created_at||null});
 const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||"",qty:Number(r.qty),unit:Number(r.unit),total:Number(r.total)});
-const dbBk=r=>({id:r.id,date:(r.date||'').slice(0,10),time:r.time,customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null});
+const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
 function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
@@ -439,6 +439,7 @@ export default function App(){
   const[svcF,setSvcF]=useState("All");
   const[nEmp,setNEmp]=useState({name:"",section:EMP_SECTIONS[0]||DC[0],role:"",salary:"",hireDate:todayStr()});
   const[showFired,setShowFired]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
+  const[dashDate,setDashDate]=useState(todayStr());const[dashRange,setDashRange]=useState(false);const[dashFrom,setDashFrom]=useState(todayStr());const[dashTo,setDashTo]=useState(todayStr());
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});
   const[bkWarn,setBkWarn]=useState("");const[bkSearch,setBkSearch]=useState("");
@@ -631,20 +632,26 @@ export default function App(){
   // Load bookings when tab changes to Bookings OR on first load
   useEffect(()=>{
     if(!user)return;
-    supabase.from("bookings").select("*").order("date").order("time")
-      .then(({data})=>{if(data)setBks(data.map(dbBk));});
+    supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true})
+      .then(({data,error})=>{
+        if(error)console.error("Bookings load error:",error);
+        if(data)setBks(data.map(dbBk));
+      });
   },[user]);
   useEffect(()=>{
     if(tab==="Bookings"&&user){
-      supabase.from("bookings").select("*").order("date").order("time")
-        .then(({data})=>{if(data)setBks(data.map(dbBk));});
+      supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true})
+        .then(({data,error})=>{
+          if(error)console.error("Bookings tab load error:",error);
+          if(data)setBks(data.map(dbBk));
+        });
     }
   },[tab]);
 
   const todayBk=useMemo(()=>{
-    // Normalize date comparison - strip time portion if present
-    const normalize=d=>(d||"").slice(0,10);
-    let filtered=bks.filter(b=>normalize(b.date)===normalize(bkDate));
+    const norm=d=>(d||"").trim().slice(0,10);
+    const target=norm(bkDate);
+    let filtered=bks.filter(b=>norm(b.date)===target);
     if(bkSearch.trim()){
       const q=bkSearch.toLowerCase().trim();
       filtered=filtered.filter(b=>
@@ -653,7 +660,7 @@ export default function App(){
         (b.serviceName||"").toLowerCase().includes(q)
       );
     }
-    return filtered.sort((a,b)=>a.time.localeCompare(b.time));
+    return filtered.sort((a,b)=>(a.time||"").localeCompare(b.time||""));
   },[bks,bkDate,bkSearch]);
   // FIXED: only bookable spa services, guaranteed true boolean
   // Use DB services if loaded, else fall back to FULL_SERVICES for bookings
@@ -795,7 +802,7 @@ export default function App(){
     setSaving(true);
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
-    const row={id:editBk?.id||Date.now(),date:(bkF.date||'').slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
+    const row={id:editBk?.id||Date.now(),date:(bkF.date||bkDate||todayStr()).trim().slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
     if(editBk)await supabase.from("bookings").update(row).eq("id",editBk.id);
     else await supabase.from("bookings").insert(row);
     logAct(user,editBk?"Edited booking":"New booking",bkF.customerName+" — "+(s?s.name:"TBD"));
@@ -1022,10 +1029,10 @@ export default function App(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10,marginBottom:14}}>
           <h2 style={{...S.ct,margin:0}}>Booking Management</h2>
           <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-            <EthPicker value={bkDate} onChange={setBkDate}/>
+            <EthPicker value={bkDate} onChange={d=>setBkDate((d||"").slice(0,10))}/>
             {user.role!=="supervisor"&&<>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>🚶 Spa Walk-in</button>
-              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:bkDate,time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>
+              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:(bkDate||todayStr()).slice(0,10),time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>
             </>}
           </div>
         </div>
@@ -1072,10 +1079,10 @@ export default function App(){
         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
           <input style={{...S.inp,marginBottom:0,flex:1,minWidth:180}} placeholder="Search bookings by name or phone..." value={bkSearch} onChange={e=>setBkSearch(e.target.value)}/>
           {bkSearch&&<button style={{...S.btnD,whiteSpace:"nowrap"}} onClick={()=>setBkSearch("")}>Clear</button>}
-          <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={()=>supabase.from("bookings").select("*").order("date").order("time").then(({data})=>{if(data)setBks(data.map(dbBk));push("Bookings refreshed","success");})}>🔄 Refresh</button>
+          <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={async()=>{const{data,error}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});if(data){setBks(data.map(dbBk));push("Loaded "+data.length+" bookings","success");}if(error)push("Error: "+error.message,"warning");}}>🔄 Refresh</button>
         </div>
         <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
-        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16,color:"#0369a1",fontSize:13}}>No bookings found for {bkDate}. Try clicking 🔄 Refresh or create a new booking.</div>}
+        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
         
         <div style={{border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
           {timeSlots().map(slot=>{
@@ -1277,9 +1284,44 @@ export default function App(){
       </section>}
 
       {tab==="Dashboard"&&<section style={S.card}><h2 style={S.ct}>Manager Dashboard</h2>
+        {/* Date filter */}
+        <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
+          <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:8}}>
+            <div style={{flex:1}}><EthPicker label="Viewing Date" value={dashDate} onChange={setDashDate}/></div>
+            <button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>setDashDate(todayStr())}>Today</button>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",padding:"10px 0"}}>
+              <input type="checkbox" checked={dashRange} onChange={e=>setDashRange(e.target.checked)}/>
+              Date Range
+            </label>
+          </div>
+          {dashRange&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <EthPicker label="From" value={dashFrom} onChange={setDashFrom}/>
+            <EthPicker label="To"   value={dashTo}   onChange={setDashTo}/>
+          </div>}
+          <p style={{margin:0,fontSize:11,color:"#6b7280"}}>
+            {dashRange?`Showing: ${dashFrom} to ${dashTo}`:`Showing: ${dashDate}`}
+          </p>
+        </div>
+        {(()=>{
+          const from=dashRange?dashFrom:dashDate;
+          const to=dashRange?dashTo:dashDate;
+          const dV=visits.filter(v=>(v.date||'').slice(0,10)>=from&&(v.date||'').slice(0,10)<=to);
+          const dPaid=dV.filter(v=>v.status==="Paid & Closed");
+          const dRev=dPaid.reduce((s,v)=>s+Number(v.totalService||0),0);
+          const dBks=bks.filter(b=>(b.date||'').slice(0,10)>=from&&(b.date||'').slice(0,10)<=to);
+          const dTips=dPaid.reduce((s,v)=>s+v.tips.reduce((a,t)=>a+Number(t.amount||0),0),0);
+          const dCash=dPaid.filter(v=>v.paymentMethod==="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
+          const dTr=dPaid.filter(v=>v.paymentMethod!=="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
+          return(<>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:14}}>
-          <SC label="Total Visits"     value={visits.length}/><SC label="Customers"        value={custs.length}/><SC label="Active Employees" value={emps.filter(e=>e.active).length}/><SC label="Revenue Today" value={money(todayV.filter(v=>v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0))} highlight/>
-          <SC label="Bookings Today"   value={bks.filter(b=>b.date===todayStr()).length}/><SC label="Pending Bookings" value={bks.filter(b=>b.status==="Pending").length} accent/><SC label="General Expenses" value={money(exps.filter(e=>e.type==="General").reduce((s,e)=>s+Number(e.total||0),0))} accent/><SC label="Services Listed" value={svcs.length}/>
+          <SC label="Customers Served" value={dPaid.length}/>
+          <SC label="Total Visits"     value={dV.length}/>
+          <SC label="Active Employees" value={emps.filter(e=>e.active).length}/>
+          <SC label="Revenue"          value={money(dRev)} highlight/>
+          <SC label="Cash"             value={money(dCash)}/>
+          <SC label="Transfer/Card"    value={money(dTr)}/>
+          <SC label="Tips"             value={money(dTips)}/>
+          <SC label="Bookings"         value={dBks.length}/>
         </div>
         <HR/>
         <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
@@ -1294,7 +1336,9 @@ export default function App(){
         <HR/><h3 style={S.sh}>Commission This Period — {period.label}</h3>
         {empC.filter(e=>e.active).map(emp=><div key={emp.id} style={S.li}><span>{emp.name} ({emp.section})</span><b style={{color:"#166534"}}>{money(emp.commissionTotal)}</b></div>)}
         <HR/><h3 style={S.sh}>Revenue by Category</h3>
-        {cats.map(cat=>{const ids=svcs.filter(s=>s.category===cat).map(s=>s.id);const rev=visits.filter(v=>v.status==="Paid & Closed").flatMap(v=>v.services).filter(l=>ids.includes(l.serviceId)).reduce((s,l)=>s+lineIncome(l),0);return<div key={cat} style={S.li}><span>{cat}</span><b>{money(rev)}</b></div>;})}
+        {cats.map(cat=>{const ids=svcs.filter(s=>s.category===cat).map(s=>s.id);const rev=dPaid.flatMap(v=>v.services).filter(l=>ids.includes(l.serviceId)).reduce((s,l)=>s+lineIncome(l),0);return<div key={cat} style={S.li}><span>{cat}</span><b>{money(rev)}</b></div>;})}
+          </>);
+        })()}
       </section>}
 
       {tab==="Staff"&&<section style={S.card}><h2 style={S.ct}>Staff & Password Management</h2>
