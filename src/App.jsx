@@ -627,6 +627,24 @@ const LANG={
   }
 };
 
+class ErrorBoundary extends React.Component{
+  constructor(props){super(props);this.state={hasError:false,error:null};}
+  static getDerivedStateFromError(e){return{hasError:true,error:e};}
+  componentDidCatch(e,info){console.error("App Error:",e,info);}
+  render(){
+    if(this.state.hasError)return(
+      <div style={{padding:40,textAlign:"center",fontFamily:"Arial"}}>
+        <h2 style={{color:"#dc2626"}}>Something went wrong</h2>
+        <p style={{color:"#6b7280",marginBottom:16}}>{this.state.error?.message||"Unknown error"}</p>
+        <button onClick={()=>this.setState({hasError:false,error:null})}
+          style={{padding:"10px 24px",borderRadius:10,border:"none",background:"#111827",color:"#e0b85a",fontWeight:700,cursor:"pointer"}}>
+          Try Again
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 export default function App(){
   const sc=useW();
   // Language
@@ -854,7 +872,7 @@ export default function App(){
   },[user]);
 
   // Derived
-  const act=visits.find(v=>v.id===actId)||null;
+  const act=useMemo(()=>visits.find(v=>v.id===actId)||null,[visits,actId]);
   const period=getPayPeriod(todayStr());
   const todayV=visits.filter(v=>v.date===todayStr());
   const svSubs=useMemo(()=>["All",...new Set(svcs.filter(s=>s.category===svCat).map(s=>s.sub))],[svCat,svcs]);
@@ -1202,7 +1220,7 @@ export default function App(){
         </section>
       </main>}
 
-      {tab==="Supervisor"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
+      {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
         <section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
           <h3 style={S.sh}>⏳ Waiting</h3>
           {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
@@ -1243,7 +1261,7 @@ export default function App(){
               </div>);})}
         </section>
         <section style={S.card}>
-          {!act?<EMP>← Select a customer to assign services.</EMP>:<>
+          {!act?<EMP>← Select a customer to assign services.</EMP>:!act.services?<EMP>Loading...</EMP>:<>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
               <div><h2 style={{...S.ct,marginBottom:2}}>#{act.queue} — {act.name}</h2><p style={S.hlp}>{act.groupName||"Individual"} · {act.status}</p></div>
               {act.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:10,padding:"6px 14px",fontWeight:800,fontSize:13}}>✓ Ready</span>}
@@ -1259,7 +1277,7 @@ export default function App(){
             {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnP} onClick={markReady}>{t("markReady")}</button>}
           </>}
         </section>
-      </main>}
+      </main></ErrorBoundary>}
 
       {tab==="Checkout"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
         <section style={S.card}><h2 style={S.ct}>{t("checkoutToday")}</h2>
@@ -1273,7 +1291,7 @@ export default function App(){
             <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
             <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>{t("printReceipt")}</button>
           </div>
-           :<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
+           :!act.services?<EMP>Loading...</EMP>:<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
             <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             <HR/><h3 style={{margin:"0 0 4px",fontWeight:800}}>Tips</h3><p style={S.hlp}>Tips go directly to employees, not counted as revenue.</p>
             <div style={S.r2}><select style={S.inp} value={tipEmp} onChange={e=>setTipEmp(e.target.value)}><option value="">Select employee</option>{emps.filter(e=>e.active).map(e=><option key={e.id}>{e.name}</option>)}</select><input style={S.inp} type="number" value={tipAmt} onChange={e=>setTipAmt(e.target.value)} placeholder="Amount (Birr)"/></div>
@@ -1679,12 +1697,12 @@ export default function App(){
                 <div><p style={{margin:0,fontSize:9,fontWeight:900,color:"#e0b85a",letterSpacing:2}}>AMBAR SPA & BEAUTY</p><p style={{margin:"2px 0 0",fontSize:14,fontWeight:900,color:"#fff"}}>Salon Management System</p></div>
                 <div style={{background:"#e0b85a",color:"#111827",borderRadius:10,padding:"8px 14px",textAlign:"center"}}><p style={{margin:0,fontSize:9,fontWeight:800}}>TODAY NEXT</p><p style={{margin:0,fontSize:20,fontWeight:900}}>#4</p></div>
               </div>
-              <div style={{display:"flex",gap:8"}}>
+              <div style={{display:"flex",gap:8}}>
                 <button style={{flex:1,padding:"9px 4px",borderRadius:10,border:"none",background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,fontSize:11}}>Register</button>
                 <button style={{flex:1,padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:design.btnSBg||"#fff",color:design.btnSText||"#1f2937",fontWeight:700,fontSize:11}}>Recall</button>
               </div>
               <div style={{background:design.cardBg||"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:12}}>
-                <b style={{color:"#111827",fontSize:13}}}>#1 — Sara</b>
+                <b style={{color:"#111827",fontSize:13}}>#1 — Sara</b>
                 <p style={{margin:"4px 0 0",fontSize:11,color:"#6b7280"}}>ስፔሻል ፔዲኪዩር · 1,500 Birr</p>
               </div>
               <button style={{width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,fontSize:13}}>✓ Mark Ready for Payment</button>
@@ -1759,10 +1777,11 @@ ALTER TABLE visits ADD COLUMN IF NOT EXISTS registered_at timestamptz DEFAULT no
 }
 
 function SLines({visit,emps,mode,onUpd,onRem,onMove}){
-  const isSv=mode==="supervisor";const locked=["Ready for Payment","Paid & Closed"].includes(visit.status);
+  if(!visit)return null;
+  const isSv=mode==="supervisor";const locked=["Ready for Payment","Paid & Closed"].includes(visit.status||"");
   return <div style={{marginBottom:14}}>
     <h3 style={{margin:"14px 0 8px",fontWeight:800}}>Services</h3>
-    {visit.services.length===0&&<p style={{color:"#1f2937",fontSize:13}}>No services added yet.</p>}
+    {!(visit&&visit.services&&visit.services.length)&&<p style={{color:"#1f2937",fontSize:13}}>No services added yet.</p>}
     {(visit.services||[]).map(line=>{
       if(!line||!line.lineId)return null;
       const elig=emps.filter(e=>e.section===line.employeeSection&&isEmpAvailableToday(e));
