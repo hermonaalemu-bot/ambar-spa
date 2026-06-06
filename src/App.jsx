@@ -284,7 +284,7 @@ function chime(type="info"){
 function checkConflict(bks,form,svcs){
   const svc=svcs.find(s=>s.id===Number(form.serviceId));if(!svc)return null;
   const start=new Date(form.date+"T"+form.time);const end=new Date(start.getTime()+svc.durationMins*60000);
-  const overlap=bks.filter(b=>b.date===form.date&&!["Cancelled",{t("noShow")},"Completed"].includes(b.status)&&b.id!==(form.id||0)).filter(b=>{const bs=new Date(form.date+"T"+b.time);const be=new Date(bs.getTime()+b.durationMins*60000);return bs<end&&be>start;});
+  const overlap=bks.filter(b=>b.date===form.date&&!["Cancelled","No-show","Completed"].includes(b.status)&&b.id!==(form.id||0)).filter(b=>{const bs=new Date(form.date+"T"+b.time);const be=new Date(bs.getTime()+b.durationMins*60000);return bs<end&&be>start;});
   if(svc.sub==="Moroccan Bath"){const tot=overlap.filter(b=>b.serviceCategory==="Spa").reduce((s,b)=>s+b.people,0)+Number(form.people||1);if(tot>4)return"⚠️ Morocco Bath room may be over capacity (max 4 people comfortable together).";}
   if(svc.sub==="Steam & Sauna"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Sauna")).length>0)return"⚠️ Steam & Sauna has overlapping bookings at this time.";
   if(svc.sub==="Massage"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Massage")).length>=2)return"⚠️ Both massage rooms may be occupied at this time.";
@@ -452,65 +452,57 @@ function EthPicker({value,onChange,label,...props}){
 // ── Language strings ─────────────────────────────────────────
 const LANG={
   en:{
-    // Tabs
     reception:"Reception",supervisor:"Supervisor",checkout:"Checkout",
     bookings:"Bookings",serviceSetup:"Service Setup",dailyClosing:"Daily Closing",
     expenses:"Expenses",customers:"Customers",payroll:"Payroll",
     dashboard:"Dashboard",staff:"Staff",activityLog:"Activity Log",
     handover:"Handover",designEditor:"Design Editor",
-    // Reception
-    registerCustomer:{t("registerCustomer")},phone:"Phone",name:"Name",
+    registerCustomer:"Register Customer",phone:"Phone",name:"Name",
     numberOfPeople:"Number of People",note:"Note",
-    registerBtn:{t("registerBtn")},
-    quickExpense:"Quick Expense",itemName:"Item name",qty:"Qty",
-    unitPrice:"Unit price",saveExpense:{t("saveExpense")},
-    recall:{t("recall")},todaysQueue:{t("todaysQueue")},cancel:{t("cancel")},
-    // Supervisor
-    queueOverview:{t("queueOverview")},waiting:"Waiting",activeServices:"Active Services",
-    noOneWaiting:"No one waiting.",addService:{t("addService")},
-    markReady:{t("markReady")},reopen:{t("reopen")},
+    registerBtn:"Register & Give Queue Number",
+    quickExpense:"Quick Daily Expense",itemName:"Item name",qty:"Qty",
+    unitPrice:"Unit price",saveExpense:"Save Expense",
+    recall:"Recall",todaysQueue:"Today's Queue",cancel:"Cancel",
+    queueOverview:"Queue Overview",waiting:"Waiting",activeServices:"Active Services",
+    noOneWaiting:"No one waiting.",addService:"+ Add Service",
+    markReady:"✓ Mark Ready for Payment",reopen:"Reopen",
     selectService:"Select a service...",selectCategory:"Category",
     selectSub:"Sub-category",removeService:"Remove",
     whoDidIt:"Who Did It?",preferred:"Preferred",status:"Status",
     inProgress:"In Progress",completed:"Completed",cancelled:"Cancelled",
     onHold:"On Hold",totalIncome:"Total Income",
-    // Checkout
-    checkoutToday:{t("checkoutToday")},searchCheckout:"Search by queue #, name or phone...",
+    checkoutToday:"Checkout — Today",searchCheckout:"Search by queue #, name or phone...",
     tips:"Tips",tipsNote:"Tips go directly to employees, not counted as revenue.",
-    selectEmployee:"Select employee",amount:"Amount (Birr)",addTip:{t("addTip")},
+    selectEmployee:"Select employee",amount:"Amount (Birr)",addTip:"+ Add Tip",
     paymentMethod:"Payment Method",cash:"Cash",transfer:"Transfer",
     telebirr:"Telebirr",card:"Card",serviceTotal:"Service Total",
     tipsTotal:"Tips Total",customerPays:"Customer Pays",
-    confirmPaid:{t("confirmPaid")},payTogether:"Pay Together — Whole Group",
+    confirmPaid:"✓ Confirm Paid & Close",payTogether:"Pay Together — Whole Group",
     splitPayment:"Split Payment — Each Pays Their Own",
-    printReceipt:{t("printReceipt")},
-    // Bookings
-    bookingMgmt:{t("bookingMgmt")},newBooking:{t("newBooking")},
-    spaWalkIn:{t("spaWalkIn")},customerName:"Customer Name",
+    printReceipt:"🖨️ Print Receipt",
+    bookingMgmt:"Booking Management",newBooking:"+ New Booking",
+    spaWalkIn:"🚶 Spa Walk-in",customerName:"Customer Name",
     selectSpaService:"— Select a spa service —",
     dateRequired:"Date *",timeRequired:"Time *",people:"Number of People",
-    notes:"Notes / Special Requests",saveBooking:{t("saveBooking")},
-    confirmBooking:{t("confirmBooking")},checkIn:{t("checkIn")},markDone:{t("markDone")},
-    noShow:{t("noShow")},editBooking:{t("edit")},deleteBooking:{t("delete")},
-    upcoming7:{t("upcoming7")},available:{t("available")},continuing:{t("continuing")},
-    refresh:{t("refresh")},
-    // Status badges
+    notes:"Notes / Special Requests",saveBooking:"Save Booking",
+    confirmBooking:"Confirm",checkIn:"Check In",markDone:"Mark Done",
+    noShow:"No-show",editBooking:"Edit",deleteBooking:"Delete",
+    upcoming7:"Upcoming 7 Days",available:"Available",continuing:"↑ Continuing from above",
+    refresh:"🔄 Refresh",
     waitingForSupervisor:"Waiting for Supervisor",withSupervisor:"With Supervisor",
     inService:"In Service",readyForPayment:"Ready for Payment",
     paidClosed:"Paid & Closed",pending:"Pending",confirmed:"Confirmed",
-    arrived:"Arrived",noshow:{t("noShow")},
-    // Payroll
-    payrollMgmt:{t("payrollMgmt")},currentPeriod:"Current pay period",
-    closePayPeriod:{t("closePayPeriod")},addEmployee:{t("addEmployee")},
+    arrived:"Arrived",noshow:"No-show",
+    payrollMgmt:"Payroll Management",currentPeriod:"Current pay period",
+    closePayPeriod:"Close & Pay Period",addEmployee:"Add Employee",
     baseSalary:"Base Salary",absentDays:"Absent Days",loan:"Loan",
     brokerFee:"Broker Fee",otherDeduction:"Other Deduction",commission:"Commission",
-    netPay:{t("netPay")},deactivate:{t("deactivate")},reactivate:{t("reactivate")},
+    netPay:"Net Pay",deactivate:"Deactivate",reactivate:"Reactivate",
     weeklyDayOff:"Weekly Day Off",noFixedDayOff:"No fixed day off",
-    onLeave:"On Leave",available2:{t("available")},closedPeriods:"Closed Periods",
+    onLeave:"On Leave",available2:"Available",closedPeriods:"Closed Periods",
     breakdown:"Breakdown",todayAvailability:"Today's Availability",
-    // Dashboard
-    dashboard2:{t("dashboard2")},viewingDate:"Viewing Date",
-    today:{t("today")},dateRange:{t("dateRange")},from:"From",to:"To",
+    dashboard2:"Manager Dashboard",viewingDate:"Viewing Date",
+    today:"Today",dateRange:"Date Range",from:"From",to:"To",
     customersServed:"Customers Served",totalVisits:"Total Visits",
     activeEmployees:"Active Employees",revenue:"Revenue",
     transferCard:"Transfer/Card",tipsDash:"Tips",
@@ -518,43 +510,47 @@ const LANG={
     employeePerformance:"Employee Performance This Period",
     dailyTarget:"Daily Revenue Target",setTarget:"Set target (Birr)",
     targetReached:"🎉 Target reached!",
-    // Staff
-    staffMgmt:{t("staffMgmt")},username:"Username",
+    staffMgmt:"Staff & Password Management",username:"Username",
     displayName:"Display Name",role:"Role",password:"Password",
-    newPassword:"New Password",saveAccount:{t("saveAccount")},updateAccount:{t("updateAccount")},
-    allStaff:"All Staff",editResetPW:{t("editResetPW")},
-    // Activity Log
+    newPassword:"New Password",saveAccount:"Save Account",updateAccount:"Update Account",
+    allStaff:"All Staff",editResetPW:"Edit / Reset PW",
     activityLog2:"Activity Log",last100:"Last 100 actions across all staff.",
-    // Handover
-    handoverLog:{t("handoverLog")},handoverNote:"Handover Note",
-    saveNote:{t("saveNote")},recentNotes:{t("recentNotes")},
-    // General
-    saving:{t("saving")},offline:{t("offline")},
-    backOnline:"Back online",todayNext:{t("todayNext")},logout:{t("logout")},
-    login:{t("login")},loginTitle:{t("loginTitle")},
-    sessionLocked:{t("sessionLocked")},unlock:{t("unlock")},
-    logoutInstead:{t("logoutInstead")},loading:{t("loading")},
+    handoverLog:"Shift Handover Log",handoverNote:"Handover Note",
+    saveNote:"Save Handover Note",recentNotes:"Recent Handover Notes",
+    saving:"Saving...",offline:"⚠ Offline — changes will not save",
+    backOnline:"Back online",todayNext:"TODAY NEXT",logout:"Logout",
+    login:"Login",loginTitle:"Staff Login",
+    sessionLocked:"Session Locked",unlock:"Unlock",
+    logoutInstead:"Log out instead",loading:"Loading Ambar Spa...",
     noData:"No data.",none:"None",free:"Free",discount:"Discount",
-    yes:"Yes",no:"No",save:"Save",edit:{t("edit")},delete:{t("delete")},
+    yes:"Yes",no:"No",save:"Save",edit:"Edit",delete:"Delete",
     add:"Add",close:"Close",print:"Print",exportCSV:"⬇ Export CSV",
-    search:"Search",clear:"Clear",
+    search:"Search",clear:"Clear",next:"Next up",position:"Position",
+    inProgressBadge:"IN PROGRESS",upNext:"UP NEXT",onHoldBadge:"HOLD",
+    noCustomers:"No active customers today.",selectCustomer:"← Select customer to process payment.",
+    selectCustomerSup:"← Select a customer to assign services.",
+    serviceLine:"Service Line",serviceAdded:"Service added",
+    readyConfirm:"Ready for checkout.",groupPayOptions:"Group Payment Options",
+    individualPayments:"Individual Payments",totalInSystem:"total bookings in system",
+    activeBookings:"active booking",allServices:"All Services",
+    addCategory:"+ Add",newService:"Add New Service",designEditorTitle:"Design Editor — Colors & Labels",
+    colorSettings:"Colors",labelSettings:"Button & Label Names",livePreview:"Live Preview",
+    resetDefault:"Reset to Default",primaryButton:"Primary Button",secondaryButton:"Secondary Button",
+    headerColor:"Header Color",accentColor:"Accent Color",
   },
   am:{
-    // Tabs
     reception:"ተቀባይ",supervisor:"ሱፐርቫይዘር",checkout:"ክፍያ",
     bookings:"ቦኪንግ",serviceSetup:"አገልግሎቶች",dailyClosing:"የዕለት ዝግ",
     expenses:"ወጪዎች",customers:"ደንበኞች",payroll:"ደሞዝ",
-    dashboard:"ዳሽቦርድ",staff:"ሰራተኞች",activityLog:"የአቀባበል ምዝገባ",
-    handover:"የፈረቃ ማሸጋገሪያ",designEditor:"ዲዛይን አርታዒ",
-    // Reception
+    dashboard:"ዳሽቦርድ",staff:"ሰራተኞች",activityLog:"ምዝገባ",
+    handover:"ፈረቃ ማሸጋገሪያ",designEditor:"ዲዛይን አርታዒ",
     registerCustomer:"ደንበኛ መመዝገብ",phone:"ስልክ",name:"ስም",
     numberOfPeople:"የሰዎች ቁጥር",note:"ማስታወሻ",
     registerBtn:"ምዝገባ & ወረፋ ቁጥር ስጥ",
     quickExpense:"ፈጣን ወጪ",itemName:"የእቃ ስም",qty:"መጠን",
     unitPrice:"የአንድ ዋጋ",saveExpense:"ወጪ አስቀምጥ",
     recall:"ፈልግ",todaysQueue:"የዛሬ ወረፋ",cancel:"ሰርዝ",
-    // Supervisor
-    queueOverview:"የወረፋ አጠቃላይ እይታ",waiting:"እየጠበቀ",activeServices:"ንቁ አገልግሎቶች",
+    queueOverview:"የወረፋ እይታ",waiting:"እየጠበቀ",activeServices:"ንቁ አገልግሎቶች",
     noOneWaiting:"የሚጠብቅ የለም።",addService:"+ አገልግሎት ጨምር",
     markReady:"✓ ለክፍያ ዝግጁ አድርግ",reopen:"እንደገና ክፈት",
     selectService:"አገልግሎት ምረጥ...",selectCategory:"ምድብ",
@@ -562,8 +558,7 @@ const LANG={
     whoDidIt:"ማን ሰራው?",preferred:"የሚፈለግ",status:"ሁኔታ",
     inProgress:"በሂደት ላይ",completed:"ተጠናቋል",cancelled:"ተሰርዟል",
     onHold:"በእቆያ",totalIncome:"ጠቅላላ ገቢ",
-    // Checkout
-    checkoutToday:"ክፍያ — ዛሬ",searchCheckout:"በወረፋ #፣ ስም ወይም ስልክ ፈልግ...",
+    checkoutToday:"ክፍያ — ዛሬ",searchCheckout:"በወረፋ # ፣ ስም ወይም ስልክ ፈልግ...",
     tips:"ጠቆሚያ",tipsNote:"ጠቆሚያ ለሰራተኞች ቀጥታ ይሄዳል፣ ገቢ አይቆጠርም።",
     selectEmployee:"ሰራተኛ ምረጥ",amount:"መጠን (ብር)",addTip:"+ ጠቆሚያ ጨምር",
     paymentMethod:"የክፍያ ዘዴ",cash:"ጥሬ ገንዘብ",transfer:"ዝውውር",
@@ -572,22 +567,19 @@ const LANG={
     confirmPaid:"✓ ተከፍሏል & ዝጋ",payTogether:"ሁሉም አብሮ ይክፈሉ",
     splitPayment:"ክፍፍል ክፍያ — እያንዳንዱ ለራሱ",
     printReceipt:"🖨️ ደረሰኝ አትም",
-    // Bookings
     bookingMgmt:"የቦኪንግ አስተዳደር",newBooking:"+ አዲስ ቦኪንግ",
     spaWalkIn:"🚶 ስፓ ዎክ-ኢን",customerName:"የደንበኛ ስም",
     selectSpaService:"— የስፓ አገልግሎት ምረጥ —",
     dateRequired:"ቀን *",timeRequired:"ሰዓት *",people:"የሰዎች ቁጥር",
     notes:"ማስታወሻ / ልዩ ጥያቄዎች",saveBooking:"ቦኪንግ አስቀምጥ",
-    confirmBooking:"አረጋግጥ",checkIn:"ቼክ ኢን",markDone:"ተጠናቋል ምልክት አድርግ",
+    confirmBooking:"አረጋግጥ",checkIn:"ቼክ ኢን",markDone:"ተጠናቋል",
     noShow:"አልመጣም",editBooking:"አርትዕ",deleteBooking:"ሰርዝ",
     upcoming7:"የሚቀጥሉ 7 ቀናት",available:"ባዶ",continuing:"↑ ቀጥሏል",
     refresh:"🔄 አድስ",
-    // Status badges
     waitingForSupervisor:"ሱፐርቫይዘርን እየጠበቀ",withSupervisor:"ከሱፐርቫይዘር ጋር",
     inService:"አገልግሎት ላይ",readyForPayment:"ለክፍያ ዝግጁ",
     paidClosed:"ተከፍሏል & ተዘግቷል",pending:"በመጠባበቅ",confirmed:"ተረጋግጧል",
     arrived:"ደርሷል",noshow:"አልመጣም",
-    // Payroll
     payrollMgmt:"የደሞዝ አስተዳደር",currentPeriod:"የአሁን የደሞዝ ወቅት",
     closePayPeriod:"ወቅቱን ዝጋ & ክፈል",addEmployee:"ሰራተኛ ጨምር",
     baseSalary:"መሰረታዊ ደሞዝ",absentDays:"የቀሩ ቀናት",loan:"ብድር",
@@ -596,7 +588,6 @@ const LANG={
     weeklyDayOff:"ሳምንታዊ የዕረፍት ቀን",noFixedDayOff:"ቋሚ የዕረፍት ቀን የለም",
     onLeave:"በፈቃድ ላይ",available2:"ዝግጁ",closedPeriods:"የተዘጉ ወቅቶች",
     breakdown:"ዝርዝር",todayAvailability:"የዛሬ ቅርበት",
-    // Dashboard
     dashboard2:"የአስተዳዳሪ ዳሽቦርድ",viewingDate:"የሚታይ ቀን",
     today:"ዛሬ",dateRange:"የቀን ክልል",from:"ከ",to:"እስከ",
     customersServed:"የተስተናገዱ ደንበኞች",totalVisits:"ጠቅላላ ጉብኝቶች",
@@ -606,17 +597,13 @@ const LANG={
     employeePerformance:"የሰራተኛ አፈጻጸም",
     dailyTarget:"የዕለት ገቢ ኢላማ",setTarget:"ኢላማ አስቀምጥ (ብር)",
     targetReached:"🎉 ኢላማ ተደርሷል!",
-    // Staff
-    staffMgmt:"የሰራተኞች & የይለፍ ቃል አስተዳደር",username:"የተጠቃሚ ስም",
+    staffMgmt:"የሰራተኞች & የይለፍ ቃል",username:"የተጠቃሚ ስም",
     displayName:"የሚታይ ስም",role:"ሚና",password:"የይለፍ ቃል",
     newPassword:"አዲስ የይለፍ ቃል",saveAccount:"መለያ አስቀምጥ",updateAccount:"መለያ አዘምን",
     allStaff:"ሁሉም ሰራተኞች",editResetPW:"አርትዕ / ዳግም ቀይር",
-    // Activity Log
     activityLog2:"የአቀባበል ምዝገባ",last100:"የመጨረሻ 100 እርምጃዎች።",
-    // Handover
-    handoverLog:"የፈረቃ ማሸጋገሪያ ምዝገባ",handoverNote:"የማሸጋገሪያ ማስታወሻ",
+    handoverLog:"የፈረቃ ማሸጋገሪያ",handoverNote:"የማሸጋገሪያ ማስታወሻ",
     saveNote:"ማስታወሻ አስቀምጥ",recentNotes:"የቅርብ ጊዜ ማስታወሻዎች",
-    // General
     saving:"እያስቀመጠ...",offline:"⚠ ኦፍላይን — ለውጦች አይቀመጡም",
     backOnline:"ኦንላይን ሆኗል",todayNext:"የዛሬ ቀጣይ",logout:"ውጣ",
     login:"ግባ",loginTitle:"የሰራተኛ መግቢያ",
@@ -625,9 +612,21 @@ const LANG={
     noData:"ምንም ውሂብ የለም።",none:"ምንም",free:"ነፃ",discount:"ቅናሽ",
     yes:"አዎ",no:"አይ",save:"አስቀምጥ",edit:"አርትዕ",delete:"ሰርዝ",
     add:"ጨምር",close:"ዝጋ",print:"አትም",exportCSV:"⬇ CSV ላክ",
-    search:"ፈልግ",clear:"አጽዳ",
+    search:"ፈልግ",clear:"አጽዳ",next:"ቀጣይ",position:"ቦታ",
+    inProgressBadge:"በሂደት",upNext:"ቀጥሎ",onHoldBadge:"በእቆያ",
+    noCustomers:"የዛሬ ንቁ ደንበኞች የሉም።",selectCustomer:"← ደንበኛ ምረጥ።",
+    selectCustomerSup:"← ደንበኛ ምረጥ።",
+    serviceLine:"አገልግሎት",serviceAdded:"አገልግሎት ተጨምሯል",
+    readyConfirm:"ለክፍያ ዝግጁ።",groupPayOptions:"የቡድን ክፍያ አማራጮች",
+    individualPayments:"ግለሰባዊ ክፍያዎች",totalInSystem:"ቦኪንጎች በስርዓቱ ውስጥ",
+    activeBookings:"ንቁ ቦኪንግ",allServices:"ሁሉም አገልግሎቶች",
+    addCategory:"+ ጨምር",newService:"አዲስ አገልግሎት ጨምር",designEditorTitle:"ዲዛይን አርታዒ",
+    colorSettings:"ቀለሞች",labelSettings:"የቁልፍ & መለያ ስሞች",livePreview:"የቀጥታ ቅድሚያ",
+    resetDefault:"ወደ ነባሪ ዳግም አስጀምር",primaryButton:"ዋና ቁልፍ",secondaryButton:"ሁለተኛ ቁልፍ",
+    headerColor:"የርዕስ ቀለም",accentColor:"የማጉላ ቀለም",
   }
 };
+
 export default function App(){
   const sc=useW();
   // Language
@@ -817,7 +816,7 @@ export default function App(){
     setTab(m[user.role]||"Reception");
     // Show today's booking reminder on login
     setTimeout(()=>{
-      const todayBookings=bks.filter(b=>b.date===todayStr()&&!["Cancelled",{t("noShow")},"Completed"].includes(b.status));
+      const todayBookings=bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show","Completed"].includes(b.status));
       if(todayBookings.length>0){
         push("📅 Today has "+todayBookings.length+" booking"+( todayBookings.length>1?"s":"")+" — check Bookings tab","booking");
       }
@@ -941,7 +940,7 @@ export default function App(){
     const f=staff.find(s=>s.id===lid.trim()&&s.password===lpw&&s.active);
     if(f){
       setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
-      supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:{t("login")},detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
+      supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:LANG.en["login"]||"login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
     }else{
       setLerr("Invalid username or password.");
       supabase.from("activity_log").insert({staff_id:lid.trim()||"unknown",staff_name:lid.trim()||"unknown",action:"Failed Login",detail:"Failed login attempt for username: "+lid.trim(),ts:new Date().toISOString()}).then(()=>{});
@@ -1133,9 +1132,9 @@ export default function App(){
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
 
-  if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>Unlock</button><button style={S.btnS} onClick={logout}>Log out instead</button></div></div>);
+  if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
-  if(!user)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}><div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:44}}>✦</div><h1 style={{margin:"8px 0 0",fontSize:22,fontWeight:900}}>Ambar Spa & Beauty</h1><p style={{margin:"6px 0 0",color:"#6b7280",fontSize:13}}>Staff Login</p></div>{lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:700}}>{lerr}</div>}<p style={S.lbl}>Username</p><input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/><p style={S.lbl}>Password</p><input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/><button style={{...S.btnP,marginTop:8}} onClick={doLogin}>Login</button></div></div>);
+  if(!user)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}><div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:44}}>✦</div><h1 style={{margin:"8px 0 0",fontSize:22,fontWeight:900}}>Ambar Spa & Beauty</h1><p style={{margin:"6px 0 0",color:"#6b7280",fontSize:13}}>Staff Login</p></div>{lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:700}}>{lerr}</div>}<p style={S.lbl}>Username</p><input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/><p style={S.lbl}>Password</p><input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/><button style={{...S.btnP,marginTop:8}} onClick={doLogin}>{t("login")}</button></div></div>);
 
   if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)",color:"#e0b85a"}}><div style={{textAlign:"center"}}><div style={{fontSize:56,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:700,letterSpacing:2}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#c9b077",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
@@ -1158,19 +1157,19 @@ export default function App(){
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
-        <section style={S.card}><h2 style={S.ct}>Register Customer</h2>
-          <L>Phone *</L><div style={S.r2}><input style={S.inp} value={rPhone} onChange={e=>setRPhone(e.target.value)} onKeyDown={e=>e.key==="Enter"&&recall()} placeholder="Phone number"/><button style={S.btnS} onClick={recall}>Recall</button></div>
+        <section style={S.card}><h2 style={S.ct}>{t("registerCustomer")}</h2>
+          <L>Phone *</L><div style={S.r2}><input style={S.inp} value={rPhone} onChange={e=>setRPhone(e.target.value)} onKeyDown={e=>e.key==="Enter"&&recall()} placeholder="Phone number"/><button style={S.btnS} onClick={recall}>{t("recall")}</button></div>
           {rmsg&&<p style={{fontWeight:700,fontSize:13,color:rmsg.startsWith("✓")?"#166534":"#1e40af",marginBottom:8}}>{rmsg}</p>}
           <L>Name *</L><input style={S.inp} value={rName} onChange={e=>setRName(e.target.value)} placeholder="Full name"/>
           <L>Number of People</L><input style={S.inp} type="number" min="1" value={rPpl} onChange={e=>setRPpl(e.target.value)}/>
           <L>Note</L><textarea style={S.ta} value={rNote} onChange={e=>setRNote(e.target.value)} rows={2}/>
-          <button style={S.btnP} onClick={register}>Register & Give Queue Number</button>
+          <button style={S.btnP} onClick={register}>{t("registerBtn")}</button>
           <HR/><h3 style={{margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#374151"}}>Quick Daily Expense</h3>
           <input style={S.inp} value={deItem} onChange={e=>setDeItem(e.target.value)} placeholder="Item name"/>
           <div style={S.r2}><input style={S.inp} type="number" value={deQty} onChange={e=>setDeQty(e.target.value)} placeholder="Qty"/><input style={S.inp} type="number" value={deUnit} onChange={e=>setDeUnit(e.target.value)} placeholder="Unit price"/></div>
-          <button style={S.btnS} onClick={addDE}>Save Expense</button>
+          <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
         </section>
-        <section style={S.card}><h2 style={S.ct}>Today's Queue</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
+        <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
           {todayV.length===0&&<EMP>No customers registered yet today.</EMP>}
           {todayV.map((v,idx)=>{
             const activeAhead=todayV.slice(0,idx).filter(x=>!["Paid & Closed","Cancelled"].includes(x.status)).length;
@@ -1196,7 +1195,7 @@ export default function App(){
                 {isInProgress&&v.services.filter(l=>l.status==="In Progress").map(l=><SvcTimer key={l.lineId} lineId={l.lineId} status={l.status}/>)}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>Cancel</button>}
+                {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>{t("cancel")}</button>}
               </div>
             </div>;
           })}
@@ -1204,7 +1203,7 @@ export default function App(){
       </main>}
 
       {tab==="Supervisor"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
-        <section style={S.card}><h2 style={S.ct}>Queue Overview</h2>
+        <section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
           <h3 style={S.sh}>⏳ Waiting</h3>
           {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
             :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
@@ -1249,22 +1248,22 @@ export default function App(){
               <div><h2 style={{...S.ct,marginBottom:2}}>#{act.queue} — {act.name}</h2><p style={S.hlp}>{act.groupName||"Individual"} · {act.status}</p></div>
               {act.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:10,padding:"6px 14px",fontWeight:800,fontSize:13}}>✓ Ready</span>}
             </div>
-            {act.status==="Ready for Payment"&&<div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:10,fontSize:13}}>Ready for checkout.<button style={{...S.btnS,marginTop:8,width:"auto",padding:"7px 14px"}} onClick={reopen}>Reopen</button></div>}
+            {act.status==="Ready for Payment"&&<div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:10,fontSize:13}}>Ready for checkout.<button style={{...S.btnS,marginTop:8,width:"auto",padding:"7px 14px"}} onClick={reopen}>{t("reopen")}</button></div>}
             {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<>
               <div style={S.r2}><select style={S.inp} value={svCat} onChange={e=>{setSvCat(e.target.value);setSvSub("All");setSvSvcId("");}}>{cats.map(c=><option key={c}>{c}</option>)}</select><select style={S.inp} value={svSub} onChange={e=>{setSvSub(e.target.value);setSvSvcId("");}}>{svSubs.map(x=><option key={x}>{x}</option>)}</select></div>
               <select style={S.inp} value={svSvcId} onChange={e=>setSvSvcId(e.target.value)}><option value="">Select a service...</option>{svAvail.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)}</option>)}</select>
-              <button style={S.btnS} onClick={addSvc}>+ Add Service</button>
+              <button style={S.btnS} onClick={addSvc}>{t("addService")}</button>
               {act.services.some(l=>l.status==="On Hold")&&<div style={{background:"#f3e8ff",border:"1px solid #c084fc",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#6b21a8",fontWeight:600}}>⏸ Some services are On Hold — they will auto-activate when the current service is completed and this customer gets priority.</div>}
             </>}
             <SLines visit={act} emps={emps} mode="supervisor" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
-            {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnP} onClick={markReady}>✓ Mark Ready for Payment</button>}
+            {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnP} onClick={markReady}>{t("markReady")}</button>}
           </>}
         </section>
       </main>}
 
       {tab==="Checkout"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
-        <section style={S.card}><h2 style={S.ct}>Checkout — Today</h2>
-          <input style={S.inp} placeholder="Search by queue #, name or phone..." value={coQ} onChange={e=>setCoQ(e.target.value)}/>
+        <section style={S.card}><h2 style={S.ct}>{t("checkoutToday")}</h2>
+          <input style={S.inp} placeholder={t("searchCheckout")} value={coQ} onChange={e=>setCoQ(e.target.value)}/>
           {coList.length===0&&<EMP>No active customers today.</EMP>}
           {coList.map(v=><button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}><span>#{v.queue} — {v.name}</span><span style={SB(v.status)}>{v.status==="Ready for Payment"?"Ready — "+money(v.totalService):v.status}</span></button>)}
         </section>
@@ -1272,13 +1271,13 @@ export default function App(){
           {!act?<EMP>← Select customer to process payment.</EMP>
            :act.status==="Paid & Closed"?<div>
             <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
-            <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>🖨️ Print Receipt</button>
+            <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>{t("printReceipt")}</button>
           </div>
            :<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
             <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             <HR/><h3 style={{margin:"0 0 4px",fontWeight:800}}>Tips</h3><p style={S.hlp}>Tips go directly to employees, not counted as revenue.</p>
             <div style={S.r2}><select style={S.inp} value={tipEmp} onChange={e=>setTipEmp(e.target.value)}><option value="">Select employee</option>{emps.filter(e=>e.active).map(e=><option key={e.id}>{e.name}</option>)}</select><input style={S.inp} type="number" value={tipAmt} onChange={e=>setTipAmt(e.target.value)} placeholder="Amount (Birr)"/></div>
-            <button style={S.btnS} onClick={addTip}>+ Add Tip</button>
+            <button style={S.btnS} onClick={addTip}>{t("addTip")}</button>
             {tips.map(t=><div key={t.id} style={S.li}><span>{t.employee}</span><span style={{display:"flex",gap:8,alignItems:"center"}}><b>{money(t.amount)}</b><button style={S.btnD} onClick={()=>setTips(p=>p.filter(x=>x.id!==t.id))}>×</button></span></div>)}
             <HR/><L>Payment Method</L>
             <select style={S.inp} value={payM} onChange={e=>setPayM(e.target.value)}><option>Cash</option><option>Transfer</option><option>Telebirr</option><option>Card</option></select>
@@ -1299,7 +1298,7 @@ export default function App(){
                 </div>)}
               </div>}
             </>}
-            {!act.groupName&&<button style={S.btnP} onClick={()=>confirmPay(false)}>✓ Confirm Paid & Close</button>}
+            {!act.groupName&&<button style={S.btnP} onClick={()=>confirmPay(false)}>{t("confirmPaid")}</button>}
             {act.groupName&&!splitMode&&<button style={S.btnP} onClick={()=>confirmPay(false)}>Pay This Person Only</button>}
           </>}
         </section>
@@ -1307,12 +1306,12 @@ export default function App(){
 
       {tab==="Bookings"&&<section style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10,marginBottom:14}}>
-          <h2 style={{...S.ct,margin:0}}>Booking Management</h2>
+          <h2 style={{...S.ct,margin:0}}>{t("bookingMgmt")}</h2>
           <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
             <EthPicker value={bkDate} onChange={d=>setBkDate((d||"").slice(0,10))}/>
             {user.role!=="supervisor"&&<>
-              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>🚶 Spa Walk-in</button>
-              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:(bkDate||todayStr()).slice(0,10),time:"10:00",people:1,notes:""});setBkWarn("");}}>+ New Booking</button>
+              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>{t("spaWalkIn")}</button>
+              <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:(bkDate||todayStr()).slice(0,10),time:"10:00",people:1,notes:""});setBkWarn("");}}>{t("newBooking")}</button>
             </>}
           </div>
         </div>
@@ -1321,7 +1320,7 @@ export default function App(){
           <h3 style={{margin:"0 0 12px",fontWeight:800,color:"#0f766e"}}>🚶 Spa Walk-in — Add to Queue Now</h3>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
             <div><L>Customer Name *</L><input style={S.inp} value={wiName} onChange={e=>setWiName(e.target.value)} placeholder="Full name"/></div>
-            <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={wiPhone} onChange={e=>setWiPhone(e.target.value)} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===wiPhone.trim());if(f)setWiName(f.name);}}>Recall</button></div></div>
+            <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={wiPhone} onChange={e=>setWiPhone(e.target.value)} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===wiPhone.trim());if(f)setWiName(f.name);}}>{t("recall")}</button></div></div>
             <div style={{gridColumn:"1/-1"}}><L>Spa Service *</L>
               <select style={{...S.inp,background:"#fff",color:"#111827"}} value={wiSvcId} onChange={e=>setWiSvcId(e.target.value)}>
                 <option value="">— Select spa service —</option>
@@ -1330,15 +1329,15 @@ export default function App(){
             </div>
             <div style={{gridColumn:"1/-1"}}><L>Note</L><input style={S.inp} value={wiNote} onChange={e=>setWiNote(e.target.value)} placeholder="Any special requests"/></div>
           </div>
-          <div style={S.r2}><button style={{...S.btnP,background:"#0f766e",color:"#fff"}} onClick={addSpaWalkIn}>Add to Queue</button><button style={S.btnS} onClick={()=>setShowWalkIn(false)}>Cancel</button></div>
+          <div style={S.r2}><button style={{...S.btnP,background:"#0f766e",color:"#fff"}} onClick={addSpaWalkIn}>Add to Queue</button><button style={S.btnS} onClick={()=>setShowWalkIn(false)}>{t("cancel")}</button></div>
         </div>}
 
         {showBkF&&user.role!=="supervisor"&&<div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:16,padding:18,marginBottom:16}}>
-          <h3 style={{margin:"0 0 12px",fontWeight:800}}>{editBk?{t("edit")}:"New"} Booking</h3>
+          <h3 style={{margin:"0 0 12px",fontWeight:800}}>{editBk?t("edit"):"New"} Booking</h3>
           {bkWarn&&<div style={{background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:13,fontWeight:700}}>{bkWarn}</div>}
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
             <div><L>Customer Name *</L><input style={S.inp} value={bkF.customerName} onChange={e=>setBkF(p=>({...p,customerName:e.target.value}))} placeholder="Full name"/></div>
-            <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={bkF.customerPhone} onChange={e=>setBkF(p=>({...p,customerPhone:e.target.value}))} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===bkF.customerPhone.trim());if(f)setBkF(p=>({...p,customerName:f.name}));}}>Recall</button></div></div>
+            <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={bkF.customerPhone} onChange={e=>setBkF(p=>({...p,customerPhone:e.target.value}))} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===bkF.customerPhone.trim());if(f)setBkF(p=>({...p,customerName:f.name}));}}>{t("recall")}</button></div></div>
             <div style={{gridColumn:"1/-1"}}>
               <L>Service * (Spa services only)</L>
               <select style={{...S.inp,background:"#fff",color:"#111827",borderColor:bkF.serviceId?"#111827":"#d1d5db"}}
@@ -1353,19 +1352,19 @@ export default function App(){
             <div><L>Number of People</L><input style={S.inp} type="number" min="1" value={bkF.people} onChange={e=>setBkF(p=>({...p,people:e.target.value}))}/></div>
             <div><L>Notes</L><textarea style={S.ta} value={bkF.notes} onChange={e=>setBkF(p=>({...p,notes:e.target.value}))} rows={2}/></div>
           </div>
-          <div style={S.r2}><button style={S.btnP} onClick={saveBk}>Save Booking</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>Cancel</button></div>
+          <div style={S.r2}><button style={S.btnP} onClick={saveBk}>{t("saveBooking")}</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>{t("cancel")}</button></div>
         </div>}
 
         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
           <input style={{...S.inp,marginBottom:0,flex:1,minWidth:180}} placeholder="Search by name, phone or service..." value={bkSearch} onChange={e=>setBkSearch(e.target.value)}/>
           {bkSearch&&<button style={{...S.btnD,whiteSpace:"nowrap"}} onClick={()=>setBkSearch("")}>Clear</button>}
-          <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={async()=>{const{data,error}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});if(data){setBks(data.map(dbBk));push("Loaded "+data.length+" bookings","success");}if(error)push("Error: "+error.message,"warning");}}>🔄 Refresh</button>
+          <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={async()=>{const{data,error}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});if(data){setBks(data.map(dbBk));push("Loaded "+data.length+" bookings","success");}if(error)push("Error: "+error.message,"warning");}}>{t("refresh")}</button>
         </div>
         <div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#0369a1"}}>
           📊 {bks.length} total bookings in system · {bks.filter(b=>b.date===bkDate).length} on selected date · {bks.filter(b=>b.status==="Pending").length} pending
         </div>
-        <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled",{t("noShow")}].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled",{t("noShow")}].includes(b.status)).length!==1?"s":""})</span></h3>
-        {todayBk.filter(b=>!["Cancelled",{t("noShow")}].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
+        <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
+        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
         
         <div style={{border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
           {timeSlots().map(slot=>{
@@ -1374,7 +1373,7 @@ export default function App(){
             const slotMins=toMins(slot);
             const slotEndMins=slotMins+30;
             const slotBks=todayBk.filter(b=>{
-              if(["Cancelled",{t("noShow")}].includes(b.status))return false;
+              if(["Cancelled","No-show"].includes(b.status))return false;
               const bStartMins=toMins(b.time);
               const bEndMins=bStartMins+Number(b.durationMins||60);
               return bStartMins<slotEndMins&&bEndMins>slotMins;
@@ -1387,7 +1386,7 @@ export default function App(){
                 <div style={{fontSize:10,fontWeight:400,color:isOccupied?"#3b82f6":"#92400e"}}>{toEthTime(slot)}</div>
               </div>
               <div style={{padding:"6px 10px",minHeight:40}}>
-                {!isOccupied&&<span style={{color:"#9ca3af",fontSize:11,lineHeight:"28px",fontStyle:"italic"}}>Available</span>}
+                {!isOccupied&&<span style={{color:"#9ca3af",fontSize:11,lineHeight:"28px",fontStyle:"italic"}}>{t("available")}</span>}
                 {isStartSlot&&slotBks.filter(b=>b.time===slot).map(b=>{
                   const c=BKC[b.status]||{bg:"#f3f4f6",co:"#374151"};
                   return <div key={b.id} style={{background:c.bg,borderRadius:8,padding:"6px 10px",marginBottom:3,border:"1px solid "+c.co+"44"}}>
@@ -1404,24 +1403,24 @@ export default function App(){
                         <div style={{fontSize:10,color:"#9ca3af",marginTop:1}}>By {b.createdBy} · {b.customerPhone}</div>
                       </div>
                       {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                        {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
-                        {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>Check In</button>}
-                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>Mark Done</button></>}
-                        {!["Completed","Cancelled",{t("noShow")},"Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
-                        {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button>}
+                        {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>{t("confirmBooking")}</button>}
+                        {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>{t("checkIn")}</button>}
+                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>}
+                        {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
+                        {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>{t("cancel")}</button>}
                         <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
                       </div>}
                     </div>
                   </div>;
                 })}
-                {isOccupied&&!isStartSlot&&<span style={{color:"#93c5fd",fontSize:11,fontStyle:"italic",lineHeight:"28px"}}>↑ Continuing from above</span>}
+                {isOccupied&&!isStartSlot&&<span style={{color:"#93c5fd",fontSize:11,fontStyle:"italic",lineHeight:"28px"}}>{t("continuing")}</span>}
               </div>
             </div>;
           })}
         </div>
 
-        <HR/><h3 style={S.sh}>Upcoming 7 Days</h3>
-        {bks.filter(b=>(b.date||'').slice(0,10)>todayStr()&&(b.date||'').slice(0,10)<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&!["Cancelled",{t("noShow")},"Completed"].includes(b.status)).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).map(b=><div key={b.id} style={S.li}><div><b style={{color:"#111827"}}>{b.date} at {b.time} ({toEthTime(b.time)})</b><p style={{...S.hlp,color:"#374151"}}>{b.customerName} · {b.serviceName}</p></div><span style={SB(b.status)}>{b.status}</span></div>)}
+        <HR/><h3 style={S.sh}>{t("upcoming7")}</h3>
+        {bks.filter(b=>(b.date||'').slice(0,10)>todayStr()&&(b.date||'').slice(0,10)<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&!["Cancelled","No-show","Completed"].includes(b.status)).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).map(b=><div key={b.id} style={S.li}><div><b style={{color:"#111827"}}>{b.date} at {b.time} ({toEthTime(b.time)})</b><p style={{...S.hlp,color:"#374151"}}>{b.customerName} · {b.serviceName}</p></div><span style={SB(b.status)}>{b.status}</span></div>)}
       </section>}
 
 
@@ -1437,7 +1436,7 @@ export default function App(){
               <input style={S.inp} type="number" value={nSvc.commission} onChange={e=>setNSvc({...nSvc,commission:e.target.value})} placeholder="Commission %"/>
               <input style={S.inp} type="number" value={nSvc.durationMins} onChange={e=>setNSvc({...nSvc,durationMins:e.target.value})} placeholder="Duration (min)"/>
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12}}><input type="checkbox" checked={nSvc.bookable} onChange={e=>setNSvc({...nSvc,bookable:e.target.checked})}/> Bookable (Spa)</label>
-              <button style={{...S.btnP,gridColumn:"1/-1"}} onClick={addSvc2}>+ Add Service</button>
+              <button style={{...S.btnP,gridColumn:"1/-1"}} onClick={addSvc2}>{t("addService")}</button>
             </div>
           </div>
         </div>
@@ -1485,7 +1484,7 @@ export default function App(){
           <div><L>Reason</L><input style={S.inp} value={gRsn} onChange={e=>setGRsn(e.target.value)} placeholder="Optional"/></div>
           <div><L>Amount (Birr)</L><input style={S.inp} type="number" value={gAmt} onChange={e=>setGAmt(e.target.value)} placeholder="0"/></div>
         </div>
-        <button style={S.btnP} onClick={addGE}>Save Expense</button><HR/>
+        <button style={S.btnP} onClick={addGE}>{t("saveExpense")}</button><HR/>
         <div style={S.tb}><span>All-Time Total</span><b>{money(exps.filter(e=>e.type==="General").reduce((s,e)=>s+Number(e.total||0),0))}</b></div><HR/>
         {exps.filter(e=>e.type==="General").sort((a,b)=>b.date.localeCompare(a.date)).map(e=><div key={e.id} style={S.li}><div><b>{e.name}</b>{e.reason&&<p style={S.hlp}>{e.reason}</p>}<p style={{...S.hlp,fontSize:10}}>{e.date}</p></div><span style={{display:"flex",alignItems:"center",gap:8}}><b>{money(e.total)}</b><button style={S.btnD} onClick={()=>delE(e.id)}>×</button></span></div>)}
       </section>}
@@ -1495,13 +1494,13 @@ export default function App(){
         {fCusts.map(c=>{const cv=visits.filter(v=>v.customerId===c.id&&v.status==="Paid & Closed");const cbks=bks.filter(b=>b.customerId===c.id);const all=cv.flatMap(v=>v.services.map(s=>s.name));const fav=all.length?all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0]:"None";const spent=cv.reduce((s,v)=>s+Number(v.totalService||0),0);return <div key={c.id} style={S.li}><div><b style={{fontSize:15}}>{c.name}</b><p style={S.hlp}>{c.phone} · {c.id}</p><p style={S.hlp}>Favourite: {fav} · {cbks.length} bookings · {cv.length} visits · {money(spent)}</p></div><button style={S.btnD} onClick={()=>delCust(c.id)}>Delete</button></div>;})}
       </section>}
 
-      {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>Payroll Management</h2>
+      {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>{t("payrollMgmt")}</h2>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
           <div><p style={{...S.hlp,margin:0,color:"#374151"}}>Current pay period</p><b style={{fontSize:15}}>{period.label}</b></div>
-          <div style={{display:"flex",gap:8}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>Close & Pay Period</button></div>
+          <div style={{display:"flex",gap:8}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>{t("closePayPeriod")}</button></div>
         </div>
         <div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:14,fontSize:13}}>Commissions update live. Close & Pay to freeze and reset for next period.</div>
-        <h3 style={S.sh}>Add Employee</h3>
+        <h3 style={S.sh}>{t("addEmployee")}</h3>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"1fr 1fr 1fr 1fr 1fr auto",gap:8,marginBottom:16}}>
           <input style={S.inp} value={nEmp.name} onChange={e=>setNEmp({...nEmp,name:e.target.value})} placeholder="Full name"/>
           <select style={S.inp} value={nEmp.section} onChange={e=>setNEmp({...nEmp,section:e.target.value})}>{EMP_SECTIONS.map(c=><option key={c}>{c}</option>)}</select>
@@ -1560,18 +1559,18 @@ export default function App(){
             </div>
           </div>
           {extra?.breakdown?.length>0&&<details style={{marginBottom:8}}><summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Breakdown ({extra.breakdown.length})</summary><div style={{paddingLeft:10,paddingTop:4}}>{extra.breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,borderBottom:"1px solid #ecdba3",padding:"2px 0"}}><span>{b.name}</span><span>{money(b.income)} → {money(b.commission)}</span></div>)}</div></details>}
-          <div style={{...S.tb,padding:"10px 16px"}}><span>Net Pay</span><b style={{fontSize:16}}>{money(Math.max(0,Math.round(net)))}</b></div>
+          <div style={{...S.tb,padding:"10px 16px"}}><span>{t("netPay")}</span><b style={{fontSize:16}}>{money(Math.max(0,Math.round(net)))}</b></div>
         </div>);})}
         {periods.length>0&&<><HR/><h3 style={S.sh}>Closed Periods</h3>{periods.slice().reverse().map((cp,i)=><details key={i} style={{...S.li,display:"block",marginBottom:8}}><summary style={{cursor:"pointer",fontWeight:700}}>{cp.period}</summary><div style={{paddingTop:8}}>{cp.employees?.map(e=>{const dd=Number(e.salary||0)/30;const ad=dd*Number(e.absentDays||0);const n=Number(e.salary||0)+Number(e.commissionTotal||0)-Number(e.loan||0)-Number(e.brokerFee||0)-Number(e.otherDeduction||0)-ad;return<div key={e.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #ecdba3",fontSize:13}}><span><b>{e.name}</b> ({e.section})</span><b>{money(Math.max(0,Math.round(n)))}</b></div>;})}</div></details>)}</>}
         <div className="print-only" style={{display:"none"}}><PS emps={emps} empC={empC} period={period}/></div>
       </section>}
 
-      {tab==="Dashboard"&&<section style={S.card}><h2 style={S.ct}>Manager Dashboard</h2>
+      {tab==="Dashboard"&&<section style={S.card}><h2 style={S.ct}>{t("dashboard2")}</h2>
         {/* Date filter */}
         <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:8}}>
             <div style={{flex:1}}><EthPicker label="Viewing Date" value={dashDate} onChange={setDashDate}/></div>
-            <button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>setDashDate(todayStr())}>Today</button>
+            <button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>setDashDate(todayStr())}>{t("today")}</button>
             <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",padding:"10px 0"}}>
               <input type="checkbox" checked={dashRange} onChange={e=>setDashRange(e.target.checked)}/>
               Date Range
@@ -1624,7 +1623,7 @@ export default function App(){
         })()}
       </section>}
 
-      {tab==="Staff"&&<section style={S.card}><h2 style={S.ct}>Staff & Password Management</h2>
+      {tab==="Staff"&&<section style={S.card}><h2 style={S.ct}>{t("staffMgmt")}</h2>
         <p style={S.hlp}>Reception: Reception + Checkout + Bookings. Supervisor: Supervisor + Bookings. Manager: All.</p><HR/>
         <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16,marginBottom:16}}>
           <h3 style={{margin:"0 0 14px",fontWeight:800,fontSize:15}}>{editStaff?"Edit: "+editStaff.id:"Add / Update Staff Account"}</h3>
@@ -1634,7 +1633,7 @@ export default function App(){
             <div><L>Role</L><select style={S.inp} value={nStaff.role} onChange={e=>setNStaff(p=>({...p,role:e.target.value}))}><option value="reception">Reception</option><option value="supervisor">Supervisor</option><option value="manager">Manager</option></select></div>
             <div><L>{editStaff?"New Password":"Password"}</L><input style={S.inp} type="password" value={nStaff.password} onChange={e=>setNStaff(p=>({...p,password:e.target.value}))} placeholder={editStaff?"Enter new password":"Password"}/></div>
           </div>
-          <div style={S.r2}><button style={S.btnP} onClick={saveStaff}>{editStaff?t("updateAccount"):t("saveAccount")}</button>{editStaff&&<button style={S.btnS} onClick={()=>{setEditStaff(null);setNStaff({id:"",name:"",role:"reception",password:""});}}>Cancel</button>}</div>
+          <div style={S.r2}><button style={S.btnP} onClick={saveStaff}>{editStaff?t("updateAccount"):t("saveAccount")}</button>{editStaff&&<button style={S.btnS} onClick={()=>{setEditStaff(null);setNStaff({id:"",name:"",role:"reception",password:""});}}>{t("cancel")}</button>}</div>
         </div>
         <h3 style={S.sh}>All Staff ({staff.length})</h3>
         {staff.map(s=><div key={s.id} style={{...S.li,flexWrap:"wrap",gap:10,opacity:s.active?1:0.6}}>
@@ -1674,7 +1673,7 @@ export default function App(){
             <button style={{...S.btnS,marginTop:8}} onClick={()=>{
               const def={primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};
               saveDes(def);push("Design reset to default","success");
-            }}>Reset to Default</button>
+            }}>{t("resetDefault")}</button>
           </div>
           {/* Label settings */}
           <div>
@@ -1727,7 +1726,7 @@ export default function App(){
         </div>
       </section>}
 
-      {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>Activity Log</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
+      {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>{t("activityLog2")}</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
         <details style={{marginBottom:12}}><summary style={{fontSize:11,color:"#6b7280",cursor:"pointer"}}>⚙️ Database setup required? Run this SQL in Supabase once</summary><pre style={{background:"#1e293b",color:"#e2e8f0",padding:12,borderRadius:10,fontSize:10,overflow:"auto",marginTop:8}}>{`ALTER TABLE employees ADD COLUMN IF NOT EXISTS role text DEFAULT '';
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS day_off integer DEFAULT NULL;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS on_leave boolean DEFAULT false;
@@ -1737,12 +1736,12 @@ ALTER TABLE visits ADD COLUMN IF NOT EXISTS registered_at timestamptz DEFAULT no
         {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
       </section>}
 
-      {tab==="Handover"&&<section style={S.card}><h2 style={S.ct}>Shift Handover Log</h2>
+      {tab==="Handover"&&<section style={S.card}><h2 style={S.ct}>{t("handoverLog")}</h2>
         <p style={{...S.hlp,color:"#374151"}}>Leave notes for the next shift. Visible to all staff.</p><HR/>
         <L>Handover Note</L>
         <textarea style={S.ta} value={handoverNote} onChange={e=>setHandoverNote(e.target.value)} placeholder="e.g. Customer X is coming back at 4pm. Room 2 needs cleaning. Booking for Marta confirmed for tomorrow 10am..." rows={4}/>
-        <button style={S.btnP} onClick={async()=>{if(!handoverNote.trim())return;const row={id:Date.now(),staff_name:user.name,role:user.role,note:handoverNote.trim(),ts:new Date().toISOString()};setHandoverLog(p=>[row,...p]);await supabase.from("activity_log").insert({staff_id:user.id,staff_name:user.name,action:"Handover Note",detail:handoverNote.trim(),ts:new Date().toISOString()});setHandoverNote("");push("Handover note saved","success");}}>Save Handover Note</button>
-        <HR/><h3 style={S.sh}>Recent Handover Notes</h3>
+        <button style={S.btnP} onClick={async()=>{if(!handoverNote.trim())return;const row={id:Date.now(),staff_name:user.name,role:user.role,note:handoverNote.trim(),ts:new Date().toISOString()};setHandoverLog(p=>[row,...p]);await supabase.from("activity_log").insert({staff_id:user.id,staff_name:user.name,action:"Handover Note",detail:handoverNote.trim(),ts:new Date().toISOString()});setHandoverNote("");push("Handover note saved","success");}}>{t("saveNote")}</button>
+        <HR/><h3 style={S.sh}>{t("recentNotes")}</h3>
         {actLog.filter(a=>a.action==="Handover Note").slice(0,20).map((a,i)=><div key={i} style={{...S.li,flexDirection:"column",alignItems:"flex-start",gap:6}}>
           <div style={{display:"flex",justifyContent:"space-between",width:"100%",flexWrap:"wrap",gap:4}}>
             <span style={{background:a.role==="manager"?"#334155":a.role==="supervisor"?"#1e40af":"#f5e7c0",color:a.role==="manager"?"#e0b85a":a.role==="supervisor"?"#fff":"#6b4c11",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span>
@@ -1790,7 +1789,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         </div>
       </div>;
     })}
-    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700,color:"#d1d5db"}}>Total Income</span><b style={{fontSize:15,color:"#e0b85a"}}>{money(visit.totalService)}</b></div>
+    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700,color:"#d1d5db"}}>{t("totalIncome")}</span><b style={{fontSize:15,color:"#e0b85a"}}>{money(visit.totalService)}</b></div>
   </div>;
 }
 
