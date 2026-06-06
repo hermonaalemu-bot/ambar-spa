@@ -284,15 +284,15 @@ function chime(type="info"){
 function checkConflict(bks,form,svcs){
   const svc=svcs.find(s=>s.id===Number(form.serviceId));if(!svc)return null;
   const start=new Date(form.date+"T"+form.time);const end=new Date(start.getTime()+svc.durationMins*60000);
-  const overlap=bks.filter(b=>b.date===form.date&&!["Cancelled","No-show","Completed"].includes(b.status)&&b.id!==(form.id||0)).filter(b=>{const bs=new Date(form.date+"T"+b.time);const be=new Date(bs.getTime()+b.durationMins*60000);return bs<end&&be>start;});
+  const overlap=bks.filter(b=>b.date===form.date&&!["Cancelled",{t("noShow")},"Completed"].includes(b.status)&&b.id!==(form.id||0)).filter(b=>{const bs=new Date(form.date+"T"+b.time);const be=new Date(bs.getTime()+b.durationMins*60000);return bs<end&&be>start;});
   if(svc.sub==="Moroccan Bath"){const tot=overlap.filter(b=>b.serviceCategory==="Spa").reduce((s,b)=>s+b.people,0)+Number(form.people||1);if(tot>4)return"⚠️ Morocco Bath room may be over capacity (max 4 people comfortable together).";}
   if(svc.sub==="Steam & Sauna"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Sauna")).length>0)return"⚠️ Steam & Sauna has overlapping bookings at this time.";
   if(svc.sub==="Massage"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Massage")).length>=2)return"⚠️ Both massage rooms may be occupied at this time.";
   return null;
 }
 
-const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
-const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"]};
+const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},{t("noShow")}:{bg:"#f3f4f6",co:"#6b7280"}};
+const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
@@ -448,8 +448,217 @@ function EthPicker({value,onChange,label,...props}){
   );
 }
 
+
+// ── Language strings ─────────────────────────────────────────
+const LANG={
+  en:{
+    // Tabs
+    reception:"Reception",supervisor:"Supervisor",checkout:"Checkout",
+    bookings:"Bookings",serviceSetup:"Service Setup",dailyClosing:"Daily Closing",
+    expenses:"Expenses",customers:"Customers",payroll:"Payroll",
+    dashboard:"Dashboard",staff:"Staff",activityLog:"Activity Log",
+    handover:"Handover",designEditor:"Design Editor",
+    // Reception
+    registerCustomer:{t("registerCustomer")},phone:"Phone",name:"Name",
+    numberOfPeople:"Number of People",note:"Note",
+    registerBtn:{t("registerBtn")},
+    quickExpense:"Quick Expense",itemName:"Item name",qty:"Qty",
+    unitPrice:"Unit price",saveExpense:{t("saveExpense")},
+    recall:{t("recall")},todaysQueue:{t("todaysQueue")},cancel:{t("cancel")},
+    // Supervisor
+    queueOverview:{t("queueOverview")},waiting:"Waiting",activeServices:"Active Services",
+    noOneWaiting:"No one waiting.",addService:{t("addService")},
+    markReady:{t("markReady")},reopen:{t("reopen")},
+    selectService:"Select a service...",selectCategory:"Category",
+    selectSub:"Sub-category",removeService:"Remove",
+    whoDidIt:"Who Did It?",preferred:"Preferred",status:"Status",
+    inProgress:"In Progress",completed:"Completed",cancelled:"Cancelled",
+    onHold:"On Hold",totalIncome:"Total Income",
+    // Checkout
+    checkoutToday:{t("checkoutToday")},searchCheckout:"Search by queue #, name or phone...",
+    tips:"Tips",tipsNote:"Tips go directly to employees, not counted as revenue.",
+    selectEmployee:"Select employee",amount:"Amount (Birr)",addTip:{t("addTip")},
+    paymentMethod:"Payment Method",cash:"Cash",transfer:"Transfer",
+    telebirr:"Telebirr",card:"Card",serviceTotal:"Service Total",
+    tipsTotal:"Tips Total",customerPays:"Customer Pays",
+    confirmPaid:{t("confirmPaid")},payTogether:"Pay Together — Whole Group",
+    splitPayment:"Split Payment — Each Pays Their Own",
+    printReceipt:{t("printReceipt")},
+    // Bookings
+    bookingMgmt:{t("bookingMgmt")},newBooking:{t("newBooking")},
+    spaWalkIn:{t("spaWalkIn")},customerName:"Customer Name",
+    selectSpaService:"— Select a spa service —",
+    dateRequired:"Date *",timeRequired:"Time *",people:"Number of People",
+    notes:"Notes / Special Requests",saveBooking:{t("saveBooking")},
+    confirmBooking:{t("confirmBooking")},checkIn:{t("checkIn")},markDone:{t("markDone")},
+    noShow:{t("noShow")},editBooking:{t("edit")},deleteBooking:{t("delete")},
+    upcoming7:{t("upcoming7")},available:{t("available")},continuing:{t("continuing")},
+    refresh:{t("refresh")},
+    // Status badges
+    waitingForSupervisor:"Waiting for Supervisor",withSupervisor:"With Supervisor",
+    inService:"In Service",readyForPayment:"Ready for Payment",
+    paidClosed:"Paid & Closed",pending:"Pending",confirmed:"Confirmed",
+    arrived:"Arrived",noshow:{t("noShow")},
+    // Payroll
+    payrollMgmt:{t("payrollMgmt")},currentPeriod:"Current pay period",
+    closePayPeriod:{t("closePayPeriod")},addEmployee:{t("addEmployee")},
+    baseSalary:"Base Salary",absentDays:"Absent Days",loan:"Loan",
+    brokerFee:"Broker Fee",otherDeduction:"Other Deduction",commission:"Commission",
+    netPay:{t("netPay")},deactivate:{t("deactivate")},reactivate:{t("reactivate")},
+    weeklyDayOff:"Weekly Day Off",noFixedDayOff:"No fixed day off",
+    onLeave:"On Leave",available2:{t("available")},closedPeriods:"Closed Periods",
+    breakdown:"Breakdown",todayAvailability:"Today's Availability",
+    // Dashboard
+    dashboard2:{t("dashboard2")},viewingDate:"Viewing Date",
+    today:{t("today")},dateRange:{t("dateRange")},from:"From",to:"To",
+    customersServed:"Customers Served",totalVisits:"Total Visits",
+    activeEmployees:"Active Employees",revenue:"Revenue",
+    transferCard:"Transfer/Card",tipsDash:"Tips",
+    commissionPeriod:"Commission This Period",revenueByCategory:"Revenue by Category",
+    employeePerformance:"Employee Performance This Period",
+    dailyTarget:"Daily Revenue Target",setTarget:"Set target (Birr)",
+    targetReached:"🎉 Target reached!",
+    // Staff
+    staffMgmt:{t("staffMgmt")},username:"Username",
+    displayName:"Display Name",role:"Role",password:"Password",
+    newPassword:"New Password",saveAccount:{t("saveAccount")},updateAccount:{t("updateAccount")},
+    allStaff:"All Staff",editResetPW:{t("editResetPW")},
+    // Activity Log
+    activityLog2:"Activity Log",last100:"Last 100 actions across all staff.",
+    // Handover
+    handoverLog:{t("handoverLog")},handoverNote:"Handover Note",
+    saveNote:{t("saveNote")},recentNotes:{t("recentNotes")},
+    // General
+    saving:{t("saving")},offline:{t("offline")},
+    backOnline:"Back online",todayNext:{t("todayNext")},logout:{t("logout")},
+    login:{t("login")},loginTitle:{t("loginTitle")},
+    sessionLocked:{t("sessionLocked")},unlock:{t("unlock")},
+    logoutInstead:{t("logoutInstead")},loading:{t("loading")},
+    noData:"No data.",none:"None",free:"Free",discount:"Discount",
+    yes:"Yes",no:"No",save:"Save",edit:{t("edit")},delete:{t("delete")},
+    add:"Add",close:"Close",print:"Print",exportCSV:"⬇ Export CSV",
+    search:"Search",clear:"Clear",
+  },
+  am:{
+    // Tabs
+    reception:"ተቀባይ",supervisor:"ሱፐርቫይዘር",checkout:"ክፍያ",
+    bookings:"ቦኪንግ",serviceSetup:"አገልግሎቶች",dailyClosing:"የዕለት ዝግ",
+    expenses:"ወጪዎች",customers:"ደንበኞች",payroll:"ደሞዝ",
+    dashboard:"ዳሽቦርድ",staff:"ሰራተኞች",activityLog:"የአቀባበል ምዝገባ",
+    handover:"የፈረቃ ማሸጋገሪያ",designEditor:"ዲዛይን አርታዒ",
+    // Reception
+    registerCustomer:"ደንበኛ መመዝገብ",phone:"ስልክ",name:"ስም",
+    numberOfPeople:"የሰዎች ቁጥር",note:"ማስታወሻ",
+    registerBtn:"ምዝገባ & ወረፋ ቁጥር ስጥ",
+    quickExpense:"ፈጣን ወጪ",itemName:"የእቃ ስም",qty:"መጠን",
+    unitPrice:"የአንድ ዋጋ",saveExpense:"ወጪ አስቀምጥ",
+    recall:"ፈልግ",todaysQueue:"የዛሬ ወረፋ",cancel:"ሰርዝ",
+    // Supervisor
+    queueOverview:"የወረፋ አጠቃላይ እይታ",waiting:"እየጠበቀ",activeServices:"ንቁ አገልግሎቶች",
+    noOneWaiting:"የሚጠብቅ የለም።",addService:"+ አገልግሎት ጨምር",
+    markReady:"✓ ለክፍያ ዝግጁ አድርግ",reopen:"እንደገና ክፈት",
+    selectService:"አገልግሎት ምረጥ...",selectCategory:"ምድብ",
+    selectSub:"ንዑስ ምድብ",removeService:"አስወግድ",
+    whoDidIt:"ማን ሰራው?",preferred:"የሚፈለግ",status:"ሁኔታ",
+    inProgress:"በሂደት ላይ",completed:"ተጠናቋል",cancelled:"ተሰርዟል",
+    onHold:"በእቆያ",totalIncome:"ጠቅላላ ገቢ",
+    // Checkout
+    checkoutToday:"ክፍያ — ዛሬ",searchCheckout:"በወረፋ #፣ ስም ወይም ስልክ ፈልግ...",
+    tips:"ጠቆሚያ",tipsNote:"ጠቆሚያ ለሰራተኞች ቀጥታ ይሄዳል፣ ገቢ አይቆጠርም።",
+    selectEmployee:"ሰራተኛ ምረጥ",amount:"መጠን (ብር)",addTip:"+ ጠቆሚያ ጨምር",
+    paymentMethod:"የክፍያ ዘዴ",cash:"ጥሬ ገንዘብ",transfer:"ዝውውር",
+    telebirr:"ቴሌብር",card:"ካርድ",serviceTotal:"የአገልግሎት ድምር",
+    tipsTotal:"የጠቆሚያ ድምር",customerPays:"ደንበኛ ይከፍላል",
+    confirmPaid:"✓ ተከፍሏል & ዝጋ",payTogether:"ሁሉም አብሮ ይክፈሉ",
+    splitPayment:"ክፍፍል ክፍያ — እያንዳንዱ ለራሱ",
+    printReceipt:"🖨️ ደረሰኝ አትም",
+    // Bookings
+    bookingMgmt:"የቦኪንግ አስተዳደር",newBooking:"+ አዲስ ቦኪንግ",
+    spaWalkIn:"🚶 ስፓ ዎክ-ኢን",customerName:"የደንበኛ ስም",
+    selectSpaService:"— የስፓ አገልግሎት ምረጥ —",
+    dateRequired:"ቀን *",timeRequired:"ሰዓት *",people:"የሰዎች ቁጥር",
+    notes:"ማስታወሻ / ልዩ ጥያቄዎች",saveBooking:"ቦኪንግ አስቀምጥ",
+    confirmBooking:"አረጋግጥ",checkIn:"ቼክ ኢን",markDone:"ተጠናቋል ምልክት አድርግ",
+    noShow:"አልመጣም",editBooking:"አርትዕ",deleteBooking:"ሰርዝ",
+    upcoming7:"የሚቀጥሉ 7 ቀናት",available:"ባዶ",continuing:"↑ ቀጥሏል",
+    refresh:"🔄 አድስ",
+    // Status badges
+    waitingForSupervisor:"ሱፐርቫይዘርን እየጠበቀ",withSupervisor:"ከሱፐርቫይዘር ጋር",
+    inService:"አገልግሎት ላይ",readyForPayment:"ለክፍያ ዝግጁ",
+    paidClosed:"ተከፍሏል & ተዘግቷል",pending:"በመጠባበቅ",confirmed:"ተረጋግጧል",
+    arrived:"ደርሷል",noshow:"አልመጣም",
+    // Payroll
+    payrollMgmt:"የደሞዝ አስተዳደር",currentPeriod:"የአሁን የደሞዝ ወቅት",
+    closePayPeriod:"ወቅቱን ዝጋ & ክፈል",addEmployee:"ሰራተኛ ጨምር",
+    baseSalary:"መሰረታዊ ደሞዝ",absentDays:"የቀሩ ቀናት",loan:"ብድር",
+    brokerFee:"የደላላ ክፍያ",otherDeduction:"ሌላ ቅናሽ",commission:"ኮሚሽን",
+    netPay:"ተጣራ ክፍያ",deactivate:"አቦዝን",reactivate:"እንደገና አንቃ",
+    weeklyDayOff:"ሳምንታዊ የዕረፍት ቀን",noFixedDayOff:"ቋሚ የዕረፍት ቀን የለም",
+    onLeave:"በፈቃድ ላይ",available2:"ዝግጁ",closedPeriods:"የተዘጉ ወቅቶች",
+    breakdown:"ዝርዝር",todayAvailability:"የዛሬ ቅርበት",
+    // Dashboard
+    dashboard2:"የአስተዳዳሪ ዳሽቦርድ",viewingDate:"የሚታይ ቀን",
+    today:"ዛሬ",dateRange:"የቀን ክልል",from:"ከ",to:"እስከ",
+    customersServed:"የተስተናገዱ ደንበኞች",totalVisits:"ጠቅላላ ጉብኝቶች",
+    activeEmployees:"ንቁ ሰራተኞች",revenue:"ገቢ",
+    transferCard:"ዝውውር/ካርድ",tipsDash:"ጠቆሚያ",
+    commissionPeriod:"የዚህ ወቅት ኮሚሽን",revenueByCategory:"ገቢ በምድብ",
+    employeePerformance:"የሰራተኛ አፈጻጸም",
+    dailyTarget:"የዕለት ገቢ ኢላማ",setTarget:"ኢላማ አስቀምጥ (ብር)",
+    targetReached:"🎉 ኢላማ ተደርሷል!",
+    // Staff
+    staffMgmt:"የሰራተኞች & የይለፍ ቃል አስተዳደር",username:"የተጠቃሚ ስም",
+    displayName:"የሚታይ ስም",role:"ሚና",password:"የይለፍ ቃል",
+    newPassword:"አዲስ የይለፍ ቃል",saveAccount:"መለያ አስቀምጥ",updateAccount:"መለያ አዘምን",
+    allStaff:"ሁሉም ሰራተኞች",editResetPW:"አርትዕ / ዳግም ቀይር",
+    // Activity Log
+    activityLog2:"የአቀባበል ምዝገባ",last100:"የመጨረሻ 100 እርምጃዎች።",
+    // Handover
+    handoverLog:"የፈረቃ ማሸጋገሪያ ምዝገባ",handoverNote:"የማሸጋገሪያ ማስታወሻ",
+    saveNote:"ማስታወሻ አስቀምጥ",recentNotes:"የቅርብ ጊዜ ማስታወሻዎች",
+    // General
+    saving:"እያስቀመጠ...",offline:"⚠ ኦፍላይን — ለውጦች አይቀመጡም",
+    backOnline:"ኦንላይን ሆኗል",todayNext:"የዛሬ ቀጣይ",logout:"ውጣ",
+    login:"ግባ",loginTitle:"የሰራተኛ መግቢያ",
+    sessionLocked:"ክፍለ ጊዜ ተቆልፏል",unlock:"ክፈት",
+    logoutInstead:"ይልቁንስ ውጣ",loading:"አምባር ስፓ እየጫነ...",
+    noData:"ምንም ውሂብ የለም።",none:"ምንም",free:"ነፃ",discount:"ቅናሽ",
+    yes:"አዎ",no:"አይ",save:"አስቀምጥ",edit:"አርትዕ",delete:"ሰርዝ",
+    add:"ጨምር",close:"ዝጋ",print:"አትም",exportCSV:"⬇ CSV ላክ",
+    search:"ፈልግ",clear:"አጽዳ",
+  }
+};
 export default function App(){
   const sc=useW();
+  // Language
+  const[lang,setLang]=useState(()=>{try{return localStorage.getItem("ambar_lang")||"en";}catch{return"en";}});
+  function t(k){return(LANG[lang]||LANG.en)[k]||LANG.en[k]||k;}
+  function toggleLang(){const nl=lang==="en"?"am":"en";setLang(nl);try{localStorage.setItem("ambar_lang",nl);}catch(e){}}
+  // Design settings
+  const[design,setDesign]=useState(()=>{try{const d=localStorage.getItem("ambar_design");return d?JSON.parse(d):{primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};}catch{return{primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};}});
+  function saveDes(d){setDesign(d);try{localStorage.setItem("ambar_design",JSON.stringify(d));}catch(e){}}
+  const S={
+    card:  {background:design.cardBg||"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e5e7eb",boxShadow:"0 4px 16px rgba(0,0,0,0.06)",marginBottom:16},
+    ct:    {margin:"0 0 14px",fontSize:18,fontWeight:900},
+    sh:    {margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#1f2937"},
+    navL:  {color:"#e0b85a",margin:"12px 0 5px",fontSize:10,fontWeight:800,letterSpacing:1.5},
+    tab:   {padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:"#fff",color:"#1f2937",fontWeight:700,cursor:"pointer",fontSize:11},
+    tabA:  {padding:"9px 4px",borderRadius:10,border:"none",background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:11},
+    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:13,WebkitAppearance:"auto"},
+    ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box",WebkitAppearance:"auto"},
+    ta:    {width:"100%",boxSizing:"border-box",padding:"9px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",minHeight:60,fontSize:13},
+    r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},
+    btnP:  {width:"100%",padding:12,borderRadius:11,border:0,background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:13,marginBottom:6},
+    btnS:  {width:"100%",padding:10,borderRadius:11,border:"1px solid #d1d5db",background:design.btnSBg||"#f9fafb",color:design.btnSText||"#1f2937",fontWeight:700,cursor:"pointer",marginBottom:6,fontSize:12},
+    btnD:  {padding:"5px 11px",borderRadius:7,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:11},
+    navBtn:{padding:"4px 10px",borderRadius:7,border:"1px solid #e5e7eb",background:"#fff",color:"#111827",cursor:"pointer",fontWeight:700,fontSize:14},
+    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6},
+    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
+    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#111827",border:"none",color:"#e0b85a",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",fontWeight:900,textAlign:"left"},
+    tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
+    hlp:   {color:"#5c3d11",fontSize:11,margin:"2px 0"},
+    lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#1f2937"},
+  };
   const[user,setUser]=useState(()=>{try{return JSON.parse(sessionStorage.getItem("ambar_u"))||null;}catch{return null;}});
   const[lid,setLid]=useState("");const[lpw,setLpw]=useState("");const[lerr,setLerr]=useState("");
   const[staff,setStaff]=useState(DEFAULT_STAFF);
@@ -492,6 +701,24 @@ export default function App(){
   useEffect(()=>{if(!user)return;const evs=["mousemove","keydown","click","touchstart"];evs.forEach(e=>window.addEventListener(e,resetIdle));resetIdle();return()=>{clearTimeout(idleRef.current);evs.forEach(e=>window.removeEventListener(e,resetIdle));};},[user]);
   function unlockPin(){const f=staff.find(s=>s.id===user.id&&s.password===pinInput);if(f){setPinLocked(false);setPinInput("");setPinErr("");}else setPinErr("Wrong password.");}
   useEffect(()=>{const on=()=>{setOffline(false);push("Back online","success");};const off=()=>{setOffline(true);push("Offline — changes will not save","warning");};window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
+
+  // ── Notification system ──────────────────────────────────
+  useEffect(()=>{
+    if(!user)return;
+    const role=user.role;
+    const notifInterval=setInterval(()=>{
+      const now=new Date();
+      const nowStr=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+      // Reception: booking reminder 30 min before
+      if(role==="reception"||role==="manager"){
+        const in30=new Date(now.getTime()+30*60000);
+        const in30Str=String(in30.getHours()).padStart(2,"0")+":"+String(in30.getMinutes()).padStart(2,"0");
+        const upcoming=bks.filter(b=>b.date===todayStr()&&b.time===in30Str&&["Pending","Confirmed"].includes(b.status));
+        upcoming.forEach(b=>push("📅 Booking in 30 min: "+b.customerName+" — "+b.serviceName,"booking"));
+      }
+    },60000);
+    return()=>clearInterval(notifInterval);
+  },[user,bks]);
 
   useEffect(()=>{
     const t=setInterval(async()=>{
@@ -590,7 +817,7 @@ export default function App(){
     setTab(m[user.role]||"Reception");
     // Show today's booking reminder on login
     setTimeout(()=>{
-      const todayBookings=bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show","Completed"].includes(b.status));
+      const todayBookings=bks.filter(b=>b.date===todayStr()&&!["Cancelled",{t("noShow")},"Completed"].includes(b.status));
       if(todayBookings.length>0){
         push("📅 Today has "+todayBookings.length+" booking"+( todayBookings.length>1?"s":"")+" — check Bookings tab","booking");
       }
@@ -714,7 +941,7 @@ export default function App(){
     const f=staff.find(s=>s.id===lid.trim()&&s.password===lpw&&s.active);
     if(f){
       setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
-      supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:"Login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
+      supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:{t("login")},detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
     }else{
       setLerr("Invalid username or password.");
       supabase.from("activity_log").insert({staff_id:lid.trim()||"unknown",staff_name:lid.trim()||"unknown",action:"Failed Login",detail:"Failed login attempt for username: "+lid.trim(),ts:new Date().toISOString()}).then(()=>{});
@@ -919,7 +1146,8 @@ export default function App(){
       <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#111827",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
         <div><p style={{color:"#e0b85a",fontWeight:900,letterSpacing:2,margin:"0 0 2px",fontSize:11}}>AMBAR SPA & BEAUTY</p>
           {!sc.mob&&<h1 style={{margin:0,fontSize:20,fontWeight:900,color:"#fff"}}>Salon Management System</h1>}
-          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#e0b85a",color:"#111827",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6}}>{user.role}</span><button onClick={logout} style={{background:"transparent",border:"1px solid #6b7280",color:"#d1d5db",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:8}}>Logout</button></p>
+          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#e0b85a",color:"#111827",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6}}>{user.role}</span><button onClick={toggleLang} style={{background:"transparent",border:"1px solid #e0b85a",color:"#e0b85a",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
+          <button onClick={logout} style={{background:"transparent",border:"1px solid #6b7280",color:"#d1d5db",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
         </div>
         <div style={{background:"#e0b85a",color:"#111827",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:26,fontWeight:900}}>#{todayV.length+1}</h2></div>
       </header>
@@ -1106,7 +1334,7 @@ export default function App(){
         </div>}
 
         {showBkF&&user.role!=="supervisor"&&<div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:16,padding:18,marginBottom:16}}>
-          <h3 style={{margin:"0 0 12px",fontWeight:800}}>{editBk?"Edit":"New"} Booking</h3>
+          <h3 style={{margin:"0 0 12px",fontWeight:800}}>{editBk?{t("edit")}:"New"} Booking</h3>
           {bkWarn&&<div style={{background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:13,fontWeight:700}}>{bkWarn}</div>}
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
             <div><L>Customer Name *</L><input style={S.inp} value={bkF.customerName} onChange={e=>setBkF(p=>({...p,customerName:e.target.value}))} placeholder="Full name"/></div>
@@ -1136,8 +1364,8 @@ export default function App(){
         <div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#0369a1"}}>
           📊 {bks.length} total bookings in system · {bks.filter(b=>b.date===bkDate).length} on selected date · {bks.filter(b=>b.status==="Pending").length} pending
         </div>
-        <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
-        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
+        <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled",{t("noShow")}].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled",{t("noShow")}].includes(b.status)).length!==1?"s":""})</span></h3>
+        {todayBk.filter(b=>!["Cancelled",{t("noShow")}].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
         
         <div style={{border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
           {timeSlots().map(slot=>{
@@ -1146,7 +1374,7 @@ export default function App(){
             const slotMins=toMins(slot);
             const slotEndMins=slotMins+30;
             const slotBks=todayBk.filter(b=>{
-              if(["Cancelled","No-show"].includes(b.status))return false;
+              if(["Cancelled",{t("noShow")}].includes(b.status))return false;
               const bStartMins=toMins(b.time);
               const bEndMins=bStartMins+Number(b.durationMins||60);
               return bStartMins<slotEndMins&&bEndMins>slotMins;
@@ -1179,7 +1407,7 @@ export default function App(){
                         {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>Confirm</button>}
                         {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>Check In</button>}
                         {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>Mark Done</button></>}
-                        {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
+                        {!["Completed","Cancelled",{t("noShow")},"Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
                         {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>Cancel</button>}
                         <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
                       </div>}
@@ -1193,7 +1421,7 @@ export default function App(){
         </div>
 
         <HR/><h3 style={S.sh}>Upcoming 7 Days</h3>
-        {bks.filter(b=>(b.date||'').slice(0,10)>todayStr()&&(b.date||'').slice(0,10)<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&!["Cancelled","No-show","Completed"].includes(b.status)).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).map(b=><div key={b.id} style={S.li}><div><b style={{color:"#111827"}}>{b.date} at {b.time} ({toEthTime(b.time)})</b><p style={{...S.hlp,color:"#374151"}}>{b.customerName} · {b.serviceName}</p></div><span style={SB(b.status)}>{b.status}</span></div>)}
+        {bks.filter(b=>(b.date||'').slice(0,10)>todayStr()&&(b.date||'').slice(0,10)<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&!["Cancelled",{t("noShow")},"Completed"].includes(b.status)).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).map(b=><div key={b.id} style={S.li}><div><b style={{color:"#111827"}}>{b.date} at {b.time} ({toEthTime(b.time)})</b><p style={{...S.hlp,color:"#374151"}}>{b.customerName} · {b.serviceName}</p></div><span style={SB(b.status)}>{b.status}</span></div>)}
       </section>}
 
 
@@ -1307,7 +1535,7 @@ export default function App(){
         {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(extra?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
-            <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?"Deactivate":"Reactivate"}</button>
+            <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?{t("deactivate")}:{t("reactivate")}}</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:8}}>
             <FI label="Base Salary"      value={emp.salary}         onChange={v=>updEmp(emp.id,"salary",v)}         type="number"/>
@@ -1406,13 +1634,97 @@ export default function App(){
             <div><L>Role</L><select style={S.inp} value={nStaff.role} onChange={e=>setNStaff(p=>({...p,role:e.target.value}))}><option value="reception">Reception</option><option value="supervisor">Supervisor</option><option value="manager">Manager</option></select></div>
             <div><L>{editStaff?"New Password":"Password"}</L><input style={S.inp} type="password" value={nStaff.password} onChange={e=>setNStaff(p=>({...p,password:e.target.value}))} placeholder={editStaff?"Enter new password":"Password"}/></div>
           </div>
-          <div style={S.r2}><button style={S.btnP} onClick={saveStaff}>{editStaff?"Update Account":"Save Account"}</button>{editStaff&&<button style={S.btnS} onClick={()=>{setEditStaff(null);setNStaff({id:"",name:"",role:"reception",password:""});}}>Cancel</button>}</div>
+          <div style={S.r2}><button style={S.btnP} onClick={saveStaff}>{editStaff?{t("updateAccount")}:{t("saveAccount")}}</button>{editStaff&&<button style={S.btnS} onClick={()=>{setEditStaff(null);setNStaff({id:"",name:"",role:"reception",password:""});}}>Cancel</button>}</div>
         </div>
         <h3 style={S.sh}>All Staff ({staff.length})</h3>
         {staff.map(s=><div key={s.id} style={{...S.li,flexWrap:"wrap",gap:10,opacity:s.active?1:0.6}}>
           <div><b style={{fontSize:15}}>{s.name}</b><span style={{background:s.role==="manager"?"#334155":s.role==="supervisor"?"#1e40af":"#f5e7c0",color:s.role==="manager"?"#e0b85a":s.role==="supervisor"?"#fff":"#6b4c11",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:8}}>{s.role}</span>{!s.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>INACTIVE</span>}<p style={S.hlp}>Username: <b>{s.id}</b></p></div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><button style={S.btnS} onClick={()=>{setEditStaff(s);setNStaff({id:s.id,name:s.name,role:s.role,password:""});}}>Edit / Reset PW</button><button style={s.active?S.btnD:S.btnS} onClick={()=>setStaffAct(s.id,!s.active)}>{s.active?"Deactivate":"Reactivate"}</button></div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><button style={S.btnS} onClick={()=>{setEditStaff(s);setNStaff({id:s.id,name:s.name,role:s.role,password:""});}}>Edit / Reset PW</button><button style={s.active?S.btnD:S.btnS} onClick={()=>setStaffAct(s.id,!s.active)}>{s.active?{t("deactivate")}:{t("reactivate")}}</button></div>
         </div>)}
+      </section>}
+
+      {tab==="Design Editor"&&<section style={S.card}>
+        <h2 style={S.ct}>Design Editor — Colors & Labels</h2>
+        <p style={{...S.hlp,color:"#374151",marginBottom:16}}>Changes apply instantly to the whole app and are saved to your device. Share settings by copying the export code.</p>
+        <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:20}}>
+          {/* Color settings */}
+          <div>
+            <h3 style={S.sh}>Colors</h3>
+            {[
+              {key:"primaryBg",   label:"Header / Dark Background"},
+              {key:"primaryText", label:"Header Text / Accent Color"},
+              {key:"accentBg",    label:"Primary Button Background"},
+              {key:"accentText",  label:"Primary Button Text"},
+              {key:"cardBg",      label:"Card / Panel Background"},
+              {key:"btnPBg",      label:"Action Button Background"},
+              {key:"btnPText",    label:"Action Button Text"},
+              {key:"btnSBg",      label:"Secondary Button Background"},
+              {key:"btnSText",    label:"Secondary Button Text"},
+            ].map(({key,label})=>(
+              <div key={key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <input type="color" value={design[key]||"#ffffff"}
+                  onChange={e=>{const d={...design,[key]:e.target.value};saveDes(d);}}
+                  style={{width:40,height:36,borderRadius:8,border:"1px solid #e5e7eb",cursor:"pointer",padding:2}}/>
+                <div>
+                  <p style={{margin:0,fontSize:13,fontWeight:600,color:"#111827"}}>{label}</p>
+                  <p style={{margin:0,fontSize:11,color:"#6b7280"}}>{design[key]}</p>
+                </div>
+              </div>
+            ))}
+            <button style={{...S.btnS,marginTop:8}} onClick={()=>{
+              const def={primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};
+              saveDes(def);push("Design reset to default","success");
+            }}>Reset to Default</button>
+          </div>
+          {/* Label settings */}
+          <div>
+            <h3 style={S.sh}>Button & Label Names</h3>
+            <p style={S.hlp}>Override any label in the app. Leave blank to use default.</p>
+            {Object.keys(LANG.en).slice(0,30).map(key=>(
+              <div key={key} style={{marginBottom:6}}>
+                <p style={{margin:"0 0 2px",fontSize:10,fontWeight:700,color:"#6b7280"}}>{key}</p>
+                <input
+                  placeholder={LANG.en[key]}
+                  defaultValue={lang==="en"?"":LANG.am[key]||""}
+                  style={{...S.inp,marginBottom:0,fontSize:12}}
+                  onChange={e=>{
+                    const val=e.target.value.trim();
+                    if(val){LANG[lang][key]=val;}
+                    else{LANG[lang][key]=(lang==="en"?LANG.en:LANG.am)[key];}
+                  }}
+                />
+              </div>
+            ))}
+            <details style={{marginTop:8}}>
+              <summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Show all labels ({Object.keys(LANG.en).length})</summary>
+              <div style={{paddingTop:8}}>
+                {Object.keys(LANG.en).slice(30).map(key=>(
+                  <div key={key} style={{marginBottom:6}}>
+                    <p style={{margin:"0 0 2px",fontSize:10,fontWeight:700,color:"#6b7280"}}>{key}</p>
+                    <input
+                      placeholder={LANG.en[key]}
+                      style={{...S.inp,marginBottom:0,fontSize:12}}
+                      onChange={e=>{
+                        const val=e.target.value.trim();
+                        if(val){LANG[lang][key]=val;}
+                        else{LANG[lang][key]=(lang==="en"?LANG.en:LANG.am)[key];}
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        </div>
+        {/* Live preview */}
+        <HR/>
+        <h3 style={S.sh}>Live Preview</h3>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",padding:16,background:design.cardBg,borderRadius:12,border:"1px solid #e5e7eb"}}>
+          <button style={{padding:"10px 18px",borderRadius:10,border:"none",background:design.btnPBg,color:design.btnPText,fontWeight:700,fontSize:13}}>Primary Button</button>
+          <button style={{padding:"10px 18px",borderRadius:10,border:"1px solid #e5e7eb",background:design.btnSBg,color:design.btnSText,fontWeight:700,fontSize:13}}>Secondary Button</button>
+          <div style={{background:design.primaryBg,color:design.primaryText,borderRadius:10,padding:"10px 18px",fontWeight:700}}>Header Color</div>
+          <div style={{background:design.accentBg,color:design.accentText,borderRadius:10,padding:"10px 18px",fontWeight:700}}>Accent Color</div>
+        </div>
       </section>}
 
       {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>Activity Log</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
@@ -1528,26 +1840,4 @@ function HR(){return <div style={{borderTop:"1px solid #ecdba3",margin:"16px 0"}
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#111827":accent?"#fef2f2":"#f9fafb",color:highlight?"#e0b85a":"#111827",borderRadius:14,padding:"12px 14px",border:"1px solid "+(highlight?"#374151":accent?"#fecaca":"#e5e7eb")}}><p style={{margin:0,fontSize:10,fontWeight:700,color:highlight?"#9ca3af":accent?"#dc2626":"#6b7280"}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:900,color:highlight?"#e0b85a":"#111827"}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"With Supervisor":{bg:"#e0f2fe",co:"#0369a1"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
-const S={
-  card:  {background:"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e5e7eb",boxShadow:"0 4px 16px rgba(0,0,0,0.06)",marginBottom:16},
-  ct:    {margin:"0 0 14px",fontSize:18,fontWeight:900},
-  sh:    {margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#1f2937"},
-  navL:  {color:"#e0b85a",margin:"12px 0 5px",fontSize:10,fontWeight:800,letterSpacing:1.5},
-  tab:   {padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:"#fff",color:"#1f2937",fontWeight:700,cursor:"pointer",fontSize:11},
-  tabA:  {padding:"9px 4px",borderRadius:10,border:"none",background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:11},
-  inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:13,WebkitAppearance:"auto"},
-  ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box",WebkitAppearance:"auto"},
-  ta:    {width:"100%",boxSizing:"border-box",padding:"9px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",minHeight:60,fontSize:13},
-  r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},
-  btnP:  {width:"100%",padding:12,borderRadius:11,border:0,background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:13,marginBottom:6},
-  btnS:  {width:"100%",padding:10,borderRadius:11,border:"1px solid #d1d5db",background:"#f9fafb",color:"#1f2937",fontWeight:700,cursor:"pointer",marginBottom:6,fontSize:12},
-  btnD:  {padding:"5px 11px",borderRadius:7,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:11},
-  navBtn:{padding:"4px 10px",borderRadius:7,border:"1px solid #e5e7eb",background:"#fff",color:"#111827",cursor:"pointer",fontWeight:700,fontSize:14},
-  li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6},
-  liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
-  liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#111827",border:"none",color:"#e0b85a",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",fontWeight:900,textAlign:"left"},
-  tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
-  hlp:   {color:"#5c3d11",fontSize:11,margin:"2px 0"},
-  lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#1f2937"},
-};
+function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"With Supervisor":{bg:"#e0f2fe",co:"#0369a1"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},{t("noShow")}:{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
