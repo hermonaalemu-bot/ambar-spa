@@ -655,7 +655,7 @@ export default function App(){
     liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
     liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#111827",border:"none",color:"#e0b85a",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",fontWeight:900,textAlign:"left"},
     tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
-    hlp:   {color:"#5c3d11",fontSize:11,margin:"2px 0"},
+    hlp:   {color:"#4b5563",fontSize:11,margin:"2px 0"},
     lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#1f2937"},
   };
   const[user,setUser]=useState(()=>{try{return JSON.parse(sessionStorage.getItem("ambar_u"))||null;}catch{return null;}});
@@ -1152,8 +1152,8 @@ export default function App(){
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
-        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(t=><button key={t} style={tab===t?S.tabA:S.tab} onClick={()=>setTab(t)}>{t}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(t=><button key={t} style={tab===t?{...S.tabA,background:"#1d4ed8",color:"#fff"}:{...S.tab,background:"#f1f5f9",color:"#374151",border:"1px solid #e2e8f0"}} onClick={()=>setTab(t)}>{t}</button>)}</div></>}</>
+        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#1d4ed8",color:"#fff"}:{...S.tab,background:"#f1f5f9",color:"#374151",border:"1px solid #e2e8f0"}} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -1294,7 +1294,7 @@ export default function App(){
                 <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#166534"}}>Individual Payments</p>
                 {visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=><div key={v.id} style={{...S.li,marginBottom:6,background:v.status==="Paid & Closed"?"#dcfce7":"#fff"}}>
                   <div><b>{v.name}</b><p style={S.hlp}>{money(v.totalService)}</p></div>
-                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700}}>✓ Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{await supabase.from("visits").update({payment_method:payM,total_paid:v.totalService,status:"Paid & Closed",tips:[]}).eq("id",v.id);}}>Pay {money(v.totalService)}</button>}
+                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700}}>✓ Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Paid & Closed",paymentMethod:payM,totalPaid:v.totalService}:x));await supabase.from("visits").update({payment_method:payM,total_paid:v.totalService,status:"Paid & Closed",tips:[]}).eq("id",v.id);}}>Pay {money(v.totalService)}</button>}
                 </div>)}
               </div>}
             </>}
@@ -1545,7 +1545,7 @@ export default function App(){
             <div style={{background:"#f0fdf4",borderRadius:10,padding:10,border:"1px solid #86efac"}}><p style={{fontSize:10,fontWeight:700,color:"#166534",marginBottom:4}}>Commission</p><b style={{color:"#166534",fontSize:14}}>{money(extra?.commissionTotal||0)}</b></div>
             <div>
               <p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 4px"}}>Weekly Day Off</p>
-              <select value={emp.dayOff??""} onChange={e=>updEmp(emp.id,"dayOff",e.target.value===""?null:e.target.value)} style={{width:"100%",padding:"7px 9px",borderRadius:9,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}>
+              <select value={emp.dayOff??""} onChange={e=>{updEmp(emp.id,"dayOff",e.target.value===""?null:e.target.value);push("Day off saved for "+emp.name,"success");}} style={{width:"100%",padding:"7px 9px",borderRadius:9,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}>
                 <option value="">No fixed day off</option>
                 {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=><option key={i} value={i}>{d}</option>)}
               </select>
@@ -1553,7 +1553,7 @@ export default function App(){
             <div>
               <p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 4px"}}>Availability</p>
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",background:emp.onLeave?"#fee2e2":"#f0fdf4",padding:"7px 10px",borderRadius:9,border:"1px solid "+(emp.onLeave?"#fca5a5":"#86efac")}}>
-                <input type="checkbox" checked={!!emp.onLeave} onChange={e=>updEmp(emp.id,"onLeave",e.target.checked)}/>
+                <input type="checkbox" checked={!!emp.onLeave} onChange={e=>{updEmp(emp.id,"onLeave",e.target.checked);push(emp.name+(e.target.checked?" marked On Leave":" marked Available"),"success");}}/>
                 <span style={{color:emp.onLeave?"#991b1b":"#166534",fontWeight:700}}>{emp.onLeave?"🤒 On Leave":"✅ Available"}</span>
               </label>
             </div>
@@ -1643,86 +1643,88 @@ export default function App(){
       </section>}
 
       {tab==="Design Editor"&&<section style={S.card}>
-        <h2 style={S.ct}>Design Editor — Colors & Labels</h2>
-        <p style={{...S.hlp,color:"#374151",marginBottom:16}}>Changes apply instantly to the whole app and are saved to your device. Share settings by copying the export code.</p>
+        <h2 style={S.ct}>🎨 Design Editor</h2>
+        <p style={{fontSize:12,color:"#6b7280",marginBottom:16}}>Changes apply live across all tabs. Save to persist on this device.</p>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:20}}>
-          {/* Color settings */}
+          {/* ── Color Settings ── */}
           <div>
             <h3 style={S.sh}>Colors</h3>
             {[
-              {key:"primaryBg",   label:"Header / Dark Background"},
-              {key:"primaryText", label:"Header Text / Accent Color"},
-              {key:"accentBg",    label:"Primary Button Background"},
-              {key:"accentText",  label:"Primary Button Text"},
-              {key:"cardBg",      label:"Card / Panel Background"},
-              {key:"btnPBg",      label:"Action Button Background"},
-              {key:"btnPText",    label:"Action Button Text"},
-              {key:"btnSBg",      label:"Secondary Button Background"},
-              {key:"btnSText",    label:"Secondary Button Text"},
+              {key:"btnPBg",   label:"Primary Button Background",   preview:design.btnPBg},
+              {key:"btnPText", label:"Primary Button Text",         preview:design.btnPText},
+              {key:"btnSBg",   label:"Secondary Button Background",  preview:design.btnSBg},
+              {key:"btnSText", label:"Secondary Button Text",        preview:design.btnSText},
+              {key:"cardBg",   label:"Card Background",              preview:design.cardBg},
             ].map(({key,label})=>(
-              <div key={key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <div key={key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"8px 10px",background:"#f8fafc",borderRadius:10,border:"1px solid #e5e7eb"}}>
                 <input type="color" value={design[key]||"#ffffff"}
-                  onChange={e=>{const d={...design,[key]:e.target.value};saveDes(d);}}
-                  style={{width:40,height:36,borderRadius:8,border:"1px solid #e5e7eb",cursor:"pointer",padding:2}}/>
-                <div>
-                  <p style={{margin:0,fontSize:13,fontWeight:600,color:"#111827"}}>{label}</p>
-                  <p style={{margin:0,fontSize:11,color:"#6b7280"}}>{design[key]}</p>
+                  onChange={e=>saveDes({...design,[key]:e.target.value})}
+                  style={{width:40,height:36,borderRadius:8,border:"2px solid #e5e7eb",cursor:"pointer",padding:2,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{margin:0,fontSize:12,fontWeight:700,color:"#111827"}}>{label}</p>
+                  <p style={{margin:"1px 0 0",fontSize:10,color:"#6b7280",fontFamily:"monospace"}}>{design[key]}</p>
+                </div>
+                <button onClick={()=>{const def={btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937",cardBg:"#ffffff"};saveDes({...design,[key]:def[key]||"#ffffff"});}} style={{padding:"2px 8px",border:"1px solid #e5e7eb",borderRadius:6,background:"#fff",color:"#6b7280",fontSize:10,cursor:"pointer",flexShrink:0}}>↺</button>
+              </div>
+            ))}
+            <button style={{...S.btnS,marginTop:4}} onClick={()=>{
+              saveDes({btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937",cardBg:"#ffffff"});
+              push("Design reset to default","success");
+            }}>↺ Reset All to Default</button>
+
+            <HR/>
+            <h3 style={S.sh}>Live Preview</h3>
+            <div style={{padding:16,background:design.cardBg||"#fff",borderRadius:14,border:"1px solid #e5e7eb",display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{background:"#111827",padding:"12px 16px",borderRadius:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><p style={{margin:0,fontSize:9,fontWeight:900,color:"#e0b85a",letterSpacing:2}}>AMBAR SPA & BEAUTY</p><p style={{margin:"2px 0 0",fontSize:14,fontWeight:900,color:"#fff"}}>Salon Management System</p></div>
+                <div style={{background:"#e0b85a",color:"#111827",borderRadius:10,padding:"8px 14px",textAlign:"center"}}><p style={{margin:0,fontSize:9,fontWeight:800}}>TODAY NEXT</p><p style={{margin:0,fontSize:20,fontWeight:900}}>#4</p></div>
+              </div>
+              <div style={{display:"flex",gap:8"}}>
+                <button style={{flex:1,padding:"9px 4px",borderRadius:10,border:"none",background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,fontSize:11}}>Register</button>
+                <button style={{flex:1,padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:design.btnSBg||"#fff",color:design.btnSText||"#1f2937",fontWeight:700,fontSize:11}}>Recall</button>
+              </div>
+              <div style={{background:design.cardBg||"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:12}}>
+                <b style={{color:"#111827",fontSize:13}}}>#1 — Sara</b>
+                <p style={{margin:"4px 0 0",fontSize:11,color:"#6b7280"}}>ስፔሻል ፔዲኪዩር · 1,500 Birr</p>
+              </div>
+              <button style={{width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,fontSize:13}}>✓ Mark Ready for Payment</button>
+            </div>
+          </div>
+
+          {/* ── Text / Label Settings ── */}
+          <div>
+            <h3 style={S.sh}>Amharic Text Overrides</h3>
+            <p style={{fontSize:11,color:"#6b7280",marginBottom:12}}>Edit any Amharic translation below. English shown as placeholder.</p>
+            {Object.entries(LANG.am).slice(0,20).map(([key,val])=>(
+              <div key={key} style={{marginBottom:8}}>
+                <p style={{margin:"0 0 2px",fontSize:9,fontWeight:800,color:"#9ca3af",fontFamily:"monospace",letterSpacing:0.5}}>{key}</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+                  <div style={{padding:"6px 8px",borderRadius:7,background:"#f8fafc",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{LANG.en[key]||key}</div>
+                  <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}} placeholder={LANG.en[key]||key}
+                    style={{padding:"6px 8px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}/>
                 </div>
               </div>
             ))}
-            <button style={{...S.btnS,marginTop:8}} onClick={()=>{
-              const def={primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};
-              saveDes(def);push("Design reset to default","success");
-            }}>{t("resetDefault")}</button>
-          </div>
-          {/* Label settings */}
-          <div>
-            <h3 style={S.sh}>Button & Label Names</h3>
-            <p style={S.hlp}>Override any label in the app. Leave blank to use default.</p>
-            {Object.keys(LANG.en).slice(0,30).map(key=>(
-              <div key={key} style={{marginBottom:6}}>
-                <p style={{margin:"0 0 2px",fontSize:10,fontWeight:700,color:"#6b7280"}}>{key}</p>
-                <input
-                  placeholder={LANG.en[key]}
-                  defaultValue={lang==="en"?"":LANG.am[key]||""}
-                  style={{...S.inp,marginBottom:0,fontSize:12}}
-                  onChange={e=>{
-                    const val=e.target.value.trim();
-                    if(val){LANG[lang][key]=val;}
-                    else{LANG[lang][key]=(lang==="en"?LANG.en:LANG.am)[key];}
-                  }}
-                />
-              </div>
-            ))}
             <details style={{marginTop:8}}>
-              <summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Show all labels ({Object.keys(LANG.en).length})</summary>
+              <summary style={{cursor:"pointer",fontSize:12,fontWeight:700,color:"#374151",padding:"6px 0"}}>Show all {Object.keys(LANG.am).length} labels...</summary>
               <div style={{paddingTop:8}}>
-                {Object.keys(LANG.en).slice(30).map(key=>(
-                  <div key={key} style={{marginBottom:6}}>
-                    <p style={{margin:"0 0 2px",fontSize:10,fontWeight:700,color:"#6b7280"}}>{key}</p>
-                    <input
-                      placeholder={LANG.en[key]}
-                      style={{...S.inp,marginBottom:0,fontSize:12}}
-                      onChange={e=>{
-                        const val=e.target.value.trim();
-                        if(val){LANG[lang][key]=val;}
-                        else{LANG[lang][key]=(lang==="en"?LANG.en:LANG.am)[key];}
-                      }}
-                    />
+                {Object.entries(LANG.am).slice(20).map(([key,val])=>(
+                  <div key={key} style={{marginBottom:8}}>
+                    <p style={{margin:"0 0 2px",fontSize:9,fontWeight:800,color:"#9ca3af",fontFamily:"monospace"}}>{key}</p>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+                      <div style={{padding:"6px 8px",borderRadius:7,background:"#f8fafc",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af"}}>{LANG.en[key]||key}</div>
+                      <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}} placeholder={LANG.en[key]||key}
+                        style={{padding:"6px 8px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}/>
+                    </div>
                   </div>
                 ))}
               </div>
             </details>
+            <button style={{...S.btnP,marginTop:12}} onClick={async()=>{
+              await supabase.from("settings").upsert({key:"amTexts",value:JSON.stringify(LANG.am)});
+              push("Amharic labels saved to all devices","success");
+            }}>💾 Save Amharic to All Devices</button>
           </div>
-        </div>
-        {/* Live preview */}
-        <HR/>
-        <h3 style={S.sh}>Live Preview</h3>
-        <div style={{display:"flex",gap:10,flexWrap:"wrap",padding:16,background:design.cardBg,borderRadius:12,border:"1px solid #e5e7eb"}}>
-          <button style={{padding:"10px 18px",borderRadius:10,border:"none",background:design.btnPBg,color:design.btnPText,fontWeight:700,fontSize:13}}>Primary Button</button>
-          <button style={{padding:"10px 18px",borderRadius:10,border:"1px solid #e5e7eb",background:design.btnSBg,color:design.btnSText,fontWeight:700,fontSize:13}}>Secondary Button</button>
-          <div style={{background:design.primaryBg,color:design.primaryText,borderRadius:10,padding:"10px 18px",fontWeight:700}}>Header Color</div>
-          <div style={{background:design.accentBg,color:design.accentText,borderRadius:10,padding:"10px 18px",fontWeight:700}}>Accent Color</div>
         </div>
       </section>}
 
@@ -1761,9 +1763,10 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
   return <div style={{marginBottom:14}}>
     <h3 style={{margin:"14px 0 8px",fontWeight:800}}>Services</h3>
     {visit.services.length===0&&<p style={{color:"#1f2937",fontSize:13}}>No services added yet.</p>}
-    {visit.services.map(line=>{
+    {(visit.services||[]).map(line=>{
+      if(!line||!line.lineId)return null;
       const elig=emps.filter(e=>e.section===line.employeeSection&&isEmpAvailableToday(e));
-      const done=["Completed","Cancelled"].includes(line.status);
+      const done=["Completed","Cancelled"].includes(line.status||"");
       return <div key={line.lineId} style={{background:done?"#f9fafb":"#f8fafc",border:"1px solid "+(done?"#e5e7eb":"#e5e7eb"),borderRadius:12,padding:10,marginBottom:7}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
           <div><b style={{fontSize:14}}>{line.name}</b>
@@ -1789,7 +1792,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         </div>
       </div>;
     })}
-    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700,color:"#d1d5db"}}>{t("totalIncome")}</span><b style={{fontSize:15,color:"#e0b85a"}}>{money(visit.totalService)}</b></div>
+    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700,color:"#d1d5db"}}>Total Income</span><b style={{fontSize:15,color:"#e0b85a"}}>{money(visit.totalService)}</b></div>
   </div>;
 }
 
