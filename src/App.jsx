@@ -17,8 +17,8 @@ const FS=[
   {id:102,cat:"Barbershop",sub:"Hair",  name:"Child Haircut",price:300, cm:35,es:"Barbershop",bk:false,dm:20},
   {id:103,cat:"Barbershop",sub:"Beard", name:"Beard Trim",   price:200, cm:35,es:"Barbershop",bk:false,dm:20},
   // ── Beauty Salon: Nails ──────────────────────────────────
-  {id:201,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ፔዲኪዩር",price:1500,cm:0,es:"Nails",bk:false,dm:60},
-  {id:202,cat:"Beauty Salon",sub:"Nails",  name:"ኖርማል ፔዲኪዩር",price:1000,cm:0,es:"Nails",bk:false,dm:45},
+  {id:201,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ፔዲኪዩር",price:1500,cm:0,es:"Wash & Pedicure",bk:false,dm:60},
+  {id:202,cat:"Beauty Salon",sub:"Nails",  name:"ኖርማል ፔዲኪዩር",price:1000,cm:0,es:"Wash & Pedicure",bk:false,dm:45},
   {id:203,cat:"Beauty Salon",sub:"Nails",  name:"ማኒኪዩር",price:800,cm:0,es:"Nails",bk:false,dm:45},
   {id:204,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ማኒኪዩር",price:1000,cm:0,es:"Nails",bk:false,dm:60},
   {id:205,cat:"Beauty Salon",sub:"Nails",  name:"ሼላክ ማስለቀቅ",price:150,cm:0,es:"Nails",bk:false,dm:20},
@@ -215,15 +215,28 @@ function makeId(name,phone){const n=(name||"CUS").replace(/[^a-zA-Z]/g,"").slice
 function lineGross(l){return Number(l.price||0)*Number(l.qty||1);}
 function lineIncome(l){if(l.free)return 0;return Math.max(0,lineGross(l)-Number(l.discount||0));}
 function lineComm(l){
-  let base=lineIncome(l);
-  // For ከኛ braids: deduct wig (200) and/or gel (200) costs before commission
-  if(l.sub==="Braids"&&l.name&&l.name.includes("ከኛ")){
-    if(l.name.includes("ዊግ")||l.name.toLowerCase().includes("wig"))base=Math.max(0,base-200);
-    if(l.name.includes("ጄል")||l.name.toLowerCase().includes("gel"))base=Math.max(0,base-200);
-    // All ከኛ braids deduct both wig+gel if applicable
-    if(l.wigDeduction)base=Math.max(0,base-Number(l.wigDeduction));
+  // Commission is calculated per quantity
+  const qty=Number(l.qty||1);
+  const pricePerUnit=Number(l.price||0);
+  const discPerUnit=Number(l.discount||0)/qty; // spread discount across units
+  if(l.free)return 0;
+  const rate=Number(l.commission||0)/100;
+  if(l.sub==="Braids"&&l.name){
+    if(l.name.includes("ከኛ")){
+      // Our wig: deduct 300 (wig) + 200 (gel) = 500 per qty before 10%
+      const dedPerUnit=500;
+      const basePerUnit=Math.max(0,pricePerUnit-discPerUnit-dedPerUnit);
+      return Math.round(basePerUnit*qty*rate);
+    }
+    if(l.name.includes("ከነሱ")){
+      // Their wig: deduct 300 (wig only) per qty before 10%
+      const dedPerUnit=300;
+      const basePerUnit=Math.max(0,pricePerUnit-discPerUnit-dedPerUnit);
+      return Math.round(basePerUnit*qty*rate);
+    }
   }
-  return Math.round((base*Number(l.commission||0))/100);
+  // Default: 10% of income
+  return Math.round(lineIncome(l)*rate);
 }
 function getPayPeriod(d){const dt=new Date(d||todayStr());const day=dt.getDate();let sy=dt.getFullYear(),sm=dt.getMonth();if(day<11){sm--;if(sm<0){sm=11;sy--;}}const s=new Date(sy,sm,11),e=new Date(sy,sm+1,10);const fmt=x=>x.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});return{start:s.toISOString().slice(0,10),end:e.toISOString().slice(0,10),label:fmt(s)+" - "+fmt(e)};}
 function toEthTime(t){if(!t)return"";const[h,m]=t.split(":").map(Number);let e=h-6;if(e<=0)e+=12;return e+":"+String(m).padStart(2,"0")+" "+(h<18?"ቀን":"ማታ");}
@@ -1740,12 +1753,12 @@ export default function App(){
                   <p style={{margin:"2px 0 0",fontSize:11,color:"#6b7280"}}>{i.category} · {money(i.price)} per {i.unit} · Value: {money(i.qty*i.price)}{i.minQty>0?" · Min: "+i.minQty:""}</p>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900,fontSize:16}}>−</button>
+                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontWeight:500,fontSize:16,color:"#1B2E4B"}}>−</button>
                   <div style={{textAlign:"center",minWidth:50}}>
-                    <b style={{fontSize:20,color:low?"#dc2626":"#111827",display:"block"}}>{i.qty}</b>
-                    <span style={{fontSize:10,color:"#9ca3af"}}>{i.unit}</span>
+                    <b style={{fontSize:20,color:low?"#B91C1C":"#1B2E4B",display:"block",fontWeight:500}}>{i.qty}</b>
+                    <span style={{fontSize:10,color:"#64748B"}}>{i.unit}</span>
                   </div>
-                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900,fontSize:16}}>+</button>
+                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontWeight:500,fontSize:16,color:"#1B2E4B"}}>+</button>
                   <button onClick={()=>delInvItem(i.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontWeight:900,fontSize:14}}>×</button>
                 </div>
               </div>;
@@ -2095,7 +2108,14 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
           <div><b style={{fontSize:14}}>{line.name}</b>
             <p style={{color:"#5c3d11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
-            {line.commission>0&&<p style={{color:"#166534",fontSize:11,margin:"2px 0"}}>Commission {line.commission}%{line.wigDeduction>0?" (after "+money(line.wigDeduction)+" material deduction)":""} = {money(lineComm(line))}</p>}
+            {line.commission>0&&<p style={{color:"#2D7D46",fontSize:11,margin:"2px 0"}}>
+          Commission {line.commission}%
+          {line.sub==="Braids"&&line.name&&line.name.includes("ከኛ")&&
+            <span style={{color:"#64748B"}}> (after 500 Birr/qty deduction)</span>}
+          {line.sub==="Braids"&&line.name&&line.name.includes("ከነሱ")&&
+            <span style={{color:"#64748B"}}> (after 300 Birr/qty deduction)</span>}
+          {" = "}{money(lineComm(line))}
+        </p>}
           </div>
           <div style={{display:"flex",gap:4}}>
                 {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
