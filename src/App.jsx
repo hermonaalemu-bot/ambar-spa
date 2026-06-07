@@ -238,6 +238,16 @@ function lineComm(l){
   // Default: 10% of income
   return Math.round(lineIncome(l)*rate);
 }
+function calcEthTax(gross){
+  // Ethiopian income tax brackets (monthly)
+  if(gross<=600)return 0;
+  if(gross<=1650)return (gross-600)*0.10;
+  if(gross<=3200)return 105+(gross-1650)*0.15;
+  if(gross<=5250)return 337.5+(gross-3200)*0.20;
+  if(gross<=7800)return 747.5+(gross-5250)*0.25;
+  if(gross<=10900)return 1385+(gross-7800)*0.30;
+  return 2315+(gross-10900)*0.35;
+}
 function getPayPeriod(d){const dt=new Date(d||todayStr());const day=dt.getDate();let sy=dt.getFullYear(),sm=dt.getMonth();if(day<11){sm--;if(sm<0){sm=11;sy--;}}const s=new Date(sy,sm,11),e=new Date(sy,sm+1,10);const fmt=x=>x.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});return{start:s.toISOString().slice(0,10),end:e.toISOString().slice(0,10),label:fmt(s)+" - "+fmt(e)};}
 function toEthTime(t){if(!t)return"";const[h,m]=t.split(":").map(Number);let e=h-6;if(e<=0)e+=12;return e+":"+String(m).padStart(2,"0")+" "+(h<18?"ቀን":"ማታ");}
 function timeSlots(){const s=[];for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++)for(let m=0;m<60;m+=30)s.push(String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"));return s;}
@@ -720,8 +730,16 @@ export default function App(){
     tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",color:"#fff",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
     ii2:   {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12},
   };
-  const[user,setUser]=useState(()=>{try{return JSON.parse(sessionStorage.getItem("ambar_u"))||null;}catch{return null;}});
+  const[user,setUser]=useState(()=>{
+    try{
+      const u=JSON.parse(sessionStorage.getItem("ambar_u"));
+      const t=Number(sessionStorage.getItem("ambar_login_t")||0);
+      if(u&&Date.now()-t>10*60*60*1000){sessionStorage.clear();return null;} // 10hr expiry
+      return u||null;
+    }catch{return null;}
+  });
   const[lid,setLid]=useState("");const[lpw,setLpw]=useState("");const[lerr,setLerr]=useState("");
+  const loginAttempts=React.useRef({});  // {username: {count, lockedUntil}}
   const[staff,setStaff]=useState(DEFAULT_STAFF);
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
   const[offlineQueue,setOfflineQueue]=useState([]);
@@ -736,7 +754,8 @@ export default function App(){
   const[periods,setPeriods]=useState([]);const[bks,setBks]=useState([]);const[actLog,setActLog]=useState([]);
   const[actId,setActId]=useState(null);
   const[svCat,setSvCat]=useState(DC[0]);const[svSub,setSvSub]=useState("All");const[svSvcId,setSvSvcId]=useState("");
-  const[coQ,setCoQ]=useState("");const[payM,setPayM]=useState("Cash");
+  const[coQ,setCoQ]=useState("");
+  const[gSearch,setGSearch]=useState("");const[showGS,setShowGS]=useState(false);const[payM,setPayM]=useState("Cash");
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
   const[showRefund,setShowRefund]=useState(false);const[refundAmt,setRefundAmt]=useState("");const[refundReason,setRefundReason]=useState("");
   const[deActiveGrp,setDeActiveGrp]=useState(0);const[deTab2,setDeTab2]=useState("colors");const[deSaved,setDeSaved]=useState(false);
@@ -906,7 +925,7 @@ export default function App(){
     try{
       const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10]=await Promise.all([
         supabase.from("services").select("*"),supabase.from("employees").select("*"),
-        supabase.from("customers").select("*"),supabase.from("visits").select("*").order("queue"),
+        supabase.from("customers").select("*"),supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
         supabase.from("expenses").select("*"),supabase.from("closed_periods").select("*"),
         supabase.from("bookings").select("*").order("date").order("time"),
         supabase.from("staff").select("*"),supabase.from("categories").select("*"),
@@ -964,7 +983,7 @@ export default function App(){
     function startPoll(){
       if(pollInterval)return;
       pollInterval=setInterval(()=>{
-        supabase.from("visits").select("*").order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
         supabase.from("bookings").select("*").order("date").order("time").then(({data})=>{if(data)setBks(data.map(dbBk));});
       },10000);
     }
@@ -1127,20 +1146,37 @@ export default function App(){
   const mgrTabs=allTabs.filter(t=>!dailyTabs.includes(t));
 
   async function doLogin(){
-    const candidate=staff.find(s=>s.id===lid.trim()&&s.active);
+    const u=lid.trim();
+    // Rate limiting
+    const now=Date.now();
+    const att=loginAttempts.current[u]||{count:0,lockedUntil:0};
+    if(att.lockedUntil>now){
+      const mins=Math.ceil((att.lockedUntil-now)/60000);
+      return setLerr("Too many failed attempts. Try again in "+mins+" minute"+(mins>1?"s":"")+".");
+    }
+    const candidate=staff.find(s=>s.id===u&&s.active);
     if(!candidate){
-      setLerr("Invalid username or password.");
-      supabase.from("activity_log").insert({staff_id:lid.trim()||"unknown",staff_name:lid.trim()||"unknown",action:"Failed Login",detail:"Failed login for: "+lid.trim(),ts:new Date().toISOString()}).then(()=>{});
+      const att2=loginAttempts.current[u]||{count:0,lockedUntil:0};
+      const newCount=(att2.count||0)+1;
+      loginAttempts.current[u]={count:newCount,lockedUntil:newCount>=3?now+5*60000:0};
+      const rem=Math.max(0,3-newCount);
+      setLerr(newCount>=3?"🔒 Account locked for 5 minutes.":"Invalid username or password. "+rem+" attempt"+(rem===1?"":"s")+" remaining.");
+      supabase.from("activity_log").insert({staff_id:u||"unknown",staff_name:u||"unknown",action:"Failed Login",detail:"Unknown user: "+u,ts:new Date().toISOString()}).then(()=>{});
       return;
     }
     const ok=await checkPW(lpw,candidate.password);
     if(ok){
+      loginAttempts.current[u]={count:0,lockedUntil:0};
       const f=candidate;
       setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
       supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:LANG.en["login"]||"login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
     }else{
-      setLerr("Invalid username or password.");
-      supabase.from("activity_log").insert({staff_id:lid.trim()||"unknown",staff_name:lid.trim()||"unknown",action:"Failed Login",detail:"Failed login attempt for username: "+lid.trim(),ts:new Date().toISOString()}).then(()=>{});
+      const att2=loginAttempts.current[u]||{count:0,lockedUntil:0};
+      const newCount=(att2.count||0)+1;
+      loginAttempts.current[u]={count:newCount,lockedUntil:newCount>=3?now+5*60000:0};
+      const rem=Math.max(0,3-newCount);
+      setLerr(newCount>=3?"🔒 Account locked for 5 minutes.":"Invalid password. "+rem+" attempt"+(rem===1?"":"s")+" remaining.");
+      supabase.from("activity_log").insert({staff_id:u,staff_name:u,action:"Failed Login",detail:"Failed attempt "+newCount+" for: "+u,ts:new Date().toISOString()}).then(()=>{});
     }
   }
   function logout(){setUser(null);sessionStorage.removeItem("ambar_u");setTab("");}
@@ -1150,7 +1186,7 @@ export default function App(){
     const cnt=Math.max(1,Number(rPpl||1)),gid=Date.now(),gn=cnt>1?rName.trim()+" (Group of "+cnt+")":"";
     const cid=makeId(rName.trim(),rPhone.trim()),tc=visits.filter(v=>v.date===todayStr()).length;
     const fc=custs.find(c=>c.phone===rPhone.trim()),ntv=(fc?.totalVisits||0)+1;
-    await supabase.from("customers").upsert({id:cid,name:rName.trim(),phone:rPhone.trim(),total_visits:ntv});
+    await supabase.from("customers").upsert({id:cid,name:rName.trim(),phone:rPhone.trim(),total_visits:ntv,note:rNote.trim()||undefined});
     if(!fc)setCusts(p=>[...p,{id:cid,name:rName.trim(),phone:rPhone.trim(),totalVisits:ntv}]);
     else setCusts(p=>p.map(c=>c.phone===rPhone.trim()?{...c,totalVisits:ntv}:c));
     const rows=Array.from({length:cnt}).map((_,i)=>({id:gid+i,date:todayStr(),queue:tc+i+1,customer_id:cid,name:cnt>1?rName.trim()+" "+(i+1):rName.trim(),payer_name:rName.trim(),phone:rPhone.trim(),group_id:gid,group_name:gn,services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:rNote}));
@@ -1199,6 +1235,11 @@ export default function App(){
     // When a service is marked Completed → unlock On Hold services for this customer
     if(f==="status"&&v==="Completed"){
       const line=vis.services.find(l=>l.lineId===lid2);
+      // Auto-deduct inventory if linked
+      if(line?.inventoryItem&&line?.inventoryQtyUsed){
+        const updInv=inventory.map(i=>i.name===line.inventoryItem?{...i,qty:Math.max(0,i.qty-Number(line.inventoryQtyUsed||1))}:i);
+        saveInv(updInv);push("Stock: −"+line.inventoryQtyUsed+" "+line.inventoryItem,"info");
+      }
       const dur=svcMins(lid2);
       if(line){
         const emp=line.employee||"Unknown";
@@ -1382,6 +1423,35 @@ export default function App(){
   if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
     <Notifs items={notifs} dismiss={dismiss}/>
+    {showGS&&<div style={{position:"fixed",inset:0,background:"rgba(27,46,75,0.7)",zIndex:9990,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"80px 16px 16px"}} onClick={e=>e.target===e.currentTarget&&setShowGS(false)}>
+      <div style={{background:"#fff",borderRadius:16,padding:20,width:"100%",maxWidth:560,maxHeight:"70vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+        <input autoFocus style={{...S.inp,fontSize:15,marginBottom:12}} placeholder="Search customers, bookings, visits..." value={gSearch} onChange={e=>setGSearch(e.target.value)}/>
+        {gSearch.trim().length>1&&(()=>{
+          const q=gSearch.toLowerCase().trim();
+          const rC=custs.filter(c=>!c.deletedAt&&(c.name.toLowerCase().includes(q)||c.phone.includes(q))).slice(0,5);
+          const rV=visits.filter(v=>v.name.toLowerCase().includes(q)||v.phone.includes(q)).slice(0,5);
+          const rB=bks.filter(b=>b.customerName.toLowerCase().includes(q)||b.customerPhone.includes(q)).slice(0,5);
+          return <>
+            {rC.length>0&&<><p style={{margin:"0 0 6px",fontSize:10,fontWeight:700,color:"#5A8C72",letterSpacing:1}}>CUSTOMERS</p>
+              {rC.map(c=><div key={c.id} style={{...S.li,marginBottom:4,cursor:"pointer"}} onClick={()=>{setTab("Customers");setShowGS(false);setGSearch("");}}>
+                <div><b style={{color:"#1B2E4B"}}>{c.name}</b><p style={{margin:0,fontSize:11,color:"#64748B"}}>{c.phone}</p></div>
+                <span style={{fontSize:11,color:"#5A8C72"}}>Customer →</span>
+              </div>)}</>}
+            {rV.length>0&&<><p style={{margin:"8px 0 6px",fontSize:10,fontWeight:700,color:"#1B4FA8",letterSpacing:1}}>VISITS</p>
+              {rV.map(v=><div key={v.id} style={{...S.li,marginBottom:4}}>
+                <div><b style={{color:"#1B2E4B"}}>#{v.queue} — {v.name}</b><p style={{margin:0,fontSize:11,color:"#64748B"}}>{v.date} · {v.status}</p></div>
+                <span style={SB(v.status)}>{v.status}</span>
+              </div>)}</>}
+            {rB.length>0&&<><p style={{margin:"8px 0 6px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:1}}>BOOKINGS</p>
+              {rB.map(b=><div key={b.id} style={{...S.li,marginBottom:4,cursor:"pointer"}} onClick={()=>{setTab("Bookings");setShowGS(false);setGSearch("");}}>
+                <div><b style={{color:"#1B2E4B"}}>{b.customerName}</b><p style={{margin:0,fontSize:11,color:"#64748B"}}>{b.date} at {b.time} · {b.serviceName}</p></div>
+                <span style={SB(b.status)}>{b.status}</span>
+              </div>)}</>}
+            {!rC.length&&!rV.length&&!rB.length&&<p style={{color:"#64748B",textAlign:"center",padding:20}}>No results for "{gSearch}"</p>}
+          </>;
+        })()}
+      </div>
+    </div>}
     {confirmDlg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
         <div style={{fontSize:36,textAlign:"center",marginBottom:12}}>{confirmDlg.danger?"⚠️":"❓"}</div>
@@ -1398,7 +1468,8 @@ export default function App(){
       <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#1B2E4B",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
         <div><p style={{color:"#5A8C72",fontWeight:500,letterSpacing:2,margin:"0 0 2px",fontSize:9}}>AMBAR SPA & BEAUTY</p>
           {!sc.mob&&<h1 style={{margin:0,fontSize:18,fontWeight:500,color:"#fff"}}>Salon Management System</h1>}
-          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:500,marginLeft:6}}>{user.role}</span><button onClick={toggleLang} style={{background:"transparent",border:"0.5px solid #5A8C72",color:"#5A8C72",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
+          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:500,marginLeft:6}}>{user.role}</span><button onClick={()=>setShowGS(s=>!s)} style={{background:"transparent",border:"0.5px solid #334155",color:"#94A3B8",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>🔍</button>
+          <button onClick={toggleLang} style={{background:"transparent",border:"0.5px solid #5A8C72",color:"#5A8C72",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
           {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#5A8C72",border:"none",color:"#fff",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6,fontWeight:500}}>🔔 Enable Alerts</button>}
           {notifPerm==="granted"&&<span style={{color:"#5A8C72",fontSize:11,marginLeft:6}}>🔔 ✓</span>}
           <button onClick={logout} style={{background:"transparent",border:"0.5px solid #64748B",color:"#94A3B8",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
@@ -1425,7 +1496,8 @@ export default function App(){
           <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
         </section>
         <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
-          {todayV.length===0&&<EMP>No customers registered yet today.</EMP>}
+          {todayV.length===0&&saving&&[1,2,3].map(i=><div key={i} style={{height:42,background:"#F1F5F9",borderRadius:10,marginBottom:6,animation:"pulse 1.5s ease-in-out infinite"}}/>)}
+          {todayV.length===0&&!saving&&<EMP>No customers registered yet today.</EMP>}
           {todayV.map((v,idx)=>{
             const activeAhead=todayV.slice(0,idx).filter(x=>!["Paid & Closed","Cancelled"].includes(x.status)).length;
             const isInProgress=v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress");
@@ -1669,7 +1741,10 @@ export default function App(){
                         {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>{t("confirmBooking")}</button>}
                         {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>{t("checkIn")}</button>}
                         {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>}
-                        {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>}
+                        {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
+                        <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>
+                        <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:"",time:"",people:b.people,notes:b.notes});}}>📅 Reschedule</button>
+                      </>}
                         {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>{t("cancel")}</button>}
                         <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
                       </div>}
@@ -1840,6 +1915,7 @@ export default function App(){
                       <span style={{background:tier.bg,color:tier.co,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{tier.label}</span>
                     </div>
                     <p style={{margin:"2px 0 0",fontSize:12,color:"#6b7280"}}>{c.phone}</p>
+                  {c.note&&<p style={{margin:"3px 0 0",fontSize:11,color:"#B91C1C",background:"#FEF2F2",borderRadius:6,padding:"2px 8px",display:"inline-block"}}>⚠ {c.note}</p>}
                   </div>
                   <button style={{...S.btnD,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11}} onClick={()=>delCust(c.id)}>Delete</button>
                 </div>
@@ -1899,7 +1975,9 @@ export default function App(){
             </div>;
           })}
         </div>
-        {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(extra?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
+        {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const grossPay=Number(emp.salary||0)+Number(extra?.commissionTotal||0);
+          const incomeTax=Math.round(calcEthTax(grossPay));
+          const net=grossPay-incomeTax-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
             <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?t("deactivate"):t("reactivate")}</button>
@@ -1927,7 +2005,9 @@ export default function App(){
             </div>
           </div>
           {extra?.breakdown?.length>0&&<details style={{marginBottom:8}}><summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Breakdown ({extra.breakdown.length})</summary><div style={{paddingLeft:10,paddingTop:4}}>{extra.breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,borderBottom:"1px solid #ecdba3",padding:"2px 0"}}><span>{b.name}</span><span>{money(b.income)} → {money(b.commission)}</span></div>)}</div></details>}
-          <div style={{...S.tb,padding:"10px 16px"}}><span>{t("netPay")}</span><b style={{fontSize:16}}>{money(Math.max(0,Math.round(net)))}</b></div>
+          <div style={{...S.tb,padding:"10px 16px",flexDirection:"column",gap:4,alignItems:"stretch"}}>
+          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#94A3B8",fontSize:11}}>Income Tax (ETH)</span><span style={{color:"#fca5a5"}}>−{money(incomeTax)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between"}}><b>{t("netPay")}</b><b style={{fontSize:16,color:"#5A8C72"}}>{money(Math.max(0,Math.round(net)))}</b></div></div>
         </div>);})}
         {periods.length>0&&<><HR/><h3 style={S.sh}>Closed Periods</h3>{periods.slice().reverse().map((cp,i)=><details key={i} style={{...S.li,display:"block",marginBottom:8}}><summary style={{cursor:"pointer",fontWeight:700}}>{cp.period}</summary><div style={{paddingTop:8}}>{cp.employees?.map(e=>{const dd=Number(e.salary||0)/30;const ad=dd*Number(e.absentDays||0);const n=Number(e.salary||0)+Number(e.commissionTotal||0)-Number(e.loan||0)-Number(e.brokerFee||0)-Number(e.otherDeduction||0)-ad;return<div key={e.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #ecdba3",fontSize:13}}><span><b>{e.name}</b> ({e.section})</span><b>{money(Math.max(0,Math.round(n)))}</b></div>;})}</div></details>)}</>}
         <div className="print-only" style={{display:"none"}}><PS emps={emps} empC={empC} period={period}/></div>
@@ -2242,7 +2322,7 @@ export default function App(){
       </section>}
 
     </div>
-    <style>{"@media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
+    <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}} @media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
   </div>);
 }
 
