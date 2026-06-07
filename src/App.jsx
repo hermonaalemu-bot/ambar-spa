@@ -245,7 +245,8 @@ function exportCSV(rows,fn){const k=Object.keys(rows[0]||{});const csv=[k.join("
 function printReceipt(visit,emps){
   const w=window.open("","_blank","width=400,height=600");
   const tips=visit.tips||[];const tipTotal=tips.reduce((s,t)=>s+Number(t.amount||0),0);
-  const lines=visit.services.filter(l=>l.status!=="Cancelled");
+  const visitDate=visit.date||todayStr();
+  const lines=(visit.services||[]).filter(l=>l.status!=="Cancelled");
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>
     body{font-family:Arial,sans-serif;padding:20px;max-width:320px;margin:0 auto;font-size:13px;}
     h2{text-align:center;margin:0 0 4px;font-size:18px;}
@@ -259,7 +260,7 @@ function printReceipt(visit,emps){
     <div class="line"></div>
     <div class="row"><span>Customer:</span><span class="bold">${visit.name}</span></div>
     <div class="row"><span>Queue #:</span><span>${visit.queue}</span></div>
-    <div class="row"><span>Date:</span><span>${visit.date}</span></div>
+    <div class="row"><span>Date:</span><span>${visitDate}</span></div>
     <div class="row"><span>Payment:</span><span>${visit.paymentMethod}</span></div>
     <div class="line"></div>
     <div class="bold" style="margin-bottom:6px">Services:</div>
@@ -280,9 +281,16 @@ function printReceipt(visit,emps){
 }
 // Retry helper — retries failed DB calls up to 3 times
 async function dbRetry(fn,attempts=3){
+  if(!navigator.onLine){
+    // Queue for later when offline
+    if(typeof offlineQRef!=="undefined"&&offlineQRef.current){
+      offlineQRef.current.push(fn);
+    }
+    return{error:null}; // optimistic - UI already updated
+  }
   for(let i=0;i<attempts;i++){
-    try{const r=await fn();if(!r.error)return r;if(i===attempts-1)throw new Error(r.error.message);}
-    catch(e){if(i===attempts-1)throw e;await new Promise(r=>setTimeout(r,500*(i+1)));}
+    try{const r=await fn();if(!r||!r.error)return r;if(i===attempts-1)throw new Error(r.error?.message||"DB error");}
+    catch(e){if(i===attempts-1){console.error("DB failed after retries:",e);return{error:e};}await new Promise(r=>setTimeout(r,600*(i+1)));}
   }
 }
 function logAct(user,action,detail=""){supabase.from("activity_log").insert({staff_id:user.id,staff_name:user.name,action,detail,ts:new Date().toISOString()}).then(()=>{});}
@@ -1050,7 +1058,7 @@ export default function App(){
   },[visits]);
   const empC=useMemo(()=>emps.map(emp=>{
     const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");
-    const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");
+    const lines=pv.flatMap(v=>(v.services||[])).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");
     // Service counts for performance tracking
     const svcMap={};lines.forEach(l=>{if(l.name)svcMap[l.name]=(svcMap[l.name]||0)+1;});
     const serviceList=Object.entries(svcMap).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count}));
@@ -1125,7 +1133,7 @@ export default function App(){
   function logout(){setUser(null);sessionStorage.removeItem("ambar_u");setTab("");}
   function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
-    if(!rName.trim()||!rPhone.trim())return alert("Enter name and phone.");setSaving(true);
+    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");setSaving(true);
     const cnt=Math.max(1,Number(rPpl||1)),gid=Date.now(),gn=cnt>1?rName.trim()+" (Group of "+cnt+")":"";
     const cid=makeId(rName.trim(),rPhone.trim()),tc=visits.filter(v=>v.date===todayStr()).length;
     const fc=custs.find(c=>c.phone===rPhone.trim()),ntv=(fc?.totalVisits||0)+1;
@@ -1233,9 +1241,13 @@ export default function App(){
       await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal}).eq("id",vid));
     },true);
   }
-  async function markReady(){if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
+  async function markReady(){
+    if(!act)return;
+    if(!(act.services||[]).length)return alert("Add at least one service before marking ready.");
+    if((act.services||[]).some(l=>l.status==="Waiting"&&!l.employee))
+      return alert("Please assign an employee to all services before marking ready.");if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
   async function reopen(){await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);}
-  function addTip(){if(!tipEmp||!tipAmt)return alert("Select employee and enter amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
+  function addTip(){if(!tipEmp)return alert("Select an employee.");if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
   async function processRefund(vid){
     const v=visits.find(x=>x.id===vid);if(!v)return;
     const amt=Number(refundAmt);if(!amt||amt<=0)return alert("Enter refund amount.");
@@ -1253,7 +1265,7 @@ export default function App(){
       setShowRefund(false);setRefundAmt("");setRefundReason("");
     },true);
   }
-  async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" "+payM);
+  async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" — "+money(act.totalService)+" via "+payM);
     // Mark related booking as Completed if exists
     const relBk=bks.find(b=>b.visitId&&ids.includes(b.visitId));
     if(relBk)await supabase.from("bookings").update({status:"Completed"}).eq("id",relBk.id);
@@ -1261,7 +1273,12 @@ export default function App(){
   async function saveBk(){
     const sid=Number(bkF.serviceId)||0;
     const s=sid?svcs.find(sv=>sv.id===sid&&sv.bookable===true):null;
-    if(!bkF.customerName.trim()||!bkF.customerPhone.trim()||!bkF.date||!bkF.time)return alert("Please fill customer name, phone, date and time.");
+    if(!bkF.customerName.trim())return alert("Enter customer name.");
+    if(!bkF.customerPhone.trim())return alert("Enter customer phone.");
+    if(!bkF.date)return alert("Select a date.");
+    if(!bkF.time)return alert("Select a time.");
+    if(bkF.date===todayStr()&&bkF.time<new Date().toTimeString().slice(0,5)&&!editBk)
+      return alert("Cannot book a time that has already passed today.");
     const warn=checkConflict(bks,bkF,svcs);
     if(warn&&!window.confirm(warn+"\n\nProceed anyway?"))return;
     setSaving(true);
@@ -1293,7 +1310,9 @@ export default function App(){
     setBks(prev=>prev.map(b=>b.id===id?{...b,status}:b));
     await dbRetry(()=>supabase.from("bookings").update({status}).eq("id",id));
   }
-  async function checkIn(b){if(!window.confirm("Check in "+b.customerName+"?"))return;setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");}
+  async function checkIn(b){
+    if(b.visitId&&visits.find(v=>v.id===b.visitId))
+      return push("This booking is already checked in","warning");if(!window.confirm("Check in "+b.customerName+"?"))return;setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");}
   async function delBk(id){if(!window.confirm("Delete this booking?"))return;await supabase.from("bookings").delete().eq("id",id);}
   async function addSpaWalkIn(){
     if(!wiName.trim()||!wiPhone.trim()||!wiSvcId)return alert("Enter customer name, phone and select a service.");
@@ -1311,7 +1330,7 @@ export default function App(){
     markArrival(vr.id);
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
-  async function addGE(){if(!gName.trim()||!gAmt)return alert("Enter name and amount.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
+  async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
   async function delE(id){if(!window.confirm("Delete?"))return;await supabase.from("expenses").delete().eq("id",id);setExps(p=>p.filter(e=>e.id!==id));}
   async function addCat(){if(!newCat.trim()||cats.includes(newCat.trim()))return;await supabase.from("categories").insert({name:newCat.trim()});setCats(p=>[...p,newCat.trim()]);setNewCat("");}
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};await supabase.from("services").insert(r);setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
@@ -1339,7 +1358,7 @@ export default function App(){
     if(data)setCusts(p=>[...p,dbCust(data)]);
     push("Customer restored","success");
   }
-  function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:v.services.map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+t.amount,0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
+  function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:(v.services||[]).map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+t.amount,0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
 
@@ -1396,7 +1415,7 @@ export default function App(){
           {todayV.length===0&&<EMP>No customers registered yet today.</EMP>}
           {todayV.map((v,idx)=>{
             const activeAhead=todayV.slice(0,idx).filter(x=>!["Paid & Closed","Cancelled"].includes(x.status)).length;
-            const isInProgress=v.status==="In Service"||v.services.some(l=>l.status==="In Progress");
+            const isInProgress=v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress");
             const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
             const isWaiting=v.status==="Waiting for Supervisor";
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
@@ -1415,7 +1434,7 @@ export default function App(){
                 {!isDone&&activeAhead>0&&<p style={{fontSize:11,color:"#6b7280",margin:"2px 0"}}>👥 {activeAhead} customer{activeAhead>1?"s":""} ahead</p>}
                 {!isDone&&activeAhead===0&&<p style={{fontSize:11,color:"#166534",fontWeight:700,margin:"2px 0"}}>✓ You're next!</p>}
                 {!isDone&&<WaitTimer vid={v.id}/>}
-                {isInProgress&&v.services.filter(l=>l.status==="In Progress").map(l=><SvcTimer key={l.lineId} lineId={l.lineId} status={l.status}/>)}
+                {isInProgress&&(v.services||[]).filter(l=>l.status==="In Progress").map(l=><SvcTimer key={l.lineId} lineId={l.lineId} status={l.status}/>)}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>{t("cancel")}</button>}
@@ -1796,7 +1815,7 @@ export default function App(){
         <input style={S.inp} placeholder="Search by name, phone or ID..." value={cSearch} onChange={e=>setCSearch(e.target.value)}/>
         {fCusts.map(c=>{const cv=visits.filter(v=>v.customerId===c.id&&v.status==="Paid & Closed");
               const cbks=bks.filter(b=>b.customerId===c.id);
-              const all=cv.flatMap(v=>v.services.map(s=>s.name));
+              const all=cv.flatMap(v=>(v.services||[]).map(s=>s.name));
               const fav=all.length?all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0]:"None";
               const spent=cv.reduce((s,v)=>s+Number(v.totalService||0),0);
               const tier=spent>=10000?{label:"Gold ⭐",bg:"#fef3c7",co:"#b45309"}:spent>=5000?{label:"Silver 🥈",bg:"#f1f5f9",co:"#475569"}:spent>=1000?{label:"Bronze 🥉",bg:"#fef9ec",co:"#92400e"}:{label:"New 🌱",bg:"#f0fdf4",co:"#166534"};
@@ -1954,7 +1973,7 @@ export default function App(){
         <HR/><h3 style={S.sh}>Commission This Period — {period.label}</h3>
         {empC.filter(e=>e.active).map(emp=><div key={emp.id} style={S.li}><span>{emp.name} ({emp.section})</span><b style={{color:"#166534"}}>{money(emp.commissionTotal)}</b></div>)}
         <HR/><h3 style={S.sh}>Revenue by Category</h3>
-        {cats.map(cat=>{const ids=svcs.filter(s=>s.category===cat).map(s=>s.id);const rev=dPaid.flatMap(v=>v.services).filter(l=>ids.includes(l.serviceId)).reduce((s,l)=>s+lineIncome(l),0);return<div key={cat} style={S.li}><span>{cat}</span><b>{money(rev)}</b></div>;})}
+        {cats.map(cat=>{const ids=svcs.filter(s=>s.category===cat).map(s=>s.id);const rev=dPaid.flatMap(v=>(v.services||[])).filter(l=>ids.includes(l.serviceId)).reduce((s,l)=>s+lineIncome(l),0);return<div key={cat} style={S.li}><span>{cat}</span><b>{money(rev)}</b></div>;})}
           </>);
         })()}
       </section>}
@@ -2124,7 +2143,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
               </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",e.target.value)} disabled={locked}/></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} min="1" onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
           {!isSv&&<>
             <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" value={line.discount} onChange={e=>onUpd(line.lineId,"discount",e.target.value)} disabled={locked}/></div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:0}}>Free</p><input type="checkbox" checked={line.free} onChange={e=>onUpd(line.lineId,"free",e.target.checked)} disabled={locked} style={{width:16,height:16}}/></div>
