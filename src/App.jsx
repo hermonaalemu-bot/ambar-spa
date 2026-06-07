@@ -665,29 +665,39 @@ export default function App(){
   function t(k){return(LANG[lang]||LANG.en)[k]||LANG.en[k]||k;}
   function toggleLang(){const nl=lang==="en"?"am":"en";setLang(nl);try{localStorage.setItem("ambar_lang",nl);}catch(e){}}
   // Design settings
-  const[design,setDesign]=useState(()=>{try{const d=localStorage.getItem("ambar_design");return d?JSON.parse(d):{primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};}catch{return{primaryBg:"#111827",primaryText:"#e0b85a",accentBg:"#e0b85a",accentText:"#111827",cardBg:"#ffffff",headerBg:"#111827",btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937"};}});
+  const[design,setDesign]=useState(()=>{try{const d=localStorage.getItem("ambar_design");return d?JSON.parse(d):{primaryBg:"#1B2E4B",primaryText:"#ffffff",accentBg:"#5A8C72",accentText:"#ffffff",cardBg:"#ffffff",headerBg:"#1B2E4B",btnPBg:"#1B2E4B",btnPText:"#ffffff",btnSBg:"#F8FAFC",btnSText:"#1B2E4B"};}catch{return{primaryBg:"#1B2E4B",primaryText:"#ffffff",accentBg:"#5A8C72",accentText:"#ffffff",cardBg:"#ffffff",headerBg:"#1B2E4B",btnPBg:"#1B2E4B",btnPText:"#ffffff",btnSBg:"#F8FAFC",btnSText:"#1B2E4B"};}});
   function saveDes(d){setDesign(d);try{localStorage.setItem("ambar_design",JSON.stringify(d));}catch(e){}}
   const S={
-    card:  {background:design.cardBg||"#fff",color:"#111827",borderRadius:20,padding:20,border:"1px solid #e5e7eb",boxShadow:"0 4px 16px rgba(0,0,0,0.06)",marginBottom:16},
-    ct:    {margin:"0 0 14px",fontSize:18,fontWeight:900},
-    sh:    {margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#1f2937"},
-    navL:  {color:"#e0b85a",margin:"12px 0 5px",fontSize:10,fontWeight:800,letterSpacing:1.5},
-    tab:   {padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:"#fff",color:"#1f2937",fontWeight:700,cursor:"pointer",fontSize:11},
-    tabA:  {padding:"9px 4px",borderRadius:10,border:"none",background:"#111827",color:"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:11},
-    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:13,WebkitAppearance:"auto"},
-    ii:    {padding:"5px 7px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",color:"#111827",fontSize:12,width:"100%",boxSizing:"border-box",WebkitAppearance:"auto"},
-    ta:    {width:"100%",boxSizing:"border-box",padding:"9px 12px",marginBottom:8,borderRadius:10,border:"1px solid #d1d5db",background:"#fff",color:"#111827",minHeight:60,fontSize:13},
-    r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},
-    btnP:  {width:"100%",padding:12,borderRadius:11,border:0,background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,cursor:"pointer",fontSize:13,marginBottom:6},
-    btnS:  {width:"100%",padding:10,borderRadius:11,border:"1px solid #d1d5db",background:design.btnSBg||"#f9fafb",color:design.btnSText||"#1f2937",fontWeight:700,cursor:"pointer",marginBottom:6,fontSize:12},
-    btnD:  {padding:"5px 11px",borderRadius:7,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:11},
-    navBtn:{padding:"4px 10px",borderRadius:7,border:"1px solid #e5e7eb",background:"#fff",color:"#111827",cursor:"pointer",fontWeight:700,fontSize:14},
-    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6},
-    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #e5e7eb",color:"#111827",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
-    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#111827",border:"none",color:"#e0b85a",borderRadius:11,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",fontWeight:900,textAlign:"left"},
-    tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
-    hlp:   {color:"#4b5563",fontSize:11,margin:"2px 0"},
-    lbl:   {margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#1f2937"},
+    // Layout
+    wrap:  {maxWidth:1200,margin:"0 auto",padding:sc.mob?"8px":"14px 20px"},
+    card:  {background:design.cardBg||"#ffffff",color:"#1B2E4B",borderRadius:16,padding:sc.mob?14:20,border:"0.5px solid #E2E8F0",boxShadow:"0 2px 12px rgba(27,46,75,0.06)",marginBottom:16},
+    ct:    {margin:"0 0 14px",fontSize:sc.mob?15:17,fontWeight:500,color:"#1B2E4B"},
+    sh:    {margin:"0 0 8px",fontSize:13,fontWeight:500,color:"#1B2E4B"},
+    hlp:   {color:"#64748B",fontSize:11,margin:"2px 0"},
+    lbl:   {margin:"0 0 4px",fontSize:12,fontWeight:500,color:"#334155"},
+    // Inputs
+    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13},
+    ii:    {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12,width:"100%",boxSizing:"border-box"},
+    ta:    {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",minHeight:60,fontSize:13},
+    // Buttons
+    btnP:  {width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#1B2E4B",color:design.btnPText||"#ffffff",fontWeight:500,cursor:"pointer",fontSize:13,marginBottom:6},
+    btnS:  {width:"100%",padding:10,borderRadius:10,border:"0.5px solid #CBD5E0",background:design.btnSBg||"#F8FAFC",color:design.btnSText||"#1B2E4B",fontWeight:500,cursor:"pointer",marginBottom:6,fontSize:12},
+    btnD:  {padding:"6px 12px",borderRadius:8,border:"0.5px solid #FECACA",background:"#FEF2F2",color:"#B91C1C",fontWeight:500,cursor:"pointer",fontSize:11},
+    btnG:  {width:"100%",padding:11,borderRadius:10,border:"none",background:"#5A8C72",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:13,marginBottom:6},
+    // List items
+    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6},
+    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#1B2E4B",border:"none",color:"#fff",borderRadius:12,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
+    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
+    // Tabs
+    tab:   {padding:"8px 4px",borderRadius:9,border:"0.5px solid #E2E8F0",background:"#fff",color:"#475569",fontWeight:500,cursor:"pointer",fontSize:11},
+    tabA:  {padding:"8px 4px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:11},
+    // Nav
+    navL:  {color:"#94A3B8",margin:"10px 0 5px",fontSize:9,fontWeight:500,letterSpacing:1.5},
+    navBtn:{padding:"4px 10px",borderRadius:7,border:"0.5px solid #E2E8F0",background:"#fff",color:"#1B2E4B",cursor:"pointer",fontWeight:500,fontSize:14},
+    // Other
+    r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8},
+    tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",color:"#fff",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
+    ii2:   {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12},
   };
   const[user,setUser]=useState(()=>{try{return JSON.parse(sessionStorage.getItem("ambar_u"))||null;}catch{return null;}});
   const[lid,setLid]=useState("");const[lpw,setLpw]=useState("");const[lerr,setLerr]=useState("");
@@ -1083,8 +1093,15 @@ export default function App(){
   const mgrTabs=allTabs.filter(t=>!dailyTabs.includes(t));
 
   async function doLogin(){
-    const f=staff.find(s=>s.id===lid.trim()&&s.password===lpw&&s.active);
-    if(f){
+    const candidate=staff.find(s=>s.id===lid.trim()&&s.active);
+    if(!candidate){
+      setLerr("Invalid username or password.");
+      supabase.from("activity_log").insert({staff_id:lid.trim()||"unknown",staff_name:lid.trim()||"unknown",action:"Failed Login",detail:"Failed login for: "+lid.trim(),ts:new Date().toISOString()}).then(()=>{});
+      return;
+    }
+    const ok=await checkPW(lpw,candidate.password);
+    if(ok){
+      const f=candidate;
       setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
       supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:LANG.en["login"]||"login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
     }else{
@@ -1317,8 +1334,8 @@ export default function App(){
 
   if(!user)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}><div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:44}}>✦</div><h1 style={{margin:"8px 0 0",fontSize:22,fontWeight:900}}>Ambar Spa & Beauty</h1><p style={{margin:"6px 0 0",color:"#6b7280",fontSize:13}}>Staff Login</p></div>{lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:700}}>{lerr}</div>}<p style={S.lbl}>Username</p><input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/><p style={S.lbl}>Password</p><input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/><button style={{...S.btnP,marginTop:8}} onClick={doLogin}>{t("login")}</button></div></div>);
 
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)",color:"#e0b85a"}}><div style={{textAlign:"center"}}><div style={{fontSize:56,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:700,letterSpacing:2}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#c9b077",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
-  return(<div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  return(<div style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
     <Notifs items={notifs} dismiss={dismiss}/>
     {confirmDlg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
@@ -1333,20 +1350,20 @@ export default function App(){
     {offline&&<div style={{background:"#b45309",color:"#fff",textAlign:"center",padding:8,fontSize:13,fontWeight:700}}>⚠ Offline — changes will not save</div>}
     {saving&&<div style={{background:"#e0b85a",color:"#111827",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
     <div style={{maxWidth:1400,margin:"0 auto",padding:sc.mob?"12px":"28px"}}>
-      <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#111827",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
-        <div><p style={{color:"#e0b85a",fontWeight:900,letterSpacing:2,margin:"0 0 2px",fontSize:11}}>AMBAR SPA & BEAUTY</p>
-          {!sc.mob&&<h1 style={{margin:0,fontSize:20,fontWeight:900,color:"#fff"}}>Salon Management System</h1>}
-          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#e0b85a",color:"#111827",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6}}>{user.role}</span><button onClick={toggleLang} style={{background:"transparent",border:"1px solid #e0b85a",color:"#e0b85a",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
-          {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#e0b85a",border:"none",color:"#111827",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6,fontWeight:700}}>🔔 Enable Alerts</button>}
-          {notifPerm==="granted"&&<span style={{color:"#4ade80",fontSize:11,marginLeft:6}}>🔔 ✓</span>}
-          <button onClick={logout} style={{background:"transparent",border:"1px solid #6b7280",color:"#d1d5db",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
+      <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#1B2E4B",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
+        <div><p style={{color:"#5A8C72",fontWeight:500,letterSpacing:2,margin:"0 0 2px",fontSize:9}}>AMBAR SPA & BEAUTY</p>
+          {!sc.mob&&<h1 style={{margin:0,fontSize:18,fontWeight:500,color:"#fff"}}>Salon Management System</h1>}
+          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:500,marginLeft:6}}>{user.role}</span><button onClick={toggleLang} style={{background:"transparent",border:"0.5px solid #5A8C72",color:"#5A8C72",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
+          {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#5A8C72",border:"none",color:"#fff",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6,fontWeight:500}}>🔔 Enable Alerts</button>}
+          {notifPerm==="granted"&&<span style={{color:"#5A8C72",fontSize:11,marginLeft:6}}>🔔 ✓</span>}
+          <button onClick={logout} style={{background:"transparent",border:"0.5px solid #64748B",color:"#94A3B8",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
         </div>
-        <div style={{background:"#e0b85a",color:"#111827",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:26,fontWeight:900}}>#{todayV.length+1}</h2></div>
+        <div style={{background:"#e0b85a",color:"#111827",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:24,fontWeight:500,color:"#fff"}}>#{todayV.length+1}</h2></div>
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
         <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#1d4ed8",color:"#fff"}:{...S.tab,background:"#f1f5f9",color:"#374151",border:"1px solid #e2e8f0"}} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -1449,7 +1466,7 @@ export default function App(){
               {act.services.some(l=>l.status==="On Hold")&&<div style={{background:"#f3e8ff",border:"1px solid #c084fc",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#6b21a8",fontWeight:600}}>⏸ Some services are On Hold — they will auto-activate when the current service is completed and this customer gets priority.</div>}
             </>}
             <SLines visit={act} emps={emps} mode="supervisor" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
-            {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnP} onClick={markReady}>{t("markReady")}</button>}
+            {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnG} onClick={markReady}>{t("markReady")}</button>}
           </>}
         </section>
       </main></ErrorBoundary>}
@@ -1482,9 +1499,9 @@ export default function App(){
             {tips.map(t=><div key={t.id} style={S.li}><span>{t.employee}</span><span style={{display:"flex",gap:8,alignItems:"center"}}><b>{money(t.amount)}</b><button style={S.btnD} onClick={()=>setTips(p=>p.filter(x=>x.id!==t.id))}>×</button></span></div>)}
             <HR/><L>Payment Method</L>
             <select style={S.inp} value={payM} onChange={e=>setPayM(e.target.value)}><option>Cash</option><option>Transfer</option><option>Telebirr</option><option>Card</option></select>
-            <div style={S.tb}><span>Service Total</span><b>{money(act.totalService)}</b></div>
+            <div style={S.tb}><span style={{color:"#94A3B8",fontSize:12}}>Service Total</span><b style={{color:"#fff"}}>{money(act.totalService)}</b></div>
             {tips.length>0&&<div style={{...S.tb,background:"#1e3a2f",marginTop:6}}><span>Tips Total</span><b>{money(tips.reduce((s,t)=>s+t.amount,0))}</b></div>}
-            <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span>Customer Pays</span><b>{money(act.totalService+tips.reduce((s,t)=>s+t.amount,0))}</b></div>
+            <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span style={{color:"#94A3B8",fontSize:12}}>Customer Pays</span><b style={{color:"#5A8C72",fontSize:16}}>{money(act.totalService+tips.reduce((s,t)=>s+t.amount,0))}</b></div>
             {act.groupName&&<>
               <div style={{border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:6,background:"#fff"}}>
                 <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#374151"}}>Group Payment Options</p>
@@ -1690,7 +1707,7 @@ export default function App(){
         </div>}
 
         {/* Add item form */}
-        <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:16}}>
+        <div style={{background:"#F1F5F9",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:16}}>
           <h3 style={{margin:"0 0 12px",fontSize:13,fontWeight:800,color:"#111827"}}>+ Add New Item</h3>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
             <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Item Name *</p><input style={S.inp} placeholder="e.g. Shampoo" value={nInv.name} onChange={e=>setNInv({...nInv,name:e.target.value})}/></div>
@@ -1788,6 +1805,16 @@ export default function App(){
                   <div style={{background:"#f9fafb",borderRadius:9,padding:"7px 8px",textAlign:"center",overflow:"hidden"}}><p style={{margin:0,fontSize:9,color:"#6b7280",fontWeight:700}}>FAVOURITE</p><b style={{color:"#111827",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{fav}</b></div>
                 </div>
               </div>;})}
+        {custs.filter(c=>c.deletedAt).length>0&&<>
+          <HR/>
+          <h3 style={S.sh}>🗑 Recently Deleted — can be restored</h3>
+          {custs.filter(c=>c.deletedAt).map(c=>(
+            <div key={c.id} style={{...S.li,opacity:0.7,background:"#fff5f5",border:"1px solid #fca5a5"}}>
+              <div><b style={{color:"#dc2626"}}>{c.name}</b><p style={S.hlp}>{c.phone} · Deleted {new Date(c.deletedAt).toLocaleDateString()}</p></div>
+              <button style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:0,color:"#166534",borderColor:"#86efac",fontWeight:700}} onClick={()=>restoreCust(c.id)}>↩ Restore</button>
+            </div>
+          ))}
+        </>}
       </section>}
 
       {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>{t("payrollMgmt")}</h2>
@@ -1863,7 +1890,7 @@ export default function App(){
 
       {tab==="Dashboard"&&<section style={S.card}><h2 style={S.ct}>{t("dashboard2")}</h2>
         {/* Date filter */}
-        <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
+        <div style={{background:"#F1F5F9",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:8}}>
             <div style={{flex:1}}><EthPicker label="Viewing Date" value={dashDate} onChange={setDashDate}/></div>
             <button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>setDashDate(todayStr())}>{t("today")}</button>
@@ -1952,7 +1979,7 @@ export default function App(){
               {key:"btnSText", label:"Secondary Button Text",        preview:design.btnSText},
               {key:"cardBg",   label:"Card Background",              preview:design.cardBg},
             ].map(({key,label})=>(
-              <div key={key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"8px 10px",background:"#f8fafc",borderRadius:10,border:"1px solid #e5e7eb"}}>
+              <div key={key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"8px 10px",background:"#F1F5F9",borderRadius:10,border:"1px solid #e5e7eb"}}>
                 <input type="color" value={design[key]||"#ffffff"}
                   onChange={e=>saveDes({...design,[key]:e.target.value})}
                   style={{width:40,height:36,borderRadius:8,border:"2px solid #e5e7eb",cursor:"pointer",padding:2,flexShrink:0}}/>
@@ -1995,7 +2022,7 @@ export default function App(){
               <div key={key} style={{marginBottom:8}}>
                 <p style={{margin:"0 0 2px",fontSize:9,fontWeight:800,color:"#9ca3af",fontFamily:"monospace",letterSpacing:0.5}}>{key}</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-                  <div style={{padding:"6px 8px",borderRadius:7,background:"#f8fafc",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{LANG.en[key]||key}</div>
+                  <div style={{padding:"6px 8px",borderRadius:7,background:"#F1F5F9",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{LANG.en[key]||key}</div>
                   <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}} placeholder={LANG.en[key]||key}
                     style={{padding:"6px 8px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}/>
                 </div>
@@ -2008,7 +2035,7 @@ export default function App(){
                   <div key={key} style={{marginBottom:8}}>
                     <p style={{margin:"0 0 2px",fontSize:9,fontWeight:800,color:"#9ca3af",fontFamily:"monospace"}}>{key}</p>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-                      <div style={{padding:"6px 8px",borderRadius:7,background:"#f8fafc",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af"}}>{LANG.en[key]||key}</div>
+                      <div style={{padding:"6px 8px",borderRadius:7,background:"#F1F5F9",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af"}}>{LANG.en[key]||key}</div>
                       <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}} placeholder={LANG.en[key]||key}
                         style={{padding:"6px 8px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}/>
                     </div>
@@ -2089,7 +2116,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         </div>
       </div>;
     })}
-    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:700,color:"#d1d5db"}}>Total Income</span><b style={{fontSize:15,color:"#e0b85a"}}>{money(visit.totalService)}</b></div>
+    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:500,color:"#94A3B8",fontSize:12}}>Total Income</span><b style={{fontSize:15,fontWeight:500,color:"#5A8C72"}}>{money(visit.totalService)}</b></div>
   </div>;
 }
 
@@ -2135,9 +2162,8 @@ function PS({emps,empC,period}){return <div style={{fontFamily:"Arial,sans-serif
 </div>;}
 
 function L({children}){return <p style={{margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#374151"}}>{children}</p>;}
-function HR(){return <div style={{borderTop:"1px solid #ecdba3",margin:"16px 0"}}/>;}
+function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0"}}/>;}
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
-function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#111827":accent?"#fef2f2":"#f9fafb",color:highlight?"#e0b85a":"#111827",borderRadius:14,padding:"12px 14px",border:"1px solid "+(highlight?"#374151":accent?"#fecaca":"#e5e7eb")}}><p style={{margin:0,fontSize:10,fontWeight:700,color:highlight?"#9ca3af":accent?"#dc2626":"#6b7280"}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:900,color:highlight?"#e0b85a":"#111827"}}>{value}</h3></div>;}
+function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#fef3c7",co:"#92400e"},"With Supervisor":{bg:"#e0f2fe",co:"#0369a1"},"In Service":{bg:"#dbeafe",co:"#1e40af"},"Ready for Payment":{bg:"#dcfce7",co:"#166534"},"Paid & Closed":{bg:"#f0fdf4",co:"#166534"},Waiting:{bg:"#fef9c3",co:"#854d0e"},"On Hold":{bg:"#f3e8ff",co:"#6b21a8"},"In Progress":{bg:"#dbeafe",co:"#1e3a8a"},Completed:{bg:"#dcfce7",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};const c=m[st]||{bg:"#f3f4f6",co:"#374151"};return{borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",background:c.bg,color:c.co};}
-
+function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
