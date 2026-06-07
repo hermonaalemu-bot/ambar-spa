@@ -739,6 +739,7 @@ export default function App(){
   const[coQ,setCoQ]=useState("");const[payM,setPayM]=useState("Cash");
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
   const[showRefund,setShowRefund]=useState(false);const[refundAmt,setRefundAmt]=useState("");const[refundReason,setRefundReason]=useState("");
+  const[deActiveGrp,setDeActiveGrp]=useState(0);const[deTab2,setDeTab2]=useState("colors");const[deSaved,setDeSaved]=useState(false);
   const[splitMode,setSplitMode]=useState(false);const[splitPayments,setSplitPayments]=useState([]);
   const[confirmDlg,setConfirmDlg]=useState(null); // {msg,onOk,danger}
   function confirm2(msg,onOk,danger=false){setConfirmDlg({msg,onOk,danger});}
@@ -1027,7 +1028,16 @@ export default function App(){
   const svSubs=useMemo(()=>["All",...new Set(svcs.filter(s=>s.category===svCat).map(s=>s.sub))],[svCat,svcs]);
   const svAvail=svcs.filter(s=>s.category===svCat&&(svSub==="All"||s.sub===svSub));
   // FIXED: checkout today only, no past days
-  const coList=useMemo(()=>{const q=coQ.toLowerCase().trim();const tv=visits.filter(v=>v.date===todayStr());if(!q)return tv.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));return tv.filter(v=>String(v.queue).includes(q)||v.name.toLowerCase().includes(q)||v.phone.includes(q));},[visits,coQ]);
+  const coList=useMemo(()=>{
+    const q=coQ.toLowerCase().trim();
+    // Only show Ready for Payment and Paid & Closed
+    const tv=visits.filter(v=>v.date===todayStr()&&
+      ["Ready for Payment","Paid & Closed"].includes(v.status));
+    if(!q)return tv;
+    return tv.filter(v=>String(v.queue).includes(q)||
+      v.name.toLowerCase().includes(q)||
+      v.phone.includes(q));
+  },[visits,coQ]);
   const clV=visits.filter(v=>v.date===clDate);
   const clE=exps.filter(e=>e.date===clDate&&e.type==="Daily Operation");
   const clCash=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod==="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
@@ -1058,7 +1068,10 @@ export default function App(){
   },[visits]);
   const empC=useMemo(()=>emps.map(emp=>{
     const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");
-    const lines=pv.flatMap(v=>(v.services||[])).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");
+    // Manager, Reception, and Management staff don't earn service commission
+    const noCommRoles=["manager","Manager","Reception","Receptionist","Janitor","Assistant"];
+    const hasNoComm=noCommRoles.includes(emp.role)||emp.section==="Reception"||emp.section==="Management";
+    const lines=hasNoComm?[]:pv.flatMap(v=>(v.services||[])).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");
     // Service counts for performance tracking
     const svcMap={};lines.forEach(l=>{if(l.name)svcMap[l.name]=(svcMap[l.name]||0)+1;});
     const serviceList=Object.entries(svcMap).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count}));
@@ -1506,7 +1519,7 @@ export default function App(){
       {tab==="Checkout"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
         <section style={S.card}><h2 style={S.ct}>{t("checkoutToday")}</h2>
           <input style={S.inp} placeholder={t("searchCheckout")} value={coQ} onChange={e=>setCoQ(e.target.value)}/>
-          {coList.length===0&&<EMP>No active customers today.</EMP>}
+          {coList.length===0&&<EMP>No customers marked Ready for Payment yet. Supervisor must mark customers ready before they appear here.</EMP>}
           {coList.map(v=><button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}><span>#{v.queue} — {v.name}</span><span style={SB(v.status)}>{v.status==="Ready for Payment"?"Ready — "+money(v.totalService):v.status}</span></button>)}
         </section>
         <section style={S.card}>
@@ -1997,97 +2010,217 @@ export default function App(){
         </div>)}
       </section>}
 
-      {tab==="Design Editor"&&<section style={S.card}>
-        <h2 style={S.ct}>🎨 Design Editor</h2>
-        <p style={{fontSize:12,color:"#6b7280",marginBottom:16}}>Changes apply live across all tabs. Save to persist on this device.</p>
-        <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:20}}>
-          {/* ── Color Settings ── */}
-          <div>
-            <h3 style={S.sh}>Colors</h3>
-            {[
-              {key:"btnPBg",   label:"Primary Button Background",   preview:design.btnPBg},
-              {key:"btnPText", label:"Primary Button Text",         preview:design.btnPText},
-              {key:"btnSBg",   label:"Secondary Button Background",  preview:design.btnSBg},
-              {key:"btnSText", label:"Secondary Button Text",        preview:design.btnSText},
-              {key:"cardBg",   label:"Card Background",              preview:design.cardBg},
-            ].map(({key,label})=>(
-              <div key={key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"8px 10px",background:"#F1F5F9",borderRadius:10,border:"1px solid #e5e7eb"}}>
-                <input type="color" value={design[key]||"#ffffff"}
-                  onChange={e=>saveDes({...design,[key]:e.target.value})}
-                  style={{width:40,height:36,borderRadius:8,border:"2px solid #e5e7eb",cursor:"pointer",padding:2,flexShrink:0}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <p style={{margin:0,fontSize:12,fontWeight:700,color:"#111827"}}>{label}</p>
-                  <p style={{margin:"1px 0 0",fontSize:10,color:"#6b7280",fontFamily:"monospace"}}>{design[key]}</p>
-                </div>
-                <button onClick={()=>{const def={btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937",cardBg:"#ffffff"};saveDes({...design,[key]:def[key]||"#ffffff"});}} style={{padding:"2px 8px",border:"1px solid #e5e7eb",borderRadius:6,background:"#fff",color:"#6b7280",fontSize:10,cursor:"pointer",flexShrink:0}}>↺</button>
-              </div>
-            ))}
-            <button style={{...S.btnS,marginTop:4}} onClick={()=>{
-              saveDes({btnPBg:"#111827",btnPText:"#e0b85a",btnSBg:"#f9fafb",btnSText:"#1f2937",cardBg:"#ffffff"});
-              push("Design reset to default","success");
-            }}>↺ Reset All to Default</button>
-
-            <HR/>
-            <h3 style={S.sh}>Live Preview</h3>
-            <div style={{padding:16,background:design.cardBg||"#fff",borderRadius:14,border:"1px solid #e5e7eb",display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{background:"#111827",padding:"12px 16px",borderRadius:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div><p style={{margin:0,fontSize:9,fontWeight:900,color:"#e0b85a",letterSpacing:2}}>AMBAR SPA & BEAUTY</p><p style={{margin:"2px 0 0",fontSize:14,fontWeight:900,color:"#fff"}}>Salon Management System</p></div>
-                <div style={{background:"#e0b85a",color:"#111827",borderRadius:10,padding:"8px 14px",textAlign:"center"}}><p style={{margin:0,fontSize:9,fontWeight:800}}>TODAY NEXT</p><p style={{margin:0,fontSize:20,fontWeight:900}}>#4</p></div>
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                <button style={{flex:1,padding:"9px 4px",borderRadius:10,border:"none",background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,fontSize:11}}>Register</button>
-                <button style={{flex:1,padding:"9px 4px",borderRadius:10,border:"1px solid #e0b85a",background:design.btnSBg||"#fff",color:design.btnSText||"#1f2937",fontWeight:700,fontSize:11}}>Recall</button>
-              </div>
-              <div style={{background:design.cardBg||"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:12}}>
-                <b style={{color:"#111827",fontSize:13}}>#1 — Sara</b>
-                <p style={{margin:"4px 0 0",fontSize:11,color:"#6b7280"}}>ስፔሻል ፔዲኪዩር · 1,500 Birr</p>
-              </div>
-              <button style={{width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#111827",color:design.btnPText||"#e0b85a",fontWeight:900,fontSize:13}}>✓ Mark Ready for Payment</button>
+      {tab==="Design Editor"&&(()=>{
+        const COLOR_GROUPS=[
+          {group:"Header & Navigation",tokens:[
+            {key:"hdrBg",    label:"Header Background",     def:"#1B2E4B"},
+            {key:"hdrText",  label:"Header Title Text",     def:"#FFFFFF"},
+            {key:"hdrAccent",label:"Header Accent / Brand", def:"#5A8C72"},
+            {key:"hdrBadge", label:"Role Badge Background", def:"#5A8C72"},
+            {key:"hdrBadgeTx",label:"Role Badge Text",      def:"#FFFFFF"},
+            {key:"appBg",    label:"App Background",        def:"#F1F5F9"},
+          ]},
+          {group:"Navigation Tabs",tokens:[
+            {key:"tabBg",    label:"Daily Tab Background",  def:"#FFFFFF"},
+            {key:"tabTx",    label:"Daily Tab Text",        def:"#475569"},
+            {key:"tabBd",    label:"Daily Tab Border",      def:"#E2E8F0"},
+            {key:"tabABg",   label:"Active Daily Tab",      def:"#1B2E4B"},
+            {key:"tabATx",   label:"Active Daily Tab Text", def:"#FFFFFF"},
+            {key:"mgrBg",    label:"Mgr Tab Background",    def:"#F8FAFC"},
+            {key:"mgrTx",    label:"Mgr Tab Text",          def:"#475569"},
+            {key:"mgrABg",   label:"Active Mgr Tab",        def:"#243A5E"},
+            {key:"mgrATx",   label:"Active Mgr Tab Text",   def:"#FFFFFF"},
+          ]},
+          {group:"Cards & Panels",tokens:[
+            {key:"cardBg",   label:"Card Background",       def:"#FFFFFF"},
+            {key:"cardBd",   label:"Card Border",           def:"#E2E8F0"},
+            {key:"cardTitle",label:"Card Title Text",       def:"#1B2E4B"},
+            {key:"cardHelp", label:"Helper / Sub Text",     def:"#64748B"},
+            {key:"cardLabel",label:"Field Label Text",      def:"#334155"},
+          ]},
+          {group:"Buttons",tokens:[
+            {key:"btnPBg",   label:"Primary Button Bg",     def:"#1B2E4B"},
+            {key:"btnPText", label:"Primary Button Text",   def:"#FFFFFF"},
+            {key:"btnSBg",   label:"Secondary Button Bg",   def:"#F8FAFC"},
+            {key:"btnSText", label:"Secondary Button Text", def:"#1B2E4B"},
+            {key:"btnSBd",   label:"Secondary Button Border",def:"#CBD5E0"},
+            {key:"btnGBg",   label:"Action Button Bg (Ready)",def:"#5A8C72"},
+            {key:"btnGTx",   label:"Action Button Text",    def:"#FFFFFF"},
+            {key:"btnDBg",   label:"Danger Button Bg",      def:"#FEF2F2"},
+            {key:"btnDTx",   label:"Danger Button Text",    def:"#B91C1C"},
+          ]},
+          {group:"Inputs & Forms",tokens:[
+            {key:"inpBg",    label:"Input Background",      def:"#FFFFFF"},
+            {key:"inpTx",    label:"Input Text",            def:"#1B2E4B"},
+            {key:"inpBd",    label:"Input Border",          def:"#CBD5E0"},
+            {key:"inpPh",    label:"Input Placeholder",     def:"#94A3B8"},
+          ]},
+          {group:"Status Badges",tokens:[
+            {key:"bdWaitBg", label:"Waiting Bg",            def:"#FEF3C7"},
+            {key:"bdWaitTx", label:"Waiting Text",          def:"#92400E"},
+            {key:"bdProgBg", label:"In Progress Bg",        def:"#EBF2FD"},
+            {key:"bdProgTx", label:"In Progress Text",      def:"#1B4FA8"},
+            {key:"bdReadBg", label:"Ready Bg",              def:"#EBF5EE"},
+            {key:"bdReadTx", label:"Ready Text",            def:"#2D7D46"},
+            {key:"bdPaidBg", label:"Paid & Closed Bg",      def:"#F0FDF4"},
+            {key:"bdPaidTx", label:"Paid & Closed Text",    def:"#166534"},
+            {key:"bdHoldBg", label:"On Hold Bg",            def:"#EDE9FE"},
+            {key:"bdHoldTx", label:"On Hold Text",          def:"#5B3FA6"},
+            {key:"bdCancBg", label:"Cancelled Bg",          def:"#FEE2E2"},
+            {key:"bdCancTx", label:"Cancelled Text",        def:"#B91C1C"},
+          ]},
+          {group:"Queue & Lists",tokens:[
+            {key:"qItemBg",  label:"Queue Item Background",  def:"#FFFFFF"},
+            {key:"qItemBd",  label:"Queue Item Border",      def:"#E2E8F0"},
+            {key:"qItemTx",  label:"Queue Item Text",        def:"#1B2E4B"},
+            {key:"qSelBg",   label:"Selected Item Bg",       def:"#1B2E4B"},
+            {key:"qSelTx",   label:"Selected Item Text",     def:"#FFFFFF"},
+          ]},
+          {group:"Totals & Revenue Bars",tokens:[
+            {key:"totBg",    label:"Total Bar Background",   def:"#1B2E4B"},
+            {key:"totLabel", label:"Total Bar Label",        def:"#94A3B8"},
+            {key:"totValue", label:"Total Bar Value",        def:"#5A8C72"},
+          ]},
+          {group:"Stat Cards",tokens:[
+            {key:"scBg",     label:"Stat Card Background",   def:"#F8FAFC"},
+            {key:"scTx",     label:"Stat Card Text",         def:"#1B2E4B"},
+            {key:"scLabel",  label:"Stat Card Label",        def:"#64748B"},
+            {key:"scHlBg",   label:"Highlighted Stat Bg",    def:"#1B2E4B"},
+            {key:"scHlTx",   label:"Highlighted Stat Text",  def:"#FFFFFF"},
+            {key:"scHlLb",   label:"Highlighted Stat Label", def:"#5A8C72"},
+          ]},
+        ];
+        const activeGrp=deActiveGrp;const setActiveGrp=setDeActiveGrp;
+        const deTab=deTab2;const setDeTab=setDeTab2;
+        const allDefs=Object.fromEntries(COLOR_GROUPS.flatMap(g=>g.tokens.map(t=>[t.key,t.def])));
+        function getD(key){return design[key]||allDefs[key]||"#ffffff";}
+        function setD(key,val){saveDes({...design,[key]:val});}
+        function resetAll(){saveDes(allDefs);push("Design reset to defaults","success");}
+        async function saveToCloud(){
+          await supabase.from("settings").upsert({key:"design",value:JSON.stringify(design)});
+          await supabase.from("settings").upsert({key:"amTexts",value:JSON.stringify(LANG.am)});
+          setDeSaved(true);setTimeout(()=>setDeSaved(false),2500);
+          push("Design saved to all devices","success");
+        }
+        return <section style={{...S.card,padding:0,overflow:"hidden"}}>
+          {/* Editor header */}
+          <div style={{background:"#1B2E4B",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+            <div><h2 style={{margin:0,fontSize:17,fontWeight:500,color:"#fff"}}>🎨 Design Editor</h2>
+              <p style={{margin:"3px 0 0",fontSize:11,color:"#5A8C72"}}>Changes apply instantly across the whole app</p>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={resetAll} style={{padding:"8px 14px",borderRadius:9,border:"0.5px solid #334155",background:"transparent",color:"#94A3B8",fontSize:12,cursor:"pointer",fontWeight:500}}>↺ Reset All</button>
+              <button onClick={saveToCloud} style={{padding:"8px 16px",borderRadius:9,border:"none",background:deSaved?"#2D7D46":"#5A8C72",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:500,transition:"background 0.2s"}}>
+                {deSaved?"✓ Saved!":"💾 Save to All Devices"}
+              </button>
             </div>
           </div>
 
-          {/* ── Text / Label Settings ── */}
-          <div>
-            <h3 style={S.sh}>Amharic Text Overrides</h3>
-            <p style={{fontSize:11,color:"#6b7280",marginBottom:12}}>Edit any Amharic translation below. English shown as placeholder.</p>
-            {Object.entries(LANG.am).slice(0,20).map(([key,val])=>(
-              <div key={key} style={{marginBottom:8}}>
-                <p style={{margin:"0 0 2px",fontSize:9,fontWeight:800,color:"#9ca3af",fontFamily:"monospace",letterSpacing:0.5}}>{key}</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-                  <div style={{padding:"6px 8px",borderRadius:7,background:"#F1F5F9",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{LANG.en[key]||key}</div>
-                  <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}} placeholder={LANG.en[key]||key}
-                    style={{padding:"6px 8px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}/>
-                </div>
-              </div>
+          {/* Tab bar */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:"0.5px solid #E2E8F0"}}>
+            {["colors","texts"].map(dt=>(
+              <button key={dt} onClick={()=>setDeTab(dt)} style={{padding:"12px",border:"none",background:deTab===dt?"#fff":"#F8FAFC",color:deTab===dt?"#1B2E4B":"#64748B",fontWeight:deTab===dt?500:400,cursor:"pointer",fontSize:13,borderBottom:deTab===dt?"2px solid #1B2E4B":"2px solid transparent"}}>
+                {dt==="colors"?"🎨 Colors & Design":"🔤 Amharic Text Labels"}
+              </button>
             ))}
-            <details style={{marginTop:8}}>
-              <summary style={{cursor:"pointer",fontSize:12,fontWeight:700,color:"#374151",padding:"6px 0"}}>Show all {Object.keys(LANG.am).length} labels...</summary>
-              <div style={{paddingTop:8}}>
-                {Object.entries(LANG.am).slice(20).map(([key,val])=>(
-                  <div key={key} style={{marginBottom:8}}>
-                    <p style={{margin:"0 0 2px",fontSize:9,fontWeight:800,color:"#9ca3af",fontFamily:"monospace"}}>{key}</p>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-                      <div style={{padding:"6px 8px",borderRadius:7,background:"#F1F5F9",border:"1px solid #e5e7eb",fontSize:11,color:"#9ca3af"}}>{LANG.en[key]||key}</div>
-                      <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}} placeholder={LANG.en[key]||key}
-                        style={{padding:"6px 8px",borderRadius:7,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}/>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"260px 1fr",minHeight:600}}>
+
+            {/* ── LEFT: Group selector or text groups ── */}
+            <div style={{background:"#F8FAFC",borderRight:"0.5px solid #E2E8F0",padding:16,overflowY:"auto"}}>
+              {deTab==="colors"&&<>
+                <p style={{margin:"0 0 10px",fontSize:10,fontWeight:500,color:"#94A3B8",letterSpacing:1.5}}>COLOR GROUPS</p>
+                {COLOR_GROUPS.map((g,i)=>(
+                  <button key={i} onClick={()=>setActiveGrp(i)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"none",background:activeGrp===i?"#1B2E4B":"transparent",color:activeGrp===i?"#fff":"#475569",fontWeight:activeGrp===i?500:400,cursor:"pointer",textAlign:"left",fontSize:12,marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span>{g.group}</span>
+                    <span style={{background:activeGrp===i?"rgba(255,255,255,0.2)":"#E2E8F0",color:activeGrp===i?"#fff":"#64748B",borderRadius:12,padding:"1px 7px",fontSize:10}}>{g.tokens.length}</span>
+                  </button>
+                ))}
+              </>}
+              {deTab==="texts"&&<>
+                <p style={{margin:"0 0 10px",fontSize:10,fontWeight:500,color:"#94A3B8",letterSpacing:1.5}}>AMHARIC LABELS</p>
+                <p style={{fontSize:11,color:"#64748B",lineHeight:1.5,margin:"0 0 12px"}}>Edit any Amharic translation. English shown as reference on the right.</p>
+                <p style={{fontSize:11,color:"#5A8C72",fontWeight:500}}>{Object.keys(LANG.am).length} labels available</p>
+              </>}
+            </div>
+
+            {/* ── RIGHT: Color pickers or text inputs ── */}
+            <div style={{padding:20,overflowY:"auto",maxHeight:700}}>
+              {deTab==="colors"&&<>
+                <h3 style={{margin:"0 0 4px",fontSize:14,fontWeight:500,color:"#1B2E4B"}}>{COLOR_GROUPS[activeGrp].group}</h3>
+                <p style={{margin:"0 0 16px",fontSize:11,color:"#64748B"}}>{COLOR_GROUPS[activeGrp].tokens.length} color settings</p>
+                {COLOR_GROUPS[activeGrp].tokens.map(({key,label,def})=>(
+                  <div key={key} style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,padding:"12px 14px",background:"#fff",borderRadius:12,border:"0.5px solid #E2E8F0"}}>
+                    <input type="color" value={getD(key)}
+                      onChange={e=>setD(key,e.target.value)}
+                      style={{width:44,height:44,borderRadius:10,border:"0.5px solid #CBD5E0",cursor:"pointer",padding:3,flexShrink:0,background:"#fff"}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{margin:0,fontSize:13,fontWeight:500,color:"#1B2E4B"}}>{label}</p>
+                      <p style={{margin:"2px 0 0",fontSize:10,color:"#94A3B8",fontFamily:"monospace"}}>{getD(key)}</p>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      <div style={{width:28,height:28,borderRadius:8,background:getD(key),border:"0.5px solid #E2E8F0"}}/>
+                      <button onClick={()=>setD(key,def)} style={{padding:"2px 8px",border:"0.5px solid #E2E8F0",borderRadius:6,background:"#F8FAFC",color:"#64748B",fontSize:10,cursor:"pointer"}}>↺</button>
                     </div>
                   </div>
                 ))}
-              </div>
-            </details>
-            <button style={{...S.btnP,marginTop:12}} onClick={async()=>{
-              await supabase.from("settings").upsert({key:"amTexts",value:JSON.stringify(LANG.am)});
-              push("Amharic labels saved to all devices","success");
-            }}>💾 Save Amharic to All Devices</button>
+                {/* Live mini preview */}
+                <div style={{marginTop:20,padding:16,background:"#F8FAFC",borderRadius:14,border:"0.5px solid #E2E8F0"}}>
+                  <p style={{margin:"0 0 10px",fontSize:11,fontWeight:500,color:"#64748B"}}>LIVE PREVIEW</p>
+                  <div style={{background:getD("hdrBg"),borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div><p style={{margin:0,fontSize:8,color:getD("hdrAccent"),letterSpacing:1.5,fontWeight:500}}>AMBAR SPA & BEAUTY</p>
+                      <p style={{margin:"2px 0 0",fontSize:13,fontWeight:500,color:getD("hdrText")}}>Salon Management</p>
+                    </div>
+                    <span style={{background:getD("hdrBadge"),color:getD("hdrBadgeTx"),borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:500}}>manager</span>
+                  </div>
+                  <div style={{display:"flex",gap:6,marginBottom:8}}>
+                    <button style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",background:getD("tabABg"),color:getD("tabATx"),fontSize:10,fontWeight:500}}>Reception</button>
+                    <button style={{flex:1,padding:"8px 4px",borderRadius:8,border:"0.5px solid "+getD("tabBd"),background:getD("tabBg"),color:getD("tabTx"),fontSize:10,fontWeight:400}}>Supervisor</button>
+                    <button style={{flex:1,padding:"8px 4px",borderRadius:8,border:"0.5px solid "+getD("tabBd"),background:getD("tabBg"),color:getD("tabTx"),fontSize:10,fontWeight:400}}>Checkout</button>
+                  </div>
+                  <div style={{background:getD("cardBg"),border:"0.5px solid "+getD("cardBd"),borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                    <p style={{margin:0,fontSize:12,fontWeight:500,color:getD("cardTitle")}}>Register Customer</p>
+                    <div style={{background:getD("inpBg"),border:"0.5px solid "+getD("inpBd"),borderRadius:7,padding:"6px 8px",margin:"6px 0",fontSize:10,color:getD("inpPh")}}>Phone number...</div>
+                  </div>
+                  <div style={{display:"flex",gap:6,marginBottom:8}}>
+                    <button style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:getD("btnPBg"),color:getD("btnPText"),fontSize:10,fontWeight:500}}>Register</button>
+                    <button style={{flex:1,padding:"8px",borderRadius:8,border:"0.5px solid "+getD("btnSBd"),background:getD("btnSBg"),color:getD("btnSText"),fontSize:10,fontWeight:500}}>Recall</button>
+                  </div>
+                  <button style={{width:"100%",padding:"8px",borderRadius:8,border:"none",background:getD("btnGBg"),color:getD("btnGTx"),fontSize:10,fontWeight:500}}>✓ Mark Ready for Payment</button>
+                  <div style={{background:getD("totBg"),borderRadius:8,padding:"8px 10px",marginTop:6,display:"flex",justifyContent:"space-between"}}>
+                    <span style={{fontSize:10,color:getD("totLabel")}}>Total Income</span>
+                    <span style={{fontSize:12,fontWeight:500,color:getD("totValue")}}>2,500 Birr</span>
+                  </div>
+                </div>
+              </>}
+
+              {deTab==="texts"&&<>
+                <p style={{margin:"0 0 16px",fontSize:11,color:"#64748B",lineHeight:1.6}}>
+                  Left column = English (reference). Right column = Amharic (edit here). Changes apply when you switch to Amharic using the language toggle.
+                </p>
+                <div style={{display:"grid",gridTemplateColumns:"auto 1fr 1fr",gap:"0 8px",marginBottom:8,padding:"6px 8px",background:"#1B2E4B",borderRadius:8}}>
+                  <span style={{fontSize:10,fontWeight:500,color:"#5A8C72",fontFamily:"monospace"}}>KEY</span>
+                  <span style={{fontSize:10,fontWeight:500,color:"#94A3B8"}}>English</span>
+                  <span style={{fontSize:10,fontWeight:500,color:"#fff"}}>Amharic</span>
+                </div>
+                {Object.entries(LANG.am).map(([key,val])=>(
+                  <div key={key} style={{display:"grid",gridTemplateColumns:"auto 1fr 1fr",gap:"0 8px",marginBottom:6,alignItems:"center"}}>
+                    <span style={{fontSize:9,color:"#94A3B8",fontFamily:"monospace",minWidth:80}}>{key}</span>
+                    <div style={{padding:"5px 8px",borderRadius:7,background:"#F8FAFC",border:"0.5px solid #E2E8F0",fontSize:11,color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{LANG.en[key]||key}</div>
+                    <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}}
+                      placeholder={LANG.en[key]||key}
+                      style={{padding:"5px 8px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",fontSize:12,color:"#1B2E4B",width:"100%"}}/>
+                  </div>
+                ))}
+              </>}
+            </div>
           </div>
-        </div>
-      </section>}
+        </section>;
+      })()}
 
       {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>{t("activityLog2")}</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
-        <details style={{marginBottom:12}}><summary style={{fontSize:11,color:"#6b7280",cursor:"pointer"}}>⚙️ Database setup required? Run this SQL in Supabase once</summary><pre style={{background:"#1e293b",color:"#e2e8f0",padding:12,borderRadius:10,fontSize:10,overflow:"auto",marginTop:8}}>{`ALTER TABLE employees ADD COLUMN IF NOT EXISTS role text DEFAULT '';
-ALTER TABLE employees ADD COLUMN IF NOT EXISTS day_off integer DEFAULT NULL;
-ALTER TABLE employees ADD COLUMN IF NOT EXISTS on_leave boolean DEFAULT false;
-ALTER TABLE visits ADD COLUMN IF NOT EXISTS registered_at timestamptz DEFAULT now();`}</pre></details>
+
         <HR/>
         {actLog.length===0&&<EMP>No activity recorded yet.</EMP>}
         {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
