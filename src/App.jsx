@@ -292,7 +292,7 @@ function checkConflict(bks,form,svcs){
 }
 
 const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
-const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"]};
+const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
@@ -627,6 +627,18 @@ const LANG={
   }
 };
 
+// ── Password hashing using Web Crypto ─────────────────────────
+async function hashPW(pw){
+  const enc=new TextEncoder();
+  const buf=await crypto.subtle.digest('SHA-256',enc.encode(pw+'ambar2024salt'));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function checkPW(pw,hash){
+  // Support plain text passwords during migration
+  if(!hash||hash.length<20)return pw===hash;
+  const h=await hashPW(pw);return h===hash;
+}
+
 class ErrorBoundary extends React.Component{
   constructor(props){super(props);this.state={hasError:false,error:null};}
   static getDerivedStateFromError(e){return{hasError:true,error:e};}
@@ -694,10 +706,22 @@ export default function App(){
   const[svCat,setSvCat]=useState(DC[0]);const[svSub,setSvSub]=useState("All");const[svSvcId,setSvSvcId]=useState("");
   const[coQ,setCoQ]=useState("");const[payM,setPayM]=useState("Cash");
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
+  const[showRefund,setShowRefund]=useState(false);const[refundAmt,setRefundAmt]=useState("");const[refundReason,setRefundReason]=useState("");
   const[splitMode,setSplitMode]=useState(false);const[splitPayments,setSplitPayments]=useState([]);
+  const[confirmDlg,setConfirmDlg]=useState(null); // {msg,onOk,danger}
+  function confirm2(msg,onOk,danger=false){setConfirmDlg({msg,onOk,danger});}
   const[rName,setRName]=useState("");const[rPhone,setRPhone]=useState("");const[rPpl,setRPpl]=useState(1);const[rNote,setRNote]=useState("");const[rmsg,setRmsg]=useState("");
   const[deItem,setDeItem]=useState("");const[deQty,setDeQty]=useState(1);const[deUnit,setDeUnit]=useState("");
-  const[gDate,setGDate]=useState(todayStr());const[gName,setGName]=useState("");const[gRsn,setGRsn]=useState("");const[gAmt,setGAmt]=useState("");
+  const[gDate,setGDate]=useState(todayStr());const[gName,setGName]=useState("");const[gRsn,setGRsn]=useState("");const[gAmt,setGAmt]=useState("");const[gCat,setGCat]=useState("Operations");
+  const EXP_CATS=["Operations","Utilities","Supplies","Salon Products","Marketing","Staff","Maintenance","Other"];
+  const[inventory,setInventory]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_inv")||"[]");}catch{return[];}});
+  const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
+  function saveInv(inv){setInventory(inv);try{localStorage.setItem("ambar_inv",JSON.stringify(inv));}catch(e){}}
+  function addInvItem(){if(!nInv.name||!nInv.qty)return alert("Enter item name and quantity.");const item={id:Date.now(),...nInv,qty:Number(nInv.qty),minQty:Number(nInv.minQty)||0,price:Number(nInv.price)||0};saveInv([...inventory,item]);setNInv({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});}
+  function updInvQty(id,delta){saveInv(inventory.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+delta)}:i));}
+  function delInvItem(id){confirm2("Remove this inventory item?",()=>saveInv(inventory.filter(i=>i.id!==id)),true);}
+  const INV_CATS=["Salon Products","Cleaning","Consumables","Equipment","Other"];
+  const lowStock=inventory.filter(i=>i.qty<=i.minQty&&i.minQty>0);
   const[newCat,setNewCat]=useState("");
   const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:EMP_SECTIONS[0],bookable:false,durationMins:60});
   const[svcF,setSvcF]=useState("All");
@@ -760,13 +784,27 @@ export default function App(){
       .catch(e=>console.log('SW failed:',e));
   },[]);
 
-  // Request notification permission on login
-  useEffect(()=>{
-    if(!user)return;
-    if('Notification' in window && Notification.permission==='default'){
-      Notification.requestPermission();
+  // Notification permission state
+  const[notifPerm,setNotifPerm]=useState(()=>{
+    try{return typeof Notification!=="undefined"?Notification.permission:"unsupported";}
+    catch{return"unsupported";}
+  });
+  async function requestNotifPerm(){
+    if(typeof Notification==="undefined"){push("Notifications not supported on this browser","warning");return;}
+    try{
+      const result=await Notification.requestPermission();
+      setNotifPerm(result);
+      if(result==="granted"){
+        push("✅ Notifications enabled!","success");
+        // Send a test notification
+        nativePush("✅ Ambar Spa Notifications","You will now receive alerts for bookings and payments.","test");
+      } else {
+        push("Notifications blocked. Enable in phone Settings → Safari → "+window.location.hostname,"warning");
+      }
+    }catch(e){
+      push("Could not request permission: "+e.message,"warning");
     }
-  },[user]);
+  }
 
   // Send native push notification (works when app is minimized)
   function nativePush(title,body,tag='ambar'){
@@ -963,7 +1001,17 @@ export default function App(){
     });
     return r;
   },[visits]);
-  const empC=useMemo(()=>emps.map(emp=>{const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");return{...emp,commissionTotal:lines.reduce((s,l)=>s+lineComm(l),0),breakdown:lines.map(l=>({name:l.name,income:lineIncome(l),commission:lineComm(l)}))};}),[emps,visits,period]);
+  const empC=useMemo(()=>emps.map(emp=>{
+    const pv=visits.filter(v=>v.date>=period.start&&v.date<=period.end&&v.status==="Paid & Closed");
+    const lines=pv.flatMap(v=>v.services).filter(l=>l.employee===emp.name&&l.status!=="Cancelled");
+    // Service counts for performance tracking
+    const svcMap={};lines.forEach(l=>{if(l.name)svcMap[l.name]=(svcMap[l.name]||0)+1;});
+    const serviceList=Object.entries(svcMap).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count}));
+    const totalRevenue=lines.reduce((s,l)=>s+lineIncome(l),0);
+    return{...emp,commissionTotal:lines.reduce((s,l)=>s+lineComm(l),0),
+      breakdown:lines.map(l=>({name:l.name,income:lineIncome(l),commission:lineComm(l)})),
+      serviceCount:lines.length,totalRevenue,serviceList};
+  }),[emps,visits,period]);
   const fCusts=custs.filter(c=>{const q=cSearch.toLowerCase().trim();if(!q)return true;return c.name.toLowerCase().includes(q)||c.phone.includes(q)||c.id.toLowerCase().includes(q);});
   // Load bookings when tab changes to Bookings OR on first load
   useEffect(()=>{
@@ -1010,7 +1058,7 @@ export default function App(){
   const dailyTabs=allTabs.filter(t=>["Reception","Supervisor","Checkout","Bookings"].includes(t));
   const mgrTabs=allTabs.filter(t=>!dailyTabs.includes(t));
 
-  function doLogin(){
+  async function doLogin(){
     const f=staff.find(s=>s.id===lid.trim()&&s.password===lpw&&s.active);
     if(f){
       setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
@@ -1044,7 +1092,16 @@ export default function App(){
     }
     logAct(user,"Registered",rName.trim()+" x"+cnt);
   }
-  async function cancelV(id){const v=visits.find(x=>x.id===id);if(!v)return;if(v.services.length>0)return alert("Remove all services before cancelling.");if(!window.confirm("Cancel this customer?"))return;await supabase.from("visits").delete().eq("id",id);setVisits(p=>p.filter(x=>x.id!==id));if(actId===id)setActId(null);}
+  async function cancelV(id){
+    const v=visits.find(x=>x.id===id);if(!v)return;
+    if(v.services.length>0)return alert("Remove all services before cancelling.");
+    confirm2("Cancel and remove this customer?",async()=>{
+      await supabase.from("visits").delete().eq("id",id);
+      setVisits(p=>p.filter(x=>x.id!==id));
+      if(actId===id)setActId(null);
+      logAct(user,"Cancelled visit",v.name);
+    },true);
+  }
   async function addDE(){if(!deItem.trim()||!deUnit)return alert("Enter item and price.");const q=Math.max(1,Number(deQty||1)),u=Number(deUnit||0);const row={id:Date.now(),date:todayStr(),type:"Daily Operation",name:deItem,reason:"",qty:q,unit:u,total:q*u};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setDeItem("");setDeQty(1);setDeUnit("");}
   async function addSvc(){
     if(!act)return alert("Select a customer first.");
@@ -1113,18 +1170,35 @@ export default function App(){
     const upd=[...vis.services];const tmp=upd[idx];upd[idx]=upd[newIdx];upd[newIdx]=tmp;
     await supabase.from("visits").update({services:upd}).eq("id",vid);
   }
-  async function remLine(vid,lid2){
-    if(!window.confirm("Remove this service?"))return;
-    const vis=visits.find(x=>x.id===vid);if(!vis)return;
-    const upd=vis.services.filter(l=>l.lineId!==lid2);
-    const newTotal=upd.reduce((s,l)=>s+lineIncome(l),0);
-    // Optimistic
-    setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd,totalService:newTotal}:v));
-    await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal}).eq("id",vid));
+  function remLine(vid,lid2){
+    confirm2("Remove this service?",async()=>{
+      const vis=visits.find(x=>x.id===vid);if(!vis)return;
+      const upd=vis.services.filter(l=>l.lineId!==lid2);
+      const newTotal=upd.reduce((s,l)=>s+lineIncome(l),0);
+      setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd,totalService:newTotal}:v));
+      await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal}).eq("id",vid));
+    },true);
   }
   async function markReady(){if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
   async function reopen(){await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);}
   function addTip(){if(!tipEmp||!tipAmt)return alert("Select employee and enter amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
+  async function processRefund(vid){
+    const v=visits.find(x=>x.id===vid);if(!v)return;
+    const amt=Number(refundAmt);if(!amt||amt<=0)return alert("Enter refund amount.");
+    if(amt>v.totalPaid)return alert("Refund cannot exceed amount paid ("+money(v.totalPaid)+").");
+    confirm2("Issue refund of "+money(amt)+" for "+v.name+"?",async()=>{
+      const refundNote="[REFUND "+money(amt)+(refundReason?" — "+refundReason:"")+"]";
+      await supabase.from("visits").update({
+        note:(v.note?v.note+" ":"")+refundNote,
+        total_paid:v.totalPaid-amt,
+        status:"Paid & Closed"
+      }).eq("id",vid);
+      setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt}:x));
+      logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":""));
+      push("Refund of "+money(amt)+" issued for "+v.name,"success");
+      setShowRefund(false);setRefundAmt("");setRefundReason("");
+    },true);
+  }
   async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" "+payM);
     // Mark related booking as Completed if exists
     const relBk=bks.find(b=>b.visitId&&ids.includes(b.visitId));
@@ -1183,7 +1257,7 @@ export default function App(){
     markArrival(vr.id);
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
-  async function addGE(){if(!gName.trim()||!gAmt)return alert("Enter name and amount.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
+  async function addGE(){if(!gName.trim()||!gAmt)return alert("Enter name and amount.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
   async function delE(id){if(!window.confirm("Delete?"))return;await supabase.from("expenses").delete().eq("id",id);setExps(p=>p.filter(e=>e.id!==id));}
   async function addCat(){if(!newCat.trim()||cats.includes(newCat.trim()))return;await supabase.from("categories").insert({name:newCat.trim()});setCats(p=>[...p,newCat.trim()]);setNewCat("");}
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};await supabase.from("services").insert(r);setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
@@ -1195,13 +1269,22 @@ export default function App(){
   async function closePeriod(){if(!window.confirm("Close pay period "+period.label+"?"))return;const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});for(const e of emps)await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));logAct(user,"Closed period",period.label);alert("Period closed.");}
   async function saveStaff(){if(!nStaff.id.trim()||!nStaff.name.trim()||!nStaff.password.trim())return alert("Fill all fields.");const r={id:nStaff.id.trim().toLowerCase(),name:nStaff.name.trim(),role:nStaff.role,password:nStaff.password.trim(),active:true};await supabase.from("staff").upsert(r);setStaff(p=>{const i=p.findIndex(s=>s.id===r.id);if(i>=0){const n=[...p];n[i]=r;return n;}return[...p,r];});logAct(user,"Staff saved",r.name);setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);alert("Saved.");}
   async function setStaffAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;await supabase.from("staff").update({active}).eq("id",id);setStaff(p=>p.map(s=>s.id===id?{...s,active}:s));}
-  function delCust(id){
+  async function delCust(id){
+    if(!window.confirm("Delete this customer? They can be restored from the Customers tab."))return;
     const c=custs.find(x=>x.id===id);if(!c)return;
+    const deletedAt=new Date().toISOString();
     setCusts(p=>p.filter(x=>x.id!==id));
-    push("Customer deleted — "+c.name+" (tap to undo)","warning");
-    undoRef.current[id]=setTimeout(async()=>{await supabase.from("customers").delete().eq("id",id);},5000);
+    push("Customer deleted — tap Restore in Customers tab within 30 days","warning");
+    // Soft delete — set deleted_at timestamp
+    await supabase.from("customers").update({deleted_at:deletedAt}).eq("id",id);
+    logAct(user,"Deleted customer",c.name);
   }
-  function undoDel(id){clearTimeout(undoRef.current[id]);delete undoRef.current[id];setCusts(p=>p.find(x=>x.id===id)?p:[...p,custs.find(x=>x.id===id)].filter(Boolean));loadAll();}
+  async function restoreCust(id){
+    await supabase.from("customers").update({deleted_at:null}).eq("id",id);
+    const{data}=await supabase.from("customers").select("*").eq("id",id).single();
+    if(data)setCusts(p=>[...p,dbCust(data)]);
+    push("Customer restored","success");
+  }
   function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:v.services.map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+t.amount,0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
@@ -1213,6 +1296,16 @@ export default function App(){
   if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)",color:"#e0b85a"}}><div style={{textAlign:"center"}}><div style={{fontSize:56,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:700,letterSpacing:2}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#c9b077",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
     <Notifs items={notifs} dismiss={dismiss}/>
+    {confirmDlg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+        <div style={{fontSize:36,textAlign:"center",marginBottom:12}}>{confirmDlg.danger?"⚠️":"❓"}</div>
+        <p style={{margin:"0 0 20px",fontSize:15,fontWeight:600,color:"#111827",textAlign:"center",lineHeight:1.5}}>{confirmDlg.msg}</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={()=>setConfirmDlg(null)} style={{padding:12,borderRadius:12,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontWeight:700,cursor:"pointer",fontSize:14}}>Cancel</button>
+          <button onClick={()=>{confirmDlg.onOk();setConfirmDlg(null);}} style={{padding:12,borderRadius:12,border:"none",background:confirmDlg.danger?"#dc2626":"#111827",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14}}>{confirmDlg.danger?"Yes, Delete":"Confirm"}</button>
+        </div>
+      </div>
+    </div>}
     {offline&&<div style={{background:"#b45309",color:"#fff",textAlign:"center",padding:8,fontSize:13,fontWeight:700}}>⚠ Offline — changes will not save</div>}
     {saving&&<div style={{background:"#e0b85a",color:"#111827",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
     <div style={{maxWidth:1400,margin:"0 auto",padding:sc.mob?"12px":"28px"}}>
@@ -1220,6 +1313,8 @@ export default function App(){
         <div><p style={{color:"#e0b85a",fontWeight:900,letterSpacing:2,margin:"0 0 2px",fontSize:11}}>AMBAR SPA & BEAUTY</p>
           {!sc.mob&&<h1 style={{margin:0,fontSize:20,fontWeight:900,color:"#fff"}}>Salon Management System</h1>}
           <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#e0b85a",color:"#111827",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6}}>{user.role}</span><button onClick={toggleLang} style={{background:"transparent",border:"1px solid #e0b85a",color:"#e0b85a",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
+          {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#e0b85a",border:"none",color:"#111827",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6,fontWeight:700}}>🔔 Enable Alerts</button>}
+          {notifPerm==="granted"&&<span style={{color:"#4ade80",fontSize:11,marginLeft:6}}>🔔 ✓</span>}
           <button onClick={logout} style={{background:"transparent",border:"1px solid #6b7280",color:"#d1d5db",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
         </div>
         <div style={{background:"#e0b85a",color:"#111827",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:26,fontWeight:900}}>#{todayV.length+1}</h2></div>
@@ -1346,6 +1441,14 @@ export default function App(){
            :act.status==="Paid & Closed"?<div>
             <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
             <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>{t("printReceipt")}</button>
+            <button style={{...S.btnS,color:"#dc2626",borderColor:"#fca5a5"}} onClick={()=>setShowRefund(v=>!v)}>↩ Issue Refund</button>
+            {showRefund&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:12,padding:14,marginTop:6}}>
+              <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#991b1b"}}>Issue Refund for {act.name}</p>
+              <p style={{margin:"0 0 8px",fontSize:12,color:"#6b7280"}}>Paid: {money(act.totalPaid)} · Max refund: {money(act.totalPaid)}</p>
+              <input style={S.inp} type="number" placeholder="Refund amount (Birr)" value={refundAmt} onChange={e=>setRefundAmt(e.target.value)}/>
+              <input style={S.inp} placeholder="Reason (optional)" value={refundReason} onChange={e=>setRefundReason(e.target.value)}/>
+              <button style={{...S.btnP,background:"#dc2626",color:"#fff"}} onClick={()=>processRefund(act.id)}>Confirm Refund</button>
+            </div>}
           </div>
            :!act.services?<EMP>Loading...</EMP>:<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
             <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
@@ -1539,6 +1642,38 @@ export default function App(){
         })}
       </section>}
 
+      {tab==="Inventory"&&<section style={S.card}>
+        <h2 style={S.ct}>📦 Inventory Management</h2>
+        {lowStock.length>0&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:12,padding:12,marginBottom:14}}>
+          <p style={{margin:0,fontWeight:800,color:"#dc2626",fontSize:13}}>⚠️ Low Stock Alert ({lowStock.length} items)</p>
+          {lowStock.map(i=><p key={i.id} style={{margin:"4px 0 0",fontSize:12,color:"#991b1b"}}>· {i.name} — {i.qty} {i.unit} remaining (min: {i.minQty})</p>)}
+        </div>}
+        <h3 style={S.sh}>Add Item</h3>
+        <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(6,1fr)",gap:8,marginBottom:12}}>
+          <input style={S.inp} placeholder="Item name" value={nInv.name} onChange={e=>setNInv({...nInv,name:e.target.value})}/>
+          <select style={S.inp} value={nInv.category} onChange={e=>setNInv({...nInv,category:e.target.value})}>{INV_CATS.map(c=><option key={c}>{c}</option>)}</select>
+          <input style={S.inp} type="number" placeholder="Quantity" value={nInv.qty} onChange={e=>setNInv({...nInv,qty:e.target.value})}/>
+          <input style={S.inp} placeholder="Unit (pcs/ml/g)" value={nInv.unit} onChange={e=>setNInv({...nInv,unit:e.target.value})}/>
+          <input style={S.inp} type="number" placeholder="Min qty (alert)" value={nInv.minQty} onChange={e=>setNInv({...nInv,minQty:e.target.value})}/>
+          <button style={{...S.btnP,marginBottom:8}} onClick={addInvItem}>+ Add</button>
+        </div>
+        <HR/>
+        {INV_CATS.map(cat=>{const items=inventory.filter(i=>i.category===cat);if(!items.length)return null;return(<div key={cat} style={{marginBottom:16}}>
+          <h3 style={S.sh}>{cat}</h3>
+          {items.map(i=>{const low=i.minQty>0&&i.qty<=i.minQty;return <div key={i.id} style={{...S.li,background:low?"#fff5f5":"#fff",border:low?"1px solid #fca5a5":"1px solid #e5e7eb"}}>
+            <div><b style={{color:low?"#dc2626":"#111827"}}>{i.name}</b><p style={S.hlp}>{i.category} · {money(i.price)} per {i.unit}{i.minQty>0?" · Min: "+i.minQty:""}</p></div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <button onClick={()=>updInvQty(i.id,-1)} style={{width:28,height:28,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900}}>−</button>
+              <b style={{fontSize:16,color:low?"#dc2626":"#111827",minWidth:40,textAlign:"center"}}>{i.qty}</b>
+              <span style={{fontSize:12,color:"#6b7280"}}>{i.unit}</span>
+              <button onClick={()=>updInvQty(i.id,1)} style={{width:28,height:28,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900}}>+</button>
+              <button onClick={()=>delInvItem(i.id)} style={{...S.btnD,width:"auto",padding:"4px 8px",marginBottom:0,fontSize:11}}>×</button>
+            </div>
+          </div>;})}
+        </div>);})}
+        {inventory.length===0&&<EMP>No inventory items yet. Add items above to track stock levels.</EMP>}
+      </section>}
+
       {tab==="Daily Closing"&&<section style={S.card}><h2 style={S.ct}>Daily Closing Report</h2>
         <div style={{display:"flex",alignItems:"flex-end",gap:12,marginBottom:18,flexWrap:"wrap"}}><EthPicker label="Date" value={clDate} onChange={setClDate}/><button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={doExportCSV}>⬇ Export CSV</button></div>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:12}}>
@@ -1560,12 +1695,35 @@ export default function App(){
         </div>
         <button style={S.btnP} onClick={addGE}>{t("saveExpense")}</button><HR/>
         <div style={S.tb}><span>All-Time Total</span><b>{money(exps.filter(e=>e.type==="General").reduce((s,e)=>s+Number(e.total||0),0))}</b></div><HR/>
-        {exps.filter(e=>e.type==="General").sort((a,b)=>b.date.localeCompare(a.date)).map(e=><div key={e.id} style={S.li}><div><b>{e.name}</b>{e.reason&&<p style={S.hlp}>{e.reason}</p>}<p style={{...S.hlp,fontSize:10}}>{e.date}</p></div><span style={{display:"flex",alignItems:"center",gap:8}}><b>{money(e.total)}</b><button style={S.btnD} onClick={()=>delE(e.id)}>×</button></span></div>)}
+        {exps.filter(e=>e.type==="General").sort((a,b)=>b.date.localeCompare(a.date)).map(e=><div key={e.id} style={S.li}><div><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><b>{e.name}</b>{e.category&&<span style={{background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{e.category}</span>}</div>{e.reason&&<p style={S.hlp}>{e.reason}</p>}<p style={{...S.hlp,fontSize:10}}>{e.date}</p></div><span style={{display:"flex",alignItems:"center",gap:8}}><b>{money(e.total)}</b><button style={S.btnD} onClick={()=>delE(e.id)}>×</button></span></div>)}
       </section>}
 
       {tab==="Customers"&&<section style={S.card}><h2 style={S.ct}>Customer Database ({custs.length})</h2>
         <input style={S.inp} placeholder="Search by name, phone or ID..." value={cSearch} onChange={e=>setCSearch(e.target.value)}/>
-        {fCusts.map(c=>{const cv=visits.filter(v=>v.customerId===c.id&&v.status==="Paid & Closed");const cbks=bks.filter(b=>b.customerId===c.id);const all=cv.flatMap(v=>v.services.map(s=>s.name));const fav=all.length?all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0]:"None";const spent=cv.reduce((s,v)=>s+Number(v.totalService||0),0);return <div key={c.id} style={S.li}><div><b style={{fontSize:15}}>{c.name}</b><p style={S.hlp}>{c.phone} · {c.id}</p><p style={S.hlp}>Favourite: {fav} · {cbks.length} bookings · {cv.length} visits · {money(spent)}</p></div><button style={S.btnD} onClick={()=>delCust(c.id)}>Delete</button></div>;})}
+        {fCusts.map(c=>{const cv=visits.filter(v=>v.customerId===c.id&&v.status==="Paid & Closed");
+              const cbks=bks.filter(b=>b.customerId===c.id);
+              const all=cv.flatMap(v=>v.services.map(s=>s.name));
+              const fav=all.length?all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0]:"None";
+              const spent=cv.reduce((s,v)=>s+Number(v.totalService||0),0);
+              const tier=spent>=10000?{label:"Gold ⭐",bg:"#fef3c7",co:"#b45309"}:spent>=5000?{label:"Silver 🥈",bg:"#f1f5f9",co:"#475569"}:spent>=1000?{label:"Bronze 🥉",bg:"#fef9ec",co:"#92400e"}:{label:"New 🌱",bg:"#f0fdf4",co:"#166534"};
+              return <div key={c.id} style={{...S.li,flexDirection:"column",alignItems:"stretch"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <b style={{fontSize:15,color:"#111827"}}>{c.name}</b>
+                      <span style={{background:tier.bg,color:tier.co,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{tier.label}</span>
+                    </div>
+                    <p style={{margin:"2px 0 0",fontSize:12,color:"#6b7280"}}>{c.phone}</p>
+                  </div>
+                  <button style={{...S.btnD,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11}} onClick={()=>delCust(c.id)}>Delete</button>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                  <div style={{background:"#f9fafb",borderRadius:9,padding:"7px 8px",textAlign:"center"}}><p style={{margin:0,fontSize:9,color:"#6b7280",fontWeight:700}}>VISITS</p><b style={{color:"#111827",fontSize:13}}>{cv.length}</b></div>
+                  <div style={{background:"#f9fafb",borderRadius:9,padding:"7px 8px",textAlign:"center"}}><p style={{margin:0,fontSize:9,color:"#6b7280",fontWeight:700}}>BOOKINGS</p><b style={{color:"#111827",fontSize:13}}>{cbks.length}</b></div>
+                  <div style={{background:"#f0fdf4",borderRadius:9,padding:"7px 8px",textAlign:"center"}}><p style={{margin:0,fontSize:9,color:"#166534",fontWeight:700}}>SPENT</p><b style={{color:"#166534",fontSize:11}}>{money(spent)}</b></div>
+                  <div style={{background:"#f9fafb",borderRadius:9,padding:"7px 8px",textAlign:"center",overflow:"hidden"}}><p style={{margin:0,fontSize:9,color:"#6b7280",fontWeight:700}}>FAVOURITE</p><b style={{color:"#111827",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{fav}</b></div>
+                </div>
+              </div>;})}
       </section>}
 
       {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>{t("payrollMgmt")}</h2>
