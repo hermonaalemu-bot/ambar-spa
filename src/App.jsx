@@ -4,10 +4,11 @@ import {supabase} from "./supabase";
 const OPEN_HOUR=8,CLOSE_HOUR=19;
 const ROLES={RECEPTION:"reception",SUPERVISOR:"supervisor",MANAGER:"manager"};
 const DEFAULT_STAFF=[
-  {id:"reception1",name:"Reception 1",role:"reception", password:"1234",active:true},
-  {id:"reception2",name:"Reception 2",role:"reception", password:"1234",active:true},
-  {id:"supervisor", name:"Supervisor", role:"supervisor",password:"1234",active:true},
-  {id:"manager",    name:"Manager",    role:"manager",   password:"9999",active:true},
+  {id:"reception1", name:"Reception 1", role:"reception",  password:"1234",active:true},
+  {id:"reception2", name:"Reception 2", role:"reception",  password:"1234",active:true},
+  {id:"supervisor",  name:"Supervisor",  role:"supervisor", password:"1234",active:true},
+  {id:"manager",     name:"Manager",     role:"manager",    password:"9999",active:true},
+  {id:"inventory1",  name:"Inventory",   role:"inventory",  password:"5678",active:true},
 ];
 const DC=["Barbershop","Beauty Salon","Spa"];
 const FS=[
@@ -292,7 +293,7 @@ function checkConflict(bks,form,svcs){
 }
 
 const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
-const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager"]};
+const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager","inventory"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
@@ -714,12 +715,35 @@ export default function App(){
   const[deItem,setDeItem]=useState("");const[deQty,setDeQty]=useState(1);const[deUnit,setDeUnit]=useState("");
   const[gDate,setGDate]=useState(todayStr());const[gName,setGName]=useState("");const[gRsn,setGRsn]=useState("");const[gAmt,setGAmt]=useState("");const[gCat,setGCat]=useState("Operations");
   const EXP_CATS=["Operations","Utilities","Supplies","Salon Products","Marketing","Staff","Maintenance","Other"];
-  const[inventory,setInventory]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_inv")||"[]");}catch{return[];}});
+  const[inventory,setInventory]=useState([]);
   const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
-  function saveInv(inv){setInventory(inv);try{localStorage.setItem("ambar_inv",JSON.stringify(inv));}catch(e){}}
-  function addInvItem(){if(!nInv.name||!nInv.qty)return alert("Enter item name and quantity.");const item={id:Date.now(),...nInv,qty:Number(nInv.qty),minQty:Number(nInv.minQty)||0,price:Number(nInv.price)||0};saveInv([...inventory,item]);setNInv({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});}
-  function updInvQty(id,delta){saveInv(inventory.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+delta)}:i));}
-  function delInvItem(id){confirm2("Remove this inventory item?",()=>saveInv(inventory.filter(i=>i.id!==id)),true);}
+  // Load inventory from Supabase settings table
+  useEffect(()=>{
+    supabase.from("settings").select("*").eq("key","inventory").single()
+      .then(({data})=>{if(data?.value)try{setInventory(JSON.parse(data.value));}catch(e){}});
+  },[]);
+  async function saveInv(inv){
+    setInventory(inv);
+    await supabase.from("settings").upsert({key:"inventory",value:JSON.stringify(inv)});
+  }
+  async function addInvItem(){
+    if(!nInv.name||!nInv.qty)return alert("Enter item name and quantity.");
+    const item={id:Date.now(),...nInv,qty:Number(nInv.qty),minQty:Number(nInv.minQty)||0,price:Number(nInv.price)||0};
+    await saveInv([...inventory,item]);
+    setNInv({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
+    push("Item added: "+item.name,"success");
+  }
+  async function updInvQty(id,delta){
+    const updated=inventory.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+delta)}:i);
+    await saveInv(updated);
+  }
+  function delInvItem(id){
+    const item=inventory.find(i=>i.id===id);
+    confirm2("Remove "+( item?.name||"this item")+" from inventory?",async()=>{
+      await saveInv(inventory.filter(i=>i.id!==id));
+      push("Item removed","success");
+    },true);
+  }
   const INV_CATS=["Salon Products","Cleaning","Consumables","Equipment","Other"];
   const lowStock=inventory.filter(i=>i.qty<=i.minQty&&i.minQty>0);
   const[newCat,setNewCat]=useState("");
@@ -924,7 +948,7 @@ export default function App(){
 
   useEffect(()=>{
     if(!user)return;
-    const m={reception:"Reception",supervisor:"Supervisor",manager:"Dashboard"};
+    const m={reception:"Reception",supervisor:"Supervisor",manager:"Dashboard",inventory:"Inventory"};
     setTab(m[user.role]||"Reception");
     // Show today's booking reminder on login
     setTimeout(()=>{
@@ -1643,35 +1667,75 @@ export default function App(){
       </section>}
 
       {tab==="Inventory"&&<section style={S.card}>
-        <h2 style={S.ct}>📦 Inventory Management</h2>
-        {lowStock.length>0&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:12,padding:12,marginBottom:14}}>
-          <p style={{margin:0,fontWeight:800,color:"#dc2626",fontSize:13}}>⚠️ Low Stock Alert ({lowStock.length} items)</p>
-          {lowStock.map(i=><p key={i.id} style={{margin:"4px 0 0",fontSize:12,color:"#991b1b"}}>· {i.name} — {i.qty} {i.unit} remaining (min: {i.minQty})</p>)}
-        </div>}
-        <h3 style={S.sh}>Add Item</h3>
-        <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(6,1fr)",gap:8,marginBottom:12}}>
-          <input style={S.inp} placeholder="Item name" value={nInv.name} onChange={e=>setNInv({...nInv,name:e.target.value})}/>
-          <select style={S.inp} value={nInv.category} onChange={e=>setNInv({...nInv,category:e.target.value})}>{INV_CATS.map(c=><option key={c}>{c}</option>)}</select>
-          <input style={S.inp} type="number" placeholder="Quantity" value={nInv.qty} onChange={e=>setNInv({...nInv,qty:e.target.value})}/>
-          <input style={S.inp} placeholder="Unit (pcs/ml/g)" value={nInv.unit} onChange={e=>setNInv({...nInv,unit:e.target.value})}/>
-          <input style={S.inp} type="number" placeholder="Min qty (alert)" value={nInv.minQty} onChange={e=>setNInv({...nInv,minQty:e.target.value})}/>
-          <button style={{...S.btnP,marginBottom:8}} onClick={addInvItem}>+ Add</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+          <div><h2 style={{...S.ct,marginBottom:4}}>📦 Inventory Management</h2>
+            <p style={{margin:0,fontSize:12,color:"#6b7280"}}>{inventory.length} items · {lowStock.length} low stock</p>
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <SC label="Total Items" value={inventory.length}/>
+            <SC label="Low Stock" value={lowStock.length} accent={lowStock.length>0}/>
+            <SC label="Total Value" value={money(inventory.reduce((s,i)=>s+i.qty*i.price,0))} highlight/>
+          </div>
         </div>
-        <HR/>
-        {INV_CATS.map(cat=>{const items=inventory.filter(i=>i.category===cat);if(!items.length)return null;return(<div key={cat} style={{marginBottom:16}}>
-          <h3 style={S.sh}>{cat}</h3>
-          {items.map(i=>{const low=i.minQty>0&&i.qty<=i.minQty;return <div key={i.id} style={{...S.li,background:low?"#fff5f5":"#fff",border:low?"1px solid #fca5a5":"1px solid #e5e7eb"}}>
-            <div><b style={{color:low?"#dc2626":"#111827"}}>{i.name}</b><p style={S.hlp}>{i.category} · {money(i.price)} per {i.unit}{i.minQty>0?" · Min: "+i.minQty:""}</p></div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <button onClick={()=>updInvQty(i.id,-1)} style={{width:28,height:28,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900}}>−</button>
-              <b style={{fontSize:16,color:low?"#dc2626":"#111827",minWidth:40,textAlign:"center"}}>{i.qty}</b>
-              <span style={{fontSize:12,color:"#6b7280"}}>{i.unit}</span>
-              <button onClick={()=>updInvQty(i.id,1)} style={{width:28,height:28,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900}}>+</button>
-              <button onClick={()=>delInvItem(i.id)} style={{...S.btnD,width:"auto",padding:"4px 8px",marginBottom:0,fontSize:11}}>×</button>
+
+        {/* Low stock alert */}
+        {lowStock.length>0&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:14,padding:14,marginBottom:16}}>
+          <p style={{margin:"0 0 8px",fontWeight:800,color:"#dc2626",fontSize:14}}>⚠️ Low Stock Alert — {lowStock.length} item{lowStock.length>1?"s":""} need restocking</p>
+          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:6}}>
+            {lowStock.map(i=><div key={i.id} style={{background:"#fff",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div><b style={{color:"#dc2626",fontSize:13}}>{i.name}</b><p style={{margin:0,fontSize:11,color:"#6b7280"}}>{i.category}</p></div>
+              <div style={{textAlign:"right"}}><b style={{color:"#dc2626",fontSize:16}}>{i.qty}</b><p style={{margin:0,fontSize:10,color:"#9ca3af"}}>min: {i.minQty} {i.unit}</p></div>
+            </div>)}
+          </div>
+        </div>}
+
+        {/* Add item form */}
+        <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:16}}>
+          <h3 style={{margin:"0 0 12px",fontSize:13,fontWeight:800,color:"#111827"}}>+ Add New Item</h3>
+          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+            <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Item Name *</p><input style={S.inp} placeholder="e.g. Shampoo" value={nInv.name} onChange={e=>setNInv({...nInv,name:e.target.value})}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Category *</p><select style={S.inp} value={nInv.category} onChange={e=>setNInv({...nInv,category:e.target.value})}>{INV_CATS.map(c=><option key={c}>{c}</option>)}</select></div>
+            <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Quantity *</p><input style={S.inp} type="number" placeholder="e.g. 10" value={nInv.qty} onChange={e=>setNInv({...nInv,qty:e.target.value})}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Unit</p><input style={S.inp} placeholder="pcs / ml / g / L" value={nInv.unit} onChange={e=>setNInv({...nInv,unit:e.target.value})}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Min. Stock (alert below this)</p><input style={S.inp} type="number" placeholder="e.g. 2" value={nInv.minQty} onChange={e=>setNInv({...nInv,minQty:e.target.value})}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:11,fontWeight:700,color:"#374151"}}>Unit Price (Birr)</p><input style={S.inp} type="number" placeholder="e.g. 150" value={nInv.price} onChange={e=>setNInv({...nInv,price:e.target.value})}/></div>
+          </div>
+          <button style={S.btnP} onClick={addInvItem}>+ Add to Inventory</button>
+        </div>
+
+        {/* Items by category */}
+        {INV_CATS.map(cat=>{
+          const items=inventory.filter(i=>i.category===cat);
+          if(!items.length)return null;
+          return(<div key={cat} style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <h3 style={{margin:0,fontSize:13,fontWeight:800,color:"#111827"}}>{cat}</h3>
+              <span style={{fontSize:11,color:"#6b7280"}}>{items.length} items · {money(items.reduce((s,i)=>s+i.qty*i.price,0))} value</span>
             </div>
-          </div>;})}
-        </div>);})}
-        {inventory.length===0&&<EMP>No inventory items yet. Add items above to track stock levels.</EMP>}
+            {items.map(i=>{
+              const low=i.minQty>0&&i.qty<=i.minQty;
+              return <div key={i.id} style={{background:low?"#fff5f5":"#fff",border:"1px solid "+(low?"#fca5a5":"#e5e7eb"),borderRadius:12,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div style={{flex:1,minWidth:120}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <b style={{color:low?"#dc2626":"#111827",fontSize:14}}>{i.name}</b>
+                    {low&&<span style={{background:"#fee2e2",color:"#dc2626",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>LOW STOCK</span>}
+                  </div>
+                  <p style={{margin:"2px 0 0",fontSize:11,color:"#6b7280"}}>{i.category} · {money(i.price)} per {i.unit} · Value: {money(i.qty*i.price)}{i.minQty>0?" · Min: "+i.minQty:""}</p>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900,fontSize:16}}>−</button>
+                  <div style={{textAlign:"center",minWidth:50}}>
+                    <b style={{fontSize:20,color:low?"#dc2626":"#111827",display:"block"}}>{i.qty}</b>
+                    <span style={{fontSize:10,color:"#9ca3af"}}>{i.unit}</span>
+                  </div>
+                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:900,fontSize:16}}>+</button>
+                  <button onClick={()=>delInvItem(i.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontWeight:900,fontSize:14}}>×</button>
+                </div>
+              </div>;
+            })}
+          </div>);
+        })}
+        {inventory.length===0&&<EMP>No inventory items yet. Add your first item above.</EMP>}
       </section>}
 
       {tab==="Daily Closing"&&<section style={S.card}><h2 style={S.ct}>Daily Closing Report</h2>
@@ -1862,7 +1926,7 @@ export default function App(){
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
             <div><L>Username</L><input style={{...S.inp,background:editStaff?"#f3f4f6":"#fffdf7"}} value={nStaff.id} onChange={e=>setNStaff(p=>({...p,id:e.target.value}))} placeholder="e.g. reception1" disabled={!!editStaff}/></div>
             <div><L>Display Name</L><input style={S.inp} value={nStaff.name} onChange={e=>setNStaff(p=>({...p,name:e.target.value}))} placeholder="Full name"/></div>
-            <div><L>Role</L><select style={S.inp} value={nStaff.role} onChange={e=>setNStaff(p=>({...p,role:e.target.value}))}><option value="reception">Reception</option><option value="supervisor">Supervisor</option><option value="manager">Manager</option></select></div>
+            <div><L>Role</L><select style={S.inp} value={nStaff.role} onChange={e=>setNStaff(p=>({...p,role:e.target.value}))}><option value="reception">Reception</option><option value="supervisor">Supervisor</option><option value="manager">Manager</option><option value="inventory">Inventory</option></select></div>
             <div><L>{editStaff?"New Password":"Password"}</L><input style={S.inp} type="password" value={nStaff.password} onChange={e=>setNStaff(p=>({...p,password:e.target.value}))} placeholder={editStaff?"Enter new password":"Password"}/></div>
           </div>
           <div style={S.r2}><button style={S.btnP} onClick={saveStaff}>{editStaff?t("updateAccount"):t("saveAccount")}</button>{editStaff&&<button style={S.btnS} onClick={()=>{setEditStaff(null);setNStaff({id:"",name:"",role:"reception",password:""});}}>{t("cancel")}</button>}</div>
