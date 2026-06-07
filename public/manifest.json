@@ -1,0 +1,14 @@
+{
+  "name": "Ambar Spa & Beauty",
+  "short_name": "Ambar Spa",
+  "description": "Salon management system for Ambar Spa & Beauty",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#e0b85a",
+  "orientation": "portrait-primary",
+  "icons": [],
+  "categories": ["business", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+}

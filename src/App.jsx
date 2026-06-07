@@ -680,6 +680,8 @@ export default function App(){
   const[lid,setLid]=useState("");const[lpw,setLpw]=useState("");const[lerr,setLerr]=useState("");
   const[staff,setStaff]=useState(DEFAULT_STAFF);
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
+  const[offlineQueue,setOfflineQueue]=useState([]);
+  const offlineQRef=React.useRef([]);
   const[tab,setTab]=useState("");const[mobNav,setMobNav]=useState(false);
   const[notifs,setNotifs]=useState([]);const nid=useRef(0);
   const[pinLocked,setPinLocked]=useState(false);const[pinInput,setPinInput]=useState("");const[pinErr,setPinErr]=useState("");
@@ -717,7 +719,11 @@ export default function App(){
   function resetIdle(){clearTimeout(idleRef.current);idleRef.current=setTimeout(()=>setPinLocked(true),30*60*1000);}
   useEffect(()=>{if(!user)return;const evs=["mousemove","keydown","click","touchstart"];evs.forEach(e=>window.addEventListener(e,resetIdle));resetIdle();return()=>{clearTimeout(idleRef.current);evs.forEach(e=>window.removeEventListener(e,resetIdle));};},[user]);
   function unlockPin(){const f=staff.find(s=>s.id===user.id&&s.password===pinInput);if(f){setPinLocked(false);setPinInput("");setPinErr("");}else setPinErr("Wrong password.");}
-  useEffect(()=>{const on=()=>{setOffline(false);push("Back online","success");};const off=()=>{setOffline(true);push("Offline — changes will not save","warning");};window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
+  useEffect(()=>{const on=()=>{setOffline(false);push("Back online — syncing...","success");
+      const q=[...offlineQRef.current];
+      offlineQRef.current=[];setOfflineQueue([]);
+      for(const action of q){try{await action();}catch(e){console.error(e);}}
+      if(q.length>0)push(q.length+" action(s) synced","success");};const off=()=>{setOffline(true);push("Offline — changes will not save","warning");};window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
 
   // ── Notification system ──────────────────────────────────
   useEffect(()=>{
@@ -731,11 +737,57 @@ export default function App(){
         const in30=new Date(now.getTime()+30*60000);
         const in30Str=String(in30.getHours()).padStart(2,"0")+":"+String(in30.getMinutes()).padStart(2,"0");
         const upcoming=bks.filter(b=>b.date===todayStr()&&b.time===in30Str&&["Pending","Confirmed"].includes(b.status));
-        upcoming.forEach(b=>push("📅 Booking in 30 min: "+b.customerName+" — "+b.serviceName,"booking"));
+        upcoming.forEach(b=>{
+          push("📅 Booking in 30 min: "+b.customerName+" — "+b.serviceName,"booking");
+          nativePush("📅 Booking Reminder",b.customerName+" — "+b.serviceName+" at "+b.time,"booking-"+b.id);
+        });
       }
     },60000);
     return()=>clearInterval(notifInterval);
   },[user,bks]);
+
+  // ── PWA Service Worker + Push Notifications ─────────────────
+  useEffect(()=>{
+    if(!('serviceWorker' in navigator))return;
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg=>{
+        console.log('SW registered');
+        // Listen for sync complete messages
+        navigator.serviceWorker.addEventListener('message',e=>{
+          if(e.data?.type==='SYNC_COMPLETE')push("Data synced","success");
+        });
+      })
+      .catch(e=>console.log('SW failed:',e));
+  },[]);
+
+  // Request notification permission on login
+  useEffect(()=>{
+    if(!user)return;
+    if('Notification' in window && Notification.permission==='default'){
+      Notification.requestPermission();
+    }
+  },[user]);
+
+  // Send native push notification (works when app is minimized)
+  function nativePush(title,body,tag='ambar'){
+    if(!('Notification' in window))return;
+    if(Notification.permission!=='granted')return;
+    if(navigator.serviceWorker.controller){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.showNotification(title,{
+          body,
+          icon:'/icon-192.png',
+          badge:'/icon-192.png',
+          tag,
+          vibrate:[200,100,200],
+          renotify:true,
+        });
+      });
+    } else {
+      // Fallback direct notification
+      new Notification(title,{body,icon:'/icon-192.png'});
+    }
+  }
 
   useEffect(()=>{
     const t=setInterval(async()=>{
@@ -788,12 +840,16 @@ export default function App(){
     const vs=supabase.channel("visits_"+uid)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"visits"},p=>{
         setVisits(prev=>{if(prev.find(x=>x.id===p.new.id))return prev;return[...prev,dbVis(p.new)];});
-        if(role===ROLES.SUPERVISOR||role===ROLES.MANAGER)push("🆕 New: "+p.new.name+" #"+p.new.queue,"info");
+        if(role===ROLES.SUPERVISOR||role===ROLES.MANAGER){
+          push("🆕 New: "+p.new.name+" #"+p.new.queue,"info");
+          nativePush("🔔 New Customer",p.new.name+" #"+p.new.queue+" is waiting","queue");
+        }
       })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"visits"},p=>{
         setVisits(prev=>prev.map(x=>x.id===p.new.id?dbVis(p.new):x));
         if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push("✅ "+p.new.name+" paid","success");
         if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push("💳 "+p.new.name+" ready for payment","payment");
+              nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"visits"},p=>{setVisits(prev=>prev.filter(x=>x.id!==p.old.id));})
       .subscribe();
