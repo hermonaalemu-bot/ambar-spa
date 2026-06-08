@@ -219,6 +219,8 @@ function lineComm(l){
   const qty=Number(l.qty||1);
   const pricePerUnit=Number(l.price||0);
   const discPerUnit=Number(l.discount||0)/qty; // spread discount across units
+  // Morocco special: barber still earns commission on normal price even though customer pays 0
+  if(l.free&&l.moroccoFree){const np=Number(l.moroccoBasePrice||300);return Math.round(np*Number(l.commission||10)/100);}
   if(l.free)return 0;
   const rate=Number(l.commission||0)/100;
   if(l.sub==="Braids"&&l.name){
@@ -745,6 +747,7 @@ export default function App(){
     }catch{return null;}
   });
   const[lid,setLid]=useState("");const[lpw,setLpw]=useState("");const[lerr,setLerr]=useState("");
+  const[loginTab,setLoginTab]=useState("login"); // "login" | "bookings"
   const loginAttempts=React.useRef({});  // {username: {count, lockedUntil}}
   const[staff,setStaff]=useState(DEFAULT_STAFF);
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
@@ -761,11 +764,12 @@ export default function App(){
   const[actId,setActId]=useState(null);
   const[svCat,setSvCat]=useState(DC[0]);const[svSub,setSvSub]=useState("All");const[svSvcId,setSvSvcId]=useState("");
   const[coQ,setCoQ]=useState("");
-  const[gSearch,setGSearch]=useState("");const[showGS,setShowGS]=useState(false);const[payM,setPayM]=useState("Cash");
+  const[gSearch,setGSearch]=useState("");const[showGS,setShowGS]=useState(false);const[payM,setPayM]=useState("Cash");const[cashGiven,setCashGiven]=useState("");
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
   const[showRefund,setShowRefund]=useState(false);const[refundAmt,setRefundAmt]=useState("");const[refundReason,setRefundReason]=useState("");
   const[deActiveGrp,setDeActiveGrp]=useState(0);const[deTab2,setDeTab2]=useState("colors");const[deSaved,setDeSaved]=useState(false);
   const[splitMode,setSplitMode]=useState(false);const[splitPayments,setSplitPayments]=useState([]);
+  const[spaOnly,setSpaOnly]=useState(false); // spa direct checkout mode
   const[confirmDlg,setConfirmDlg]=useState(null); // {msg,onOk,danger}
   function confirm2(msg,onOk,danger=false){setConfirmDlg({msg,onOk,danger});}
   const[rName,setRName]=useState("");const[rPhone,setRPhone]=useState("");const[rPpl,setRPpl]=useState(1);const[rNote,setRNote]=useState("");const[rmsg,setRmsg]=useState("");
@@ -1225,8 +1229,20 @@ export default function App(){
     const s=svcs.find(s=>s.id===Number(svSvcId));if(!s)return alert("Select a service.");
     const isKegna=s.sub==="Braids"&&s.name&&s.name.includes("ከኛ");
     const wigDed=isKegna?(s.name.includes("ጄል")?400:200):0;
+    const isMorocco=s.name&&(s.name.toLowerCase().includes("morocco")||s.sub==="Moroccan Bath");
     const line={lineId:Date.now(),serviceId:s.id,name:s.name,category:s.category,sub:s.sub,price:Number(s.price),qty:1,discount:0,free:false,commission:Number(s.commission||0),employeeSection:s.employeeSection,employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:wigDed};
-    const upd=[...act.services,line];
+    // Morocco Bath: auto-add free included service
+    const extraLines=[];
+    if(isMorocco){
+      const gender=window.prompt("Morocco Bath includes a FREE service!
+Type M for Men (Free Haircut) or F for Women (Free Hair Ironing):","F");
+      if(gender){
+        const isMale=gender.trim().toUpperCase()==="M";
+        extraLines.push({lineId:Date.now()+1,name:isMale?"Free Haircut (Morocco Special)":"Free Hair Ironing (Morocco Special)",category:"Barbershop",sub:isMale?"Barbershop":"Hair Styling",price:0,qty:1,discount:0,free:true,commission:10,employeeSection:isMale?"Barbershop":"Hair Styling",employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,moroccoFree:true,moroccoBasePrice:isMale?300:500});
+        push("✓ Free "+(isMale?"Haircut":"Hair Ironing")+" added for Morocco customer","success");
+      }
+    }
+    const upd=[...act.services,line,...extraLines];
     const newTotal=upd.reduce((s,l)=>s+lineIncome(l),0);
     // Optimistic update — screen updates instantly
     setVisits(prev=>prev.map(v=>v.id===act.id?{...v,services:upd,totalService:newTotal,status:"With Supervisor"}:v));
@@ -1329,7 +1345,7 @@ export default function App(){
     // Mark related booking as Completed if exists
     const relBk=bks.find(b=>b.visitId&&ids.includes(b.visitId));
     if(relBk)await supabase.from("bookings").update({status:"Completed"}).eq("id",relBk.id);
-    setTips([]);setActId(null);}
+    setTips([]);setActId(null);setCashGiven("");setShowRefund(false);}
   async function saveBk(){
     const sid=Number(bkF.serviceId)||0;
     const s=sid?svcs.find(sv=>sv.id===sid&&sv.bookable===true):null;
@@ -1376,6 +1392,33 @@ export default function App(){
       return push("This booking is already checked in","warning");
     confirm2("Check in "+b.customerName+"?",async()=>{
     setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");
+    },false);
+  }
+  async function giveBeautyQueueFromVisit(v){
+    // Give beauty salon queue to a spa customer who decided after service
+    confirm2("Give "+v.name+" a Beauty Salon queue and transfer their services?",async()=>{
+      const cid=makeId(v.name,v.phone);
+      const tc=visits.filter(vv=>vv.date===todayStr()&&vv.id!==v.id).length;
+      const qNum=tc+1;
+      // Transfer non-spa services to new beauty visit (or create empty one)
+      const salonSvcs=v.services.filter(l=>l.sub!=="Spa"&&l.employeeSection!=="Spa"&&l.moroccoFree);
+      const vr={
+        id:Date.now(),date:todayStr(),queue:qNum,customer_id:cid,
+        name:v.name,payer_name:v.name,phone:v.phone,
+        group_id:null,group_name:"",
+        services:salonSvcs,
+        total_service:salonSvcs.reduce((s,l)=>s+lineIncome(l),0),
+        total_paid:0,payment_method:"",tips:[],
+        status:"Waiting for Supervisor",
+        note:"From Spa — "+v.services.filter(l=>l.employeeSection==="Spa").map(l=>l.name).join(", ")
+      };
+      await supabase.from("visits").insert(vr);
+      setVisits(prev=>[...prev,vr]);
+      // Mark original visit with beauty queue number
+      await supabase.from("visits").update({note:(v.note?v.note+"
+":"")+"Transferred to Beauty #"+qNum}).eq("id",v.id);
+      setVisits(prev=>prev.map(vv=>vv.id===v.id?{...vv,beautyQueueNum:qNum}:vv));
+      push(v.name+" → Beauty Salon Queue #"+qNum,"success");
     },false);
   }
   async function giveBeautyQueue(b){
@@ -1460,7 +1503,55 @@ export default function App(){
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
-  if(!user)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}><div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:44}}>✦</div><h1 style={{margin:"8px 0 0",fontSize:22,fontWeight:900}}>Ambar Spa & Beauty</h1><p style={{margin:"6px 0 0",color:"#6b7280",fontSize:13}}>Staff Login</p></div>{lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:700}}>{lerr}</div>}<p style={S.lbl}>Username</p><input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/><p style={S.lbl}>Password</p><input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/><button style={{...S.btnP,marginTop:8}} onClick={doLogin}>{t("login")}</button></div></div>);
+  if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
+    {/* Header */}
+    <div style={{textAlign:"center",marginBottom:24}}>
+      <div style={{fontSize:40,marginBottom:8}}>✦</div>
+      <h1 style={{margin:0,fontSize:24,fontWeight:500,color:"#fff",letterSpacing:1}}>Ambar Spa & Beauty</h1>
+      <p style={{margin:"6px 0 0",color:"#5A8C72",fontSize:12,letterSpacing:2}}>SALON MANAGEMENT SYSTEM</p>
+    </div>
+    {/* Tab switcher */}
+    <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:12,padding:4,marginBottom:20,width:"100%",maxWidth:420}}>
+      {["login","bookings"].map(tab=>(
+        <button key={tab} onClick={()=>setLoginTab(tab)}
+          style={{flex:1,padding:"10px",borderRadius:9,border:"none",background:loginTab===tab?"#fff":"transparent",color:loginTab===tab?"#1B2E4B":"#94A3B8",fontWeight:loginTab===tab?500:400,cursor:"pointer",fontSize:13,transition:"all 0.15s"}}>
+          {tab==="login"?"🔐 Staff Login":"📅 Today's Bookings"}
+        </button>
+      ))}
+    </div>
+    {/* Login form */}
+    {loginTab==="login"&&<div style={{background:"#fff",borderRadius:20,padding:32,width:"100%",maxWidth:420,boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}>
+      {lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:500}}>{lerr}</div>}
+      <p style={S.lbl}>Username</p>
+      <input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/>
+      <p style={S.lbl}>Password</p>
+      <input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/>
+      <button style={{...S.btnP,marginTop:8}} onClick={doLogin}>{t("login")}</button>
+    </div>}
+    {/* Public bookings view */}
+    {loginTab==="bookings"&&<div style={{background:"#fff",borderRadius:20,padding:20,width:"100%",maxWidth:680,boxShadow:"0 20px 60px rgba(0,0,0,0.4)",maxHeight:"70vh",overflowY:"auto"}}>
+      <h2 style={{margin:"0 0 4px",fontSize:16,fontWeight:500,color:"#1B2E4B"}}>📅 Today's Bookings</h2>
+      <p style={{margin:"0 0 16px",fontSize:12,color:"#64748B"}}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+      {bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show"].includes(b.status)).length===0
+        ?<div style={{textAlign:"center",padding:40,color:"#94A3B8"}}>No bookings today</div>
+        :<div>
+          {bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show"].includes(b.status)).sort((a,b2)=>a.time.localeCompare(b2.time)).map(b=>(
+            <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",border:"0.5px solid #E2E8F0",borderRadius:12,marginBottom:8,background:b.status==="Confirmed"?"#F0FDF4":b.status==="Arrived"?"#EBF2FD":"#fff"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <b style={{color:"#1B2E4B",fontSize:14}}>{b.time}</b>
+                  <b style={{color:"#1B2E4B"}}>{b.customerName}</b>
+                  {b.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:500}}>{b.gender}</span>}
+                  {b.people>1&&<span style={{background:"#F1F5F9",color:"#475569",borderRadius:6,padding:"1px 6px",fontSize:10}}>{b.people} people</span>}
+                </div>
+                <p style={{margin:"3px 0 0",fontSize:12,color:"#64748B"}}>{b.serviceName||"TBD"} · {Math.floor(b.durationMins/60)}h{b.durationMins%60?b.durationMins%60+"m":""}</p>
+              </div>
+              <span style={SB(b.status)}>{b.status}</span>
+            </div>
+          ))}
+        </div>}
+    </div>}
+  </div>);
 
   if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
@@ -1641,6 +1732,15 @@ export default function App(){
            :act.status==="Paid & Closed"?<div>
             <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
             <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>{t("printReceipt")}</button>
+            {act.services&&act.services.some(l=>l.sub==="Spa"||l.employeeSection==="Spa")&&!act.beautyQueueNum&&
+              <button style={{...S.btnS,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:500}}
+                onClick={()=>giveBeautyQueueFromVisit(act)}>
+                💇 Get Beauty Salon Queue + Transfer Services
+              </button>}
+            {act.beautyQueueNum&&<div style={{background:"#EBF2FD",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{color:"#1B4FA8",fontWeight:500,fontSize:13}}>💇 Beauty Salon Queue #{act.beautyQueueNum}</span>
+              <span style={{fontSize:11,color:"#64748B"}}>Services transferred ✓</span>
+            </div>}
             <button style={{...S.btnS,color:"#dc2626",borderColor:"#fca5a5"}} onClick={()=>setShowRefund(v=>!v)}>↩ Issue Refund</button>
             {showRefund&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:12,padding:14,marginTop:6}}>
               <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#991b1b"}}>Issue Refund for {act.name}</p>
@@ -1657,7 +1757,29 @@ export default function App(){
             <button style={S.btnS} onClick={addTip}>{t("addTip")}</button>
             {tips.map(t=><div key={t.id} style={S.li}><span>{t.employee}</span><span style={{display:"flex",gap:8,alignItems:"center"}}><b>{money(t.amount)}</b><button style={S.btnD} onClick={()=>setTips(p=>p.filter(x=>x.id!==t.id))}>×</button></span></div>)}
             <HR/><L>Payment Method</L>
-            <select style={S.inp} value={payM} onChange={e=>setPayM(e.target.value)}><option>Cash</option><option>Transfer</option><option>Telebirr</option><option>Card</option></select>
+            <select style={S.inp} value={payM} onChange={e=>{setPayM(e.target.value);setCashGiven("");}}>
+              <option>Cash</option><option>Transfer</option><option>Telebirr</option><option>Card</option>
+            </select>
+            {payM==="Cash"&&(()=>{
+              const coTotal=(act.totalService||0)+tips.reduce((s,t2)=>s+Number(t2.amount||0),0);
+              const given=Number(cashGiven)||0;const change=given-coTotal;
+              return <div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:12,marginBottom:8}}>
+                <p style={{margin:"0 0 8px",fontSize:12,fontWeight:500,color:"#1B2E4B"}}>💵 Cash Calculator</p>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                  {[500,1000,2000,5000].map(amt=>(
+                    <button key={amt} onClick={()=>setCashGiven(String(amt))}
+                      style={{flex:1,minWidth:60,padding:"8px 4px",borderRadius:9,border:"0.5px solid "+(Number(cashGiven)===amt?"#1B2E4B":"#CBD5E0"),background:Number(cashGiven)===amt?"#1B2E4B":"#fff",color:Number(cashGiven)===amt?"#fff":"#1B2E4B",fontSize:12,fontWeight:500,cursor:"pointer"}}>
+                      {amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+                <input style={{...S.inp,marginBottom:6}} type="number" placeholder="Amount received (Birr)..." value={cashGiven} onChange={e=>setCashGiven(e.target.value)}/>
+                {given>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:change>=0?"#EBF5EE":"#FEF2F2",borderRadius:10,border:"0.5px solid "+(change>=0?"#86EFAC":"#FECACA")}}>
+                  <span style={{fontSize:13,color:change>=0?"#166534":"#B91C1C",fontWeight:500}}>Change to give back</span>
+                  <b style={{fontSize:18,color:change>=0?"#166534":"#B91C1C"}}>{change>=0?change.toLocaleString()+" Birr":"⚠ Not enough"}</b>
+                </div>}
+              </div>;
+            })()}
             <div style={S.tb}><span style={{color:"#94A3B8",fontSize:12}}>Service Total</span><b style={{color:"#fff"}}>{money(act.totalService)}</b></div>
             {tips.length>0&&<div style={{...S.tb,background:"#1e3a2f",marginTop:6}}><span>Tips Total</span><b>{money(tips.reduce((s,t)=>s+t.amount,0))}</b></div>}
             <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span style={{color:"#94A3B8",fontSize:12}}>Customer Pays</span><b style={{color:"#5A8C72",fontSize:16}}>{money(act.totalService+tips.reduce((s,t)=>s+t.amount,0))}</b></div>
