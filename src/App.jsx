@@ -1344,17 +1344,7 @@ export default function App(){
     setSaving(true);
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
-    // Auto-assign beauty queue number if requested
     let beautyQNum=null;
-    if(bkF.wantBeautyQueue&&!editBk){
-      const todayQs=visits.filter(v=>v.date===todayStr());
-      beautyQNum=todayQs.length+1;
-      // Create a beauty salon queue entry immediately
-      const beautyVr={id:Date.now()+1,date:todayStr(),queue:beautyQNum,customer_id:cid,name:bkF.customerName.trim(),payer_name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:"Pre-booked queue from Spa — Beauty Salon to follow"};
-      await supabase.from("visits").insert(beautyVr);
-      setVisits(prev=>[...prev,beautyVr]);
-      push(bkF.customerName.trim()+" added to Beauty Salon queue as #"+beautyQNum,"success");
-    }
     const row={id:editBk?.id||Date.now(),date:(bkF.date||bkDate||todayStr()).trim().slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes+(bkF.gender?" — "+bkF.gender:""),status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null,gender:bkF.gender||null,beauty_queue_num:beautyQNum};
     // Optimistic: add to screen immediately
     const optimistic=dbBk({...row,customer_id:row.customer_id,customer_name:row.customer_name,customer_phone:row.customer_phone,service_id:row.service_id,service_name:row.service_name,service_category:row.service_category,duration_mins:row.duration_mins,created_by:row.created_by,visit_id:null});
@@ -1387,6 +1377,37 @@ export default function App(){
     confirm2("Check in "+b.customerName+"?",async()=>{
     setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");
     },false);
+  }
+  async function giveBeautyQueue(b){
+    // Create beauty salon queue entry for this spa customer
+    const cid=makeId(b.customerName,b.customerPhone);
+    const tc=visits.filter(v=>v.date===todayStr()).length;
+    const qNum=tc+1;
+    const vr={
+      id:Date.now(),
+      date:todayStr(),
+      queue:qNum,
+      customer_id:cid,
+      name:b.customerName,
+      payer_name:b.customerName,
+      phone:b.customerPhone,
+      group_id:null,
+      group_name:"",
+      services:[],
+      total_service:0,
+      total_paid:0,
+      payment_method:"",
+      tips:[],
+      status:"Waiting for Supervisor",
+      note:"From Spa Booking — "+b.serviceName+(b.gender?" ("+b.gender+")":"")
+    };
+    await supabase.from("visits").insert(vr);
+    setVisits(prev=>[...prev,vr]);
+    // Update booking with beauty queue number
+    await supabase.from("bookings").update({beauty_queue_num:qNum}).eq("id",b.id);
+    setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,beautyQueueNum:qNum}:bk));
+    logAct(user,"Beauty Queue",b.customerName+" — Queue #"+qNum+" (from Spa)");
+    push(b.customerName+" added to Beauty Salon as Queue #"+qNum,"success");
   }
   async function delBk(id){if(!window.confirm("Delete this booking?"))return;await supabase.from("bookings").delete().eq("id",id);}
   async function addSpaWalkIn(){
@@ -1536,7 +1557,7 @@ export default function App(){
                   {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
                 </div>
                 {v.groupName&&<p style={{...S.hlp,color:"#374151"}}>{v.groupName}</p>}
-                {v.note&&<p style={{...S.hlp,color:"#374151"}}>📝 {v.note}</p>}
+                {v.note&&<p style={{...S.hlp,color:v.note.includes("From Spa")?"#1B4FA8":"#374151",fontWeight:v.note.includes("From Spa")?500:400}}>{v.note.includes("From Spa")?"🧖 ":""}{v.note}</p>}
                 {!isDone&&activeAhead>0&&<p style={{fontSize:11,color:"#6b7280",margin:"2px 0"}}>👥 {activeAhead} customer{activeAhead>1?"s":""} ahead</p>}
                 {!isDone&&activeAhead===0&&<p style={{fontSize:11,color:"#166534",fontWeight:700,margin:"2px 0"}}>✓ You're next!</p>}
                 {!isDone&&<WaitTimer vid={v.id}/>}
@@ -1708,26 +1729,18 @@ export default function App(){
             <div><L>Number of People</L><input style={S.inp} type="number" min="1" value={bkF.people} onChange={e=>setBkF(p=>({...p,people:e.target.value}))}/></div>
             <div><L>Notes</L><textarea style={S.ta} value={bkF.notes} onChange={e=>setBkF(p=>({...p,notes:e.target.value}))} rows={2}/></div>
           </div>
-          {/* Gender + Beauty Queue — shown when Spa service selected */}
+          {/* Gender — shown for Spa bookings */}
           {svcs.find(sv=>sv.id===Number(bkF.serviceId)&&sv.category==="Spa")&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:14,marginBottom:12}}>
-            <p style={{margin:"0 0 10px",fontSize:12,fontWeight:500,color:"#1B2E4B"}}>Spa Booking Options</p>
-            <L>Gender Preference</L>
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              {["Female","Male","No preference"].map(g=>(
+            <p style={{margin:"0 0 10px",fontSize:12,fontWeight:500,color:"#1B2E4B"}}>Spa Preference</p>
+            <L>Gender</L>
+            <div style={{display:"flex",gap:8,marginBottom:4}}>
+              {["Female","Male"].map(g=>(
                 <button key={g} onClick={()=>setBkF(p=>({...p,gender:p.gender===g?"":g}))}
-                  style={{flex:1,padding:"8px 4px",borderRadius:9,border:"0.5px solid "+(bkF.gender===g?"#5A8C72":"#CBD5E0"),background:bkF.gender===g?"#EBF5EE":"#fff",color:bkF.gender===g?"#2D7D46":"#475569",fontSize:11,fontWeight:bkF.gender===g?500:400,cursor:"pointer"}}>
-                  {g}
+                  style={{flex:1,padding:"10px 4px",borderRadius:10,border:"0.5px solid "+(bkF.gender===g?"#1B2E4B":"#CBD5E0"),background:bkF.gender===g?"#1B2E4B":"#fff",color:bkF.gender===g?"#fff":"#475569",fontSize:13,fontWeight:bkF.gender===g?500:400,cursor:"pointer"}}>
+                  {g==="Female"?"♀ Female":"♂ Male"}
                 </button>
               ))}
             </div>
-            <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",background:bkF.wantBeautyQueue?"#EBF5EE":"#fff",borderRadius:10,border:"0.5px solid "+(bkF.wantBeautyQueue?"#86EFAC":"#E2E8F0"),transition:"all 0.15s"}}>
-              <input type="checkbox" checked={bkF.wantBeautyQueue||false} onChange={e=>setBkF(p=>({...p,wantBeautyQueue:e.target.checked}))} style={{marginTop:2,width:16,height:16,accentColor:"#5A8C72",flexShrink:0}}/>
-              <div>
-                <p style={{margin:0,fontSize:13,fontWeight:500,color:"#1B2E4B"}}>Reserve Beauty Salon queue number</p>
-                <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>Customer wants a beauty service after spa. Queue #{visits.filter(v=>v.date===todayStr()).length+1} will be held for them.</p>
-                {bkF.wantBeautyQueue&&<p style={{margin:"6px 0 0",fontSize:12,color:"#2D7D46",fontWeight:500}}>✓ Will get Beauty Salon Queue #{visits.filter(v=>v.date===todayStr()).length+1}</p>}
-              </div>
-            </label>
           </div>}
           <div style={S.r2}><button style={S.btnP} onClick={saveBk}>{t("saveBooking")}</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>{t("cancel")}</button></div>
         </div>}
@@ -1782,6 +1795,12 @@ export default function App(){
                       {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                         {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>{t("confirmBooking")}</button>}
                         {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>{t("checkIn")}</button>}
+                        {["Confirmed","Pending","Arrived"].includes(b.status)&&!b.beautyQueueNum&&b.serviceCategory==="Spa"&&
+                          <button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:500}}
+                            onClick={()=>giveBeautyQueue(b)}>
+                            💇 Get Beauty Queue
+                          </button>}
+                        {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:500}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,marginRight:4}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
                         {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
