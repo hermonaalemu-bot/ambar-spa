@@ -317,6 +317,12 @@ function checkConflict(bks,form,svcs){
   const svc=svcs.find(s=>s.id===Number(form.serviceId));if(!svc)return null;
   const start=new Date(form.date+"T"+form.time);const end=new Date(start.getTime()+svc.durationMins*60000);
   const overlap=bks.filter(b=>b.date===form.date&&!["Cancelled","No-show","Completed"].includes(b.status)&&b.id!==(form.id||0)).filter(b=>{const bs=new Date(form.date+"T"+b.time);const be=new Date(bs.getTime()+b.durationMins*60000);return bs<end&&be>start;});
+  // SAME SERVICE conflict warning
+  const sameService=overlap.filter(b=>b.serviceId===svc.id||b.serviceName===svc.name);
+  if(sameService.length>0){
+    const names=sameService.map(b=>b.customerName).join(", ");
+    return"⚠️ "+svc.name+" is already booked at "+form.time+" for: "+names+". There may be a conflict.";
+  }
   if(svc.sub==="Moroccan Bath"){const tot=overlap.filter(b=>b.serviceCategory==="Spa").reduce((s,b)=>s+b.people,0)+Number(form.people||1);if(tot>4)return"⚠️ Morocco Bath room may be over capacity (max 4 people comfortable together).";}
   if(svc.sub==="Steam & Sauna"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Sauna")).length>0)return"⚠️ Steam & Sauna has overlapping bookings at this time.";
   if(svc.sub==="Massage"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Massage")).length>=2)return"⚠️ Both massage rooms may be occupied at this time.";
@@ -330,7 +336,7 @@ const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Nu
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
 const dbVis=r=>({id:r.id,date:(r.date||'').slice(0,10),queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||r.created_at||null});
 const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||"",qty:Number(r.qty),unit:Number(r.unit),total:Number(r.total)});
-const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null});
+const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null,gender:r.gender||"",beautyQueueNum:r.beauty_queue_num||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
 function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
@@ -804,7 +810,7 @@ export default function App(){
   const[showFired,setShowFired]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
   const[dashDate,setDashDate]=useState(todayStr());const[dashRange,setDashRange]=useState(false);const[dashFrom,setDashFrom]=useState(todayStr());const[dashTo,setDashTo]=useState(todayStr());
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
-  const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:""});
+  const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:"",gender:"",wantBeautyQueue:false});
   const[bkWarn,setBkWarn]=useState("");const[bkSearch,setBkSearch]=useState("");
   const[showWalkIn,setShowWalkIn]=useState(false);
   const[wiSvcId,setWiSvcId]=useState("");const[wiName,setWiName]=useState("");const[wiPhone,setWiPhone]=useState("");const[wiNote,setWiNote]=useState("");
@@ -1338,7 +1344,18 @@ export default function App(){
     setSaving(true);
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
-    const row={id:editBk?.id||Date.now(),date:(bkF.date||bkDate||todayStr()).trim().slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes,status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null};
+    // Auto-assign beauty queue number if requested
+    let beautyQNum=null;
+    if(bkF.wantBeautyQueue&&!editBk){
+      const todayQs=visits.filter(v=>v.date===todayStr());
+      beautyQNum=todayQs.length+1;
+      // Create a beauty salon queue entry immediately
+      const beautyVr={id:Date.now()+1,date:todayStr(),queue:beautyQNum,customer_id:cid,name:bkF.customerName.trim(),payer_name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:"Pre-booked queue from Spa — Beauty Salon to follow"};
+      await supabase.from("visits").insert(beautyVr);
+      setVisits(prev=>[...prev,beautyVr]);
+      push(bkF.customerName.trim()+" added to Beauty Salon queue as #"+beautyQNum,"success");
+    }
+    const row={id:editBk?.id||Date.now(),date:(bkF.date||bkDate||todayStr()).trim().slice(0,10),time:bkF.time,customer_id:cid,customer_name:bkF.customerName.trim(),customer_phone:bkF.customerPhone.trim(),service_id:sid||0,service_name:s?s.name:'TBD - To Be Confirmed',service_category:s?s.category:'Spa',duration_mins:s?s.durationMins:120,people:Number(bkF.people||1),notes:bkF.notes+(bkF.gender?" — "+bkF.gender:""),status:editBk?"Confirmed":"Pending",created_by:user.name,visit_id:null,gender:bkF.gender||null,beauty_queue_num:beautyQNum};
     // Optimistic: add to screen immediately
     const optimistic=dbBk({...row,customer_id:row.customer_id,customer_name:row.customer_name,customer_phone:row.customer_phone,service_id:row.service_id,service_name:row.service_name,service_category:row.service_category,duration_mins:row.duration_mins,created_by:row.created_by,visit_id:null});
     if(!editBk)setBks(prev=>[...prev,optimistic]);
@@ -1354,7 +1371,7 @@ export default function App(){
     // Stay on the same date
     const savedDate=row.date;
     setShowBkF(false);setEditBk(null);
-    setBkF({customerName:"",customerPhone:"",serviceId:"",date:savedDate,time:"10:00",people:1,notes:""});
+    setBkF({customerName:"",customerPhone:"",serviceId:"",date:savedDate,time:"10:00",people:1,notes:"",gender:"",wantBeautyQueue:false});
     setBkDate(savedDate);
     setBkWarn("");setSaving(false);
     push("Booking saved for "+savedDate,"success");
@@ -1366,7 +1383,11 @@ export default function App(){
   }
   async function checkIn(b){
     if(b.visitId&&visits.find(v=>v.id===b.visitId))
-      return push("This booking is already checked in","warning");if(!window.confirm("Check in "+b.customerName+"?"))return;setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");}
+      return push("This booking is already checked in","warning");
+    confirm2("Check in "+b.customerName+"?",async()=>{
+    setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");
+    },false);
+  }
   async function delBk(id){if(!window.confirm("Delete this booking?"))return;await supabase.from("bookings").delete().eq("id",id);}
   async function addSpaWalkIn(){
     if(!wiName.trim()||!wiPhone.trim()||!wiSvcId)return alert("Enter customer name, phone and select a service.");
@@ -1444,7 +1465,7 @@ export default function App(){
               </div>)}</>}
             {rB.length>0&&<><p style={{margin:"8px 0 6px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:1}}>BOOKINGS</p>
               {rB.map(b=><div key={b.id} style={{...S.li,marginBottom:4,cursor:"pointer"}} onClick={()=>{setTab("Bookings");setShowGS(false);setGSearch("");}}>
-                <div><b style={{color:"#1B2E4B"}}>{b.customerName}</b><p style={{margin:0,fontSize:11,color:"#64748B"}}>{b.date} at {b.time} · {b.serviceName}</p></div>
+                <div><div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><b style={{color:"#1B2E4B"}}>{b.customerName}</b>{b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 5px"}}>💇 B-Q#{b.beautyQueueNum}</span>}{b.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 5px"}}>{b.gender}</span>}</div><p style={{margin:0,fontSize:11,color:"#64748B"}}>{b.date} at {b.time} · {b.serviceName}</p></div>
                 <span style={SB(b.status)}>{b.status}</span>
               </div>)}</>}
             {!rC.length&&!rV.length&&!rB.length&&<p style={{color:"#64748B",textAlign:"center",padding:20}}>No results for "{gSearch}"</p>}
@@ -1687,6 +1708,27 @@ export default function App(){
             <div><L>Number of People</L><input style={S.inp} type="number" min="1" value={bkF.people} onChange={e=>setBkF(p=>({...p,people:e.target.value}))}/></div>
             <div><L>Notes</L><textarea style={S.ta} value={bkF.notes} onChange={e=>setBkF(p=>({...p,notes:e.target.value}))} rows={2}/></div>
           </div>
+          {/* Gender + Beauty Queue — shown when Spa service selected */}
+          {svcs.find(sv=>sv.id===Number(bkF.serviceId)&&sv.category==="Spa")&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:14,marginBottom:12}}>
+            <p style={{margin:"0 0 10px",fontSize:12,fontWeight:500,color:"#1B2E4B"}}>Spa Booking Options</p>
+            <L>Gender Preference</L>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {["Female","Male","No preference"].map(g=>(
+                <button key={g} onClick={()=>setBkF(p=>({...p,gender:p.gender===g?"":g}))}
+                  style={{flex:1,padding:"8px 4px",borderRadius:9,border:"0.5px solid "+(bkF.gender===g?"#5A8C72":"#CBD5E0"),background:bkF.gender===g?"#EBF5EE":"#fff",color:bkF.gender===g?"#2D7D46":"#475569",fontSize:11,fontWeight:bkF.gender===g?500:400,cursor:"pointer"}}>
+                  {g}
+                </button>
+              ))}
+            </div>
+            <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",background:bkF.wantBeautyQueue?"#EBF5EE":"#fff",borderRadius:10,border:"0.5px solid "+(bkF.wantBeautyQueue?"#86EFAC":"#E2E8F0"),transition:"all 0.15s"}}>
+              <input type="checkbox" checked={bkF.wantBeautyQueue||false} onChange={e=>setBkF(p=>({...p,wantBeautyQueue:e.target.checked}))} style={{marginTop:2,width:16,height:16,accentColor:"#5A8C72",flexShrink:0}}/>
+              <div>
+                <p style={{margin:0,fontSize:13,fontWeight:500,color:"#1B2E4B"}}>Reserve Beauty Salon queue number</p>
+                <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>Customer wants a beauty service after spa. Queue #{visits.filter(v=>v.date===todayStr()).length+1} will be held for them.</p>
+                {bkF.wantBeautyQueue&&<p style={{margin:"6px 0 0",fontSize:12,color:"#2D7D46",fontWeight:500}}>✓ Will get Beauty Salon Queue #{visits.filter(v=>v.date===todayStr()).length+1}</p>}
+              </div>
+            </label>
+          </div>}
           <div style={S.r2}><button style={S.btnP} onClick={saveBk}>{t("saveBooking")}</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>{t("cancel")}</button></div>
         </div>}
 
@@ -1740,10 +1782,11 @@ export default function App(){
                       {user.role!=="supervisor"&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                         {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>{t("confirmBooking")}</button>}
                         {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>{t("checkIn")}</button>}
+                        {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,marginRight:4}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
                         {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
                         <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>
-                        <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:"",time:"",people:b.people,notes:b.notes});}}>📅 Reschedule</button>
+                        <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:"",time:"",people:b.people,notes:b.notes,gender:b.gender||"",wantBeautyQueue:false});}}>📅 Reschedule</button>
                       </>}
                         {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>{t("cancel")}</button>}
                         <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
