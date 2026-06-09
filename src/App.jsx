@@ -1414,8 +1414,8 @@ export default function App(){
       await supabase.from("visits").insert(vr);
       setVisits(prev=>[...prev,vr]);
       // Mark original visit with beauty queue number
-      await supabase.from("visits").update({note:(v.note?v.note+"
-":"")+"Transferred to Beauty #"+qNum}).eq("id",v.id);
+      await supabase.from("visits").update({note:(v.note?v.note+" | ":"")+"Transferred to Beauty #"+qNum}).eq("id",v.id);
+
       setVisits(prev=>prev.map(vv=>vv.id===v.id?{...vv,beautyQueueNum:qNum}:vv));
       push(v.name+" → Beauty Salon Queue #"+qNum,"success");
     },false);
