@@ -881,6 +881,7 @@ export default function App(){
   const EXP_CATS=["Operations","Utilities","Supplies","Salon Products","Marketing","Staff","Maintenance","Other"];
   const[inventory,setInventory]=useState(DEFAULT_INVENTORY);
   const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
+  const[editInvId,setEditInvId]=useState(null);const[editInvData,setEditInvData]=useState({});
   // Load inventory from Supabase — overrides defaults with saved data
   useEffect(()=>{
     supabase.from("settings").select("*").eq("key","inventory").single()
@@ -905,6 +906,12 @@ export default function App(){
   async function updInvQty(id,delta){
     const updated=inventory.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+delta)}:i);
     await saveInv(updated);
+  }
+  async function updateInvItem(id,fields){
+    const updated=inventory.map(i=>i.id===id?{...i,...fields}:i);
+    await saveInv(updated);
+    setEditInvId(null);
+    push("Item updated","success");
   }
   function delInvItem(id){
     const item=inventory.find(i=>i.id===id);
@@ -2142,22 +2149,55 @@ export default function App(){
             </div>
             {items.map(i=>{
               const low=i.minQty>0&&i.qty<=i.minQty;
-              return <div key={i.id} style={{background:low?"#fff5f5":"#fff",border:"1px solid "+(low?"#fca5a5":"#e5e7eb"),borderRadius:12,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+              const isEditing=editInvId===i.id;
+              if(isEditing){
+                const d=editInvData;
+                return <div key={i.id} style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:14,padding:14,marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <b style={{fontSize:13,color:"#0369A1"}}>✏ Editing: {i.name}</b>
+                    <button onClick={()=>setEditInvId(null)} style={{background:"transparent",border:"none",fontSize:18,cursor:"pointer",color:"#64748B"}}>×</button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
+                    <div><p style={S.lbl}>Name</p>
+                      <input style={S.inp} value={d.name??i.name} onChange={e=>setEditInvData(p=>({...p,name:e.target.value}))}/></div>
+                    <div><p style={S.lbl}>Category</p>
+                      <select style={S.inp} value={d.category??i.category} onChange={e=>setEditInvData(p=>({...p,category:e.target.value}))}>
+                        {INV_CATS.map(c=><option key={c}>{c}</option>)}
+                      </select></div>
+                    <div><p style={S.lbl}>Quantity</p>
+                      <input style={S.inp} type="number" value={d.qty??i.qty} onChange={e=>setEditInvData(p=>({...p,qty:Number(e.target.value)}))}/></div>
+                    <div><p style={S.lbl}>Unit (pcs / ml / g)</p>
+                      <input style={S.inp} value={d.unit??i.unit} onChange={e=>setEditInvData(p=>({...p,unit:e.target.value}))}/></div>
+                    <div><p style={S.lbl}>Min. Stock Alert</p>
+                      <input style={S.inp} type="number" value={d.minQty??i.minQty} onChange={e=>setEditInvData(p=>({...p,minQty:Number(e.target.value)}))}/>
+                      <p style={{margin:"-6px 0 0",fontSize:10,color:"#64748B"}}>Alert fires when qty falls below this number</p></div>
+                    <div><p style={S.lbl}>Unit Price (Birr)</p>
+                      <input style={S.inp} type="number" value={d.price??i.price} onChange={e=>setEditInvData(p=>({...p,price:Number(e.target.value)}))}/></div>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={{...S.btnP,marginBottom:0}} onClick={()=>updateInvItem(i.id,editInvData)}>✓ Save Changes</button>
+                    <button style={{...S.btnS,marginBottom:0,width:"auto",padding:"0 16px"}} onClick={()=>setEditInvId(null)}>Cancel</button>
+                    <button style={{...S.btnD,marginLeft:"auto"}} onClick={()=>delInvItem(i.id)}>Delete</button>
+                  </div>
+                </div>;
+              }
+              return <div key={i.id} style={{background:low?"#FEF2F2":"#fff",border:"0.5px solid "+(low?"#FECACA":"#E2E8F0"),borderRadius:12,padding:"10px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                 <div style={{flex:1,minWidth:120}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <b style={{color:low?"#dc2626":"#111827",fontSize:14}}>{i.name}</b>
-                    {low&&<span style={{background:"#fee2e2",color:"#dc2626",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>LOW STOCK</span>}
+                    <b style={{color:low?"#B91C1C":"#1B2E4B",fontSize:14}}>{i.name}</b>
+                    {low&&<span style={{background:"#FEE2E2",color:"#B91C1C",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:500}}>LOW STOCK</span>}
                   </div>
-                  <p style={{margin:"2px 0 0",fontSize:11,color:"#6b7280"}}>{i.category} · {money(i.price)} per {i.unit} · Value: {money(i.qty*i.price)}{i.minQty>0?" · Min: "+i.minQty:""}</p>
+                  <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>{i.category}{i.price>0?" · "+money(i.price)+"/"+i.unit:""}{i.minQty>0?" · Min: "+i.minQty+" "+i.unit:""}</p>
                 </div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontWeight:500,fontSize:16,color:"#1B2E4B"}}>−</button>
-                  <div style={{textAlign:"center",minWidth:50}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:16,color:"#1B2E4B"}}>−</button>
+                  <div style={{textAlign:"center",minWidth:48}}>
                     <b style={{fontSize:20,color:low?"#B91C1C":"#1B2E4B",display:"block",fontWeight:500}}>{i.qty}</b>
-                    <span style={{fontSize:10,color:"#64748B"}}>{i.unit}</span>
+                    <span style={{fontSize:9,color:"#94A3B8"}}>{i.unit}</span>
                   </div>
-                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontWeight:500,fontSize:16,color:"#1B2E4B"}}>+</button>
-                  <button onClick={()=>delInvItem(i.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontWeight:900,fontSize:14}}>×</button>
+                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:16,color:"#1B2E4B"}}>+</button>
+                  <button onClick={()=>{setEditInvId(i.id);setEditInvData({});}} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#F8FAFC",cursor:"pointer",fontSize:13,color:"#1B2E4B"}} title="Edit">✏</button>
+                  <button onClick={()=>delInvItem(i.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#FEE2E2",color:"#B91C1C",cursor:"pointer",fontSize:14}}>×</button>
                 </div>
               </div>;
             })}
