@@ -1234,8 +1234,7 @@ export default function App(){
     // Morocco Bath: auto-add free included service
     const extraLines=[];
     if(isMorocco){
-      const gender=window.prompt("Morocco Bath includes a FREE service!
-Type M for Men (Free Haircut) or F for Women (Free Hair Ironing):","F");
+      const gender=window.prompt("Morocco Bath: Type M for Men (Free Haircut) or F for Women (Free Hair Ironing):","F");
       if(gender){
         const isMale=gender.trim().toUpperCase()==="M";
         extraLines.push({lineId:Date.now()+1,name:isMale?"Free Haircut (Morocco Special)":"Free Hair Ironing (Morocco Special)",category:"Barbershop",sub:isMale?"Barbershop":"Hair Styling",price:0,qty:1,discount:0,free:true,commission:10,employeeSection:isMale?"Barbershop":"Hair Styling",employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,moroccoFree:true,moroccoBasePrice:isMale?300:500});
