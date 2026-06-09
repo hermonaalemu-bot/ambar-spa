@@ -679,6 +679,109 @@ async function checkPW(pw,hash){
   const h=await hashPW(pw);return h===hash;
 }
 
+const DEFAULT_INVENTORY=[
+  {id:1,name:"Peroxide (ፐሮሳ)",category:"Salon Products",qty:400,unit:"ml",minQty:50,price:0},
+  {id:2,name:"Mo Menmbs (ሞ ምንምስ)",category:"Salon Products",qty:9,unit:"pcs",minQty:2,price:0},
+  {id:3,name:"Oil Spray",category:"Salon Products",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:4,name:"Muss (Hair Mousse)",category:"Salon Products",qty:7,unit:"pcs",minQty:2,price:0},
+  {id:5,name:"Morfas Shampoo",category:"Salon Products",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:6,name:"Counting Cream (Gauntu)",category:"Salon Products",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:7,name:"Mask",category:"Salon Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:8,name:"Shine Jam",category:"Salon Products",qty:4,unit:"pcs",minQty:1,price:0},
+  {id:9,name:"Polisher",category:"Salon Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:10,name:"Duru Top",category:"Salon Products",qty:12,unit:"pcs",minQty:2,price:0},
+  {id:11,name:"Peptigo",category:"Salon Products",qty:15,unit:"pcs",minQty:3,price:0},
+  {id:12,name:"Oil (Saodsk)",category:"Salon Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:13,name:"Bigen Hair Color",category:"Hair Products",qty:6,unit:"pcs",minQty:2,price:0},
+  {id:14,name:"Hair Relaxer (kba)",category:"Hair Products",qty:48,unit:"pcs",minQty:10,price:0},
+  {id:15,name:"Bleach (Beem)",category:"Hair Products",qty:16,unit:"pcs",minQty:4,price:0},
+  {id:16,name:"Hair Toner (pcoyo doc)",category:"Hair Products",qty:118,unit:"pcs",minQty:20,price:0},
+  {id:17,name:"Hair Color (pcoyo)",category:"Hair Products",qty:14,unit:"pcs",minQty:4,price:0},
+  {id:18,name:"Hair Treatment (n3o3s)",category:"Hair Products",qty:18,unit:"pcs",minQty:4,price:0},
+  {id:19,name:"Heat Protector",category:"Hair Products",qty:8,unit:"pcs",minQty:2,price:0},
+  {id:20,name:"Hair Product (Bsn oil)",category:"Hair Products",qty:18,unit:"pcs",minQty:4,price:0},
+  {id:21,name:"Hair Strips",category:"Hair Products",qty:8,unit:"pcs",minQty:2,price:0},
+  {id:22,name:"Placenta",category:"Hair Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:23,name:"Vitamin (Hair)",category:"Hair Products",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:24,name:"Glued No.2",category:"Hair Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:25,name:"G Cream",category:"Hair Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:26,name:"Shampoo (Mios)",category:"Hair Products",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:27,name:"7efo Oil",category:"Hair Products",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:28,name:"Ehaob Oil",category:"Hair Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:29,name:"Hot Wax",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:30,name:"Roll Wax",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:31,name:"Wax Paper",category:"Wax & Eyebrow",qty:1,unit:"pak",minQty:1,price:0},
+  {id:32,name:"Wax Warmer",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:33,name:"Wax Remove Cream",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:34,name:"Baby Powder",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:35,name:"Tweezer (Wax)",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:36,name:"Sizer (Wax)",category:"Wax & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:37,name:"Massage Oil",category:"Spa Products",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:38,name:"Nail Polish (various)",category:"Nails",qty:15,unit:"pcs",minQty:3,price:0},
+  {id:39,name:"Nail Tips (various)",category:"Nails",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:40,name:"3D Nails",category:"Nails",qty:13,unit:"pcs",minQty:2,price:0},
+  {id:41,name:"Acryl Gel",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:42,name:"Nail Glue (pe.bb)",category:"Nails",qty:10,unit:"pcs",minQty:2,price:0},
+  {id:43,name:"Silver Glitter",category:"Nails",qty:12,unit:"pcs",minQty:2,price:0},
+  {id:44,name:"Nail File (olnet)",category:"Nails",qty:4,unit:"pcs",minQty:1,price:0},
+  {id:45,name:"Nail Box",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:46,name:"Nail Buffer (olepo)",category:"Nails",qty:99,unit:"pcs",minQty:10,price:0},
+  {id:47,name:"Cuticle Cutter (7be)",category:"Nails",qty:20,unit:"pcs",minQty:4,price:0},
+  {id:48,name:"Nail Pusher",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:49,name:"Nail Cleaner (ÉnteS)",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:50,name:"Nail Primer (Proc)",category:"Nails",qty:10,unit:"pcs",minQty:2,price:0},
+  {id:51,name:"UV Lamp",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:52,name:"Top Coat",category:"Nails",qty:7,unit:"pcs",minQty:2,price:0},
+  {id:53,name:"Base Coat",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:54,name:"Nail Color (4nc)",category:"Nails",qty:10,unit:"pcs",minQty:2,price:0},
+  {id:55,name:"Nail Wipe",category:"Nails",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:56,name:"3D Beads",category:"Nails",qty:26,unit:"pcs",minQty:4,price:0},
+  {id:57,name:"Nail Remover (Remulter)",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:58,name:"Alcohol (Nail)",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:59,name:"Gold Metallic",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:60,name:"Silver Metallic",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:61,name:"Brown Metallic",category:"Nails",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:62,name:"Spider Gel (Spyder Jal)",category:"Nails",qty:10,unit:"pcs",minQty:2,price:0},
+  {id:63,name:"Spider Gel 2",category:"Nails",qty:5,unit:"pcs",minQty:2,price:0},
+  {id:64,name:"UV Gel (oyns7)",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:65,name:"Nail Art (tnlsdsn)",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:66,name:"Nail Gel (q33)",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:67,name:"Nail Cleaner 2",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:68,name:"Nail Polish (nom)",category:"Nails",qty:6,unit:"pcs",minQty:2,price:0},
+  {id:69,name:"Nail Polish (gndc)",category:"Nails",qty:7,unit:"pcs",minQty:2,price:0},
+  {id:70,name:"Nail Files (77p)",category:"Nails",qty:13,unit:"pcs",minQty:3,price:0},
+  {id:71,name:"Nail Drill Bits",category:"Nails",qty:9,unit:"pcs",minQty:2,price:0},
+  {id:72,name:"Nail Base (Snc)",category:"Nails",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:73,name:"3D Flower",category:"Nails",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:74,name:"Nail Tips 148/145/152",category:"Nails",qty:3,unit:"pcs",minQty:1,price:0},
+  {id:75,name:"Eye Brow Brush",category:"Eyelash & Eyebrow",qty:26,unit:"pcs",minQty:5,price:0},
+  {id:76,name:"Eye Lash Cotton",category:"Eyelash & Eyebrow",qty:7,unit:"pcs",minQty:2,price:0},
+  {id:77,name:"Eye Lash Serum",category:"Eyelash & Eyebrow",qty:19,unit:"pcs",minQty:4,price:0},
+  {id:78,name:"Eye Lash Glue (Blue)",category:"Eyelash & Eyebrow",qty:9,unit:"pcs",minQty:2,price:0},
+  {id:79,name:"Eye Lash (Organic)",category:"Eyelash & Eyebrow",qty:15,unit:"pcs",minQty:3,price:0},
+  {id:80,name:"Eye Lash Tweezer",category:"Eyelash & Eyebrow",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:81,name:"Eye Lash Sizer",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:82,name:"Eye Lash No.9",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:83,name:"Eye Lash No.12",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:84,name:"Eye Lash No.11",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:85,name:"Eye Lash No.14",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:86,name:"Eye Lash No.13",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:87,name:"Lash Scissors",category:"Eyelash & Eyebrow",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:88,name:"Lash Tweezer",category:"Eyelash & Eyebrow",qty:2,unit:"pcs",minQty:1,price:0},
+  {id:89,name:"Eye Drop",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:90,name:"Lash Conditioner",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:91,name:"Eye Lash Mint",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:92,name:"Eye Lash Remover",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:93,name:"Eye Lash Plaster",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:94,name:"Eye Lash Glue",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:95,name:"Under Eye Plaster",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:96,name:"Glue (Hair Lash)",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:97,name:"Eyebrow Jorac",category:"Eyelash & Eyebrow",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:98,name:"Paper Roll",category:"Consumables",qty:1,unit:"roll",minQty:1,price:0},
+  {id:99,name:"Paper Box",category:"Consumables",qty:1,unit:"pcs",minQty:1,price:0},
+  {id:100,name:"Envelopes",category:"Consumables",qty:1,unit:"pcs",minQty:5,price:0},
+  {id:101,name:"Paper (A4)",category:"Consumables",qty:5,unit:"pcs",minQty:1,price:0},
+];
 class ErrorBoundary extends React.Component{
   constructor(props){super(props);this.state={hasError:false,error:null};}
   static getDerivedStateFromError(e){return{hasError:true,error:e};}
@@ -776,12 +879,17 @@ export default function App(){
   const[deItem,setDeItem]=useState("");const[deQty,setDeQty]=useState(1);const[deUnit,setDeUnit]=useState("");
   const[gDate,setGDate]=useState(todayStr());const[gName,setGName]=useState("");const[gRsn,setGRsn]=useState("");const[gAmt,setGAmt]=useState("");const[gCat,setGCat]=useState("Operations");
   const EXP_CATS=["Operations","Utilities","Supplies","Salon Products","Marketing","Staff","Maintenance","Other"];
-  const[inventory,setInventory]=useState([]);
+  const[inventory,setInventory]=useState(DEFAULT_INVENTORY);
   const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
-  // Load inventory from Supabase settings table
+  // Load inventory from Supabase — overrides defaults with saved data
   useEffect(()=>{
     supabase.from("settings").select("*").eq("key","inventory").single()
-      .then(({data})=>{if(data?.value)try{setInventory(JSON.parse(data.value));}catch(e){}});
+      .then(({data})=>{
+        if(data?.value)try{
+          const saved=JSON.parse(data.value);
+          if(saved&&saved.length>0)setInventory(saved);
+        }catch(e){}
+      });
   },[]);
   async function saveInv(inv){
     setInventory(inv);
@@ -805,7 +913,7 @@ export default function App(){
       push("Item removed","success");
     },true);
   }
-  const INV_CATS=["Salon Products","Cleaning","Consumables","Equipment","Other"];
+  const INV_CATS=["Salon Products","Hair Products","Nails","Eyelash & Eyebrow","Wax & Eyebrow","Spa Products","Consumables","Cleaning","Equipment","Other"];
   const lowStock=inventory.filter(i=>i.qty<=i.minQty&&i.minQty>0);
   const[newCat,setNewCat]=useState("");
   const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:EMP_SECTIONS[0],bookable:false,durationMins:60});
