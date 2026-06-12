@@ -240,20 +240,44 @@ function lineComm(l){
   // Default: 10% of income
   return Math.round(lineIncome(l)*rate);
 }
-function calcEthTax(gross){
-  // Ethiopian income tax brackets (monthly)
-  if(gross<=600)return 0;
-  if(gross<=1650)return (gross-600)*0.10;
-  if(gross<=3200)return 105+(gross-1650)*0.15;
-  if(gross<=5250)return 337.5+(gross-3200)*0.20;
-  if(gross<=7800)return 747.5+(gross-5250)*0.25;
-  if(gross<=10900)return 1385+(gross-7800)*0.30;
-  return 2315+(gross-10900)*0.35;
-}
+
 function getPayPeriod(d){const dt=new Date(d||todayStr());const day=dt.getDate();let sy=dt.getFullYear(),sm=dt.getMonth();if(day<11){sm--;if(sm<0){sm=11;sy--;}}const s=new Date(sy,sm,11),e=new Date(sy,sm+1,10);const fmt=x=>x.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});return{start:s.toISOString().slice(0,10),end:e.toISOString().slice(0,10),label:fmt(s)+" - "+fmt(e)};}
 function toEthTime(t){if(!t)return"";const[h,m]=t.split(":").map(Number);let e=h-6;if(e<=0)e+=12;return e+":"+String(m).padStart(2,"0")+" "+(h<18?"ቀን":"ማታ");}
 function timeSlots(){const s=[];for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++)for(let m=0;m<60;m+=30)s.push(String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"));return s;}
 function exportCSV(rows,fn){const k=Object.keys(rows[0]||{});const csv=[k.join(","),...rows.map(r=>k.map(x=>JSON.stringify(r[x]??"")).join(","))].join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download=fn;a.click();}
+function printBookingSlip(b){
+  const w=window.open("","_blank","width=380,height=500");
+  w.document.write(`<!DOCTYPE html><html><head><title>Booking Confirmation</title><style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#111;max-width:340px;margin:0 auto}
+    .logo{text-align:center;margin-bottom:16px}.logo h1{margin:0;font-size:18px;color:#1B2E4B}
+    .logo p{margin:4px 0 0;font-size:11px;color:#5A8C72;letter-spacing:2px}
+    .title{text-align:center;font-size:13px;color:#64748B;margin:0 0 16px;border-bottom:1px dashed #E2E8F0;padding-bottom:10px}
+    .row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px}
+    .label{color:#64748B}.value{font-weight:700;color:#1B2E4B;text-align:right}
+    .svc-box{background:#F8FAFC;border-radius:8px;padding:12px;margin:12px 0;border:1px solid #E2E8F0}
+    .svc-name{font-size:15px;font-weight:700;color:#1B2E4B;margin:0 0 4px}
+    .svc-detail{font-size:12px;color:#64748B}
+    .footer{text-align:center;margin-top:16px;font-size:11px;color:#94A3B8;border-top:1px dashed #E2E8F0;padding-top:10px}
+    .badge{display:inline-block;background:#EBF5EE;color:#166534;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700}
+    @media print{body{padding:8px}}
+  </style></head><body>
+    <div class="logo"><h1>✦ Ambar Spa & Beauty</h1><p>BOOKING CONFIRMATION</p></div>
+    <p class="title">Please present this slip upon arrival</p>
+    <div class="row"><span class="label">Customer</span><span class="value">${b.customerName}</span></div>
+    <div class="row"><span class="label">Phone</span><span class="value">${b.customerPhone}</span></div>
+    <div class="svc-box">
+      <p class="svc-name">${b.serviceName||"To Be Confirmed"}</p>
+      <p class="svc-detail">📅 ${b.date} &nbsp;⏰ ${b.time}${b.gender?" &nbsp;· "+b.gender:""}</p>
+      ${b.people>1?`<p class="svc-detail">👥 ${b.people} people</p>`:""}
+      ${b.notes?`<p class="svc-detail">📝 ${b.notes}</p>`:""}
+    </div>
+    <div class="row"><span class="label">Duration</span><span class="value">${Math.floor((b.durationMins||60)/60)}h${(b.durationMins||60)%60?((b.durationMins||60)%60)+"m":""}</span></div>
+    <div class="row"><span class="label">Status</span><span class="value"><span class="badge">${b.status}</span></span></div>
+    <div class="row"><span class="label">Booking ID</span><span class="value">#${String(b.id).slice(-6)}</span></div>
+    <div class="footer">Thank you for choosing Ambar Spa & Beauty<br>Please arrive 5 minutes early<br>Printed: ${new Date().toLocaleString()}</div>
+  </body></html>`);
+  w.document.close();w.focus();setTimeout(()=>w.print(),400);
+}
 function printReceipt(visit,emps){
   const w=window.open("","_blank","width=400,height=600");
   const tips=visit.tips||[];const tipTotal=tips.reduce((s,t)=>s+Number(t.amount||0),0);
@@ -888,6 +912,7 @@ export default function App(){
   const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
   const[editInvId,setEditInvId]=useState(null);const[editInvData,setEditInvData]=useState({});
   const[invLog,setInvLog]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");}catch{return[];}});
+  const[svcLog,setSvcLog]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");}catch{return[];}});
   const[showInvLog,setShowInvLog]=useState(false);
   const[invLogFilter,setInvLogFilter]=useState("all"); // "all" | "out" | "in"
   // Load inventory from Supabase — overrides defaults with saved data
@@ -991,7 +1016,7 @@ export default function App(){
   const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:EMP_SECTIONS[0],bookable:false,durationMins:60});
   const[svcF,setSvcF]=useState("All");
   const[nEmp,setNEmp]=useState({name:"",section:EMP_SECTIONS[0]||DC[0],role:"",salary:"",hireDate:todayStr()});
-  const[showFired,setShowFired]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
+  const[showFired,setShowFired]=useState(false);const[showSvcLog,setShowSvcLog]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
   const[dashDate,setDashDate]=useState(todayStr());const[dashRange,setDashRange]=useState(false);const[dashFrom,setDashFrom]=useState(todayStr());const[dashTo,setDashTo]=useState(todayStr());
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:"",gender:"",wantBeautyQueue:false});
@@ -1461,7 +1486,12 @@ export default function App(){
       const dur=svcMins(lid2);
       if(line){
         const emp=line.employee||"Unknown";
-        if(dur)logAct(user,"Service completed",line.name+" by "+emp+" — "+dur+" min (expected "+(line.durationMins||"?")+"min)");
+        if(dur){
+          logAct(user,"Service completed",line.name+" by "+emp+" — "+dur+" min (expected "+(line.durationMins||"?")+"min)");
+          // Save structured service time record
+          const svcRecord={id:Date.now(),date:todayStr(),employee:emp,service:line.name,sub:line.sub,durationMins:dur,expectedMins:Number(line.durationMins||0),customer:vis.name,queue:vis.queue};
+          try{const existing=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");localStorage.setItem("ambar_svc_log",JSON.stringify([svcRecord,...existing].slice(0,500)));}catch(e){}
+        }
       }
       // Unlock: any "On Hold" services for this customer → set to Waiting
       const upd=vis.services.map(l=>{
@@ -1551,8 +1581,13 @@ export default function App(){
     if(!bkF.time)return alert("Select a time.");
     if(bkF.date===todayStr()&&bkF.time<new Date().toTimeString().slice(0,5)&&!editBk)
       return alert("Cannot book a time that has already passed today.");
+    // Hard block: same customer already booked at same date+time
+    const sameCust=bks.find(b=>b.id!==(editBk?.id||0)&&b.customerPhone===bkF.customerPhone.trim()&&b.date===(bkF.date||bkDate).slice(0,10)&&b.time===bkF.time&&!["Cancelled","No-show","Completed"].includes(b.status));
+    if(sameCust)return alert("❌ "+bkF.customerName+" already has a booking at "+bkF.time+" on "+bkF.date+" ("+sameCust.serviceName+"). Cannot double-book the same customer at the same time.");
     const warn=checkConflict(bks,bkF,svcs);
-    if(warn&&!window.confirm(warn+"\n\nProceed anyway?"))return;
+    if(warn&&!window.confirm(warn+"
+
+Proceed anyway?"))return;
     setSaving(true);
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
@@ -1902,6 +1937,26 @@ export default function App(){
           {!act?<EMP>← Select a customer to assign services.</EMP>:!act.services?<EMP>Loading...</EMP>:<>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
               <div><h2 style={{...S.ct,marginBottom:2}}>#{act.queue} — {act.name}</h2><p style={S.hlp}>{act.groupName||"Individual"} · {act.status}</p></div>
+              {(()=>{
+                const custHistory=visits.filter(v=>v.phone===act.phone&&v.status==="Paid & Closed"&&v.id!==act.id).slice(-5).reverse();
+                const custFav=(()=>{const all=custHistory.flatMap(v=>(v.services||[]).map(l=>l.name));if(!all.length)return null;return all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0];})();
+                const[showHist,setShowHist]=React.useState(false);
+                return custHistory.length>0&&<>
+                  <button onClick={()=>setShowHist(s=>!s)} style={{...S.btnS,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}}>
+                    📋 {showHist?"Hide":"See"} History ({custHistory.length} visit{custHistory.length>1?"s":""})
+                  </button>
+                  {showHist&&<div style={{background:"#F0F9FF",border:"0.5px solid #BAE6FD",borderRadius:12,padding:12,marginTop:8}}>
+                    {custFav&&<p style={{margin:"0 0 8px",fontSize:12,color:"#0369A1",fontWeight:500}}>⭐ Usually gets: <b>{custFav}</b></p>}
+                    {custHistory.map((v,i)=><div key={v.id} style={{marginBottom:i<custHistory.length-1?8:0,paddingBottom:i<custHistory.length-1?8:0,borderBottom:i<custHistory.length-1?"0.5px solid #E0F2FE":"none"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                        <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{v.date}</span>
+                        <b style={{fontSize:12,color:"#166534"}}>{money(v.totalService)}</b>
+                      </div>
+                      {(v.services||[]).filter(l=>l.status!=="Cancelled").map((l,j)=><p key={j} style={{margin:"1px 0",fontSize:11,color:"#475569"}}>· {l.name}{l.employee?" — "+l.employee:""}</p>)}
+                    </div>)}
+                  </div>}
+                </>;
+              })()}
               {act.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:10,padding:"6px 14px",fontWeight:800,fontSize:13}}>✓ Ready</span>}
             </div>
             {act.status==="Ready for Payment"&&<div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:10,fontSize:13}}>Ready for checkout.<button style={{...S.btnS,marginTop:8,width:"auto",padding:"7px 14px"}} onClick={reopen}>{t("reopen")}</button></div>}
@@ -2103,6 +2158,16 @@ export default function App(){
                         <span style={{background:c.co,color:"#fff",borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:800,marginRight:6}}>{b.status}</span>
                         <b style={{fontSize:13,color:"#111827"}}>{b.customerName}</b>
                         <span style={{fontSize:11,color:"#374151",marginLeft:6}}>{b.serviceName}</span>
+                        {(()=>{
+                          const cPh=b.customerPhone;
+                          const cVisits=visits.filter(v=>v.phone===cPh&&v.status==="Paid & Closed");
+                          const allSvcs=cVisits.flatMap(v=>(v.services||[]).map(l=>l.name));
+                          const fav=allSvcs.length?allSvcs.sort((a2,b2)=>allSvcs.filter(x=>x===b2).length-allSvcs.filter(x=>x===a2).length)[0]:null;
+                          if(!cVisits.length)return <span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:5,padding:"1px 6px",fontSize:10,marginLeft:6}}>New customer</span>;
+                          return <span style={{background:"#EBF5EE",color:"#166534",borderRadius:5,padding:"1px 6px",fontSize:10,marginLeft:6}}>
+                            {cVisits.length} visit{cVisits.length>1?"s":""}{fav?" · fav: "+fav.slice(0,20):""}
+                          </span>;
+                        })()}
                         <div style={{fontSize:11,color:"#374151",marginTop:2}}>
                           ⏱ {b.durationMins}min · {b.time}–{(()=>{const[h,m]=b.time.split(":").map(Number);const total=h*60+m+Number(b.durationMins||60);return String(Math.floor(total/60)%24).padStart(2,"0")+":"+String(total%60).padStart(2,"0");})()}
                           {" · "}{b.people} person{b.people>1?"s":""}
@@ -2120,7 +2185,9 @@ export default function App(){
                           </button>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:500}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,marginRight:4}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
-                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>}
+                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>
+                        }
+                        {["Pending","Confirmed","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:10}} onClick={()=>printBookingSlip(b)}>🖨 Slip</button>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
                         <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>
                         <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:"",time:"",people:b.people,notes:b.notes,gender:b.gender||"",wantBeautyQueue:false});}}>📅 Reschedule</button>
@@ -2461,6 +2528,42 @@ export default function App(){
       </section>}
 
       {tab==="Customers"&&<section style={S.card}><h2 style={S.ct}>Customer Database ({custs.length})</h2>
+        {/* Retention Report */}
+        {(()=>{
+          const d30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+          const d60=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+          const last30Visits=visits.filter(v=>v.date>=d30&&v.status==="Paid & Closed");
+          const prev30Visits=visits.filter(v=>v.date>=d60&&v.date<d30&&v.status==="Paid & Closed");
+          // Unique customers in last 30 days
+          const last30Phones=new Set(last30Visits.map(v=>v.phone));
+          const prev30Phones=new Set(prev30Visits.map(v=>v.phone));
+          // Returning = was in prev 30 AND in last 30
+          const returning=[...last30Phones].filter(p=>prev30Phones.has(p)).length;
+          const newCusts=[...last30Phones].filter(p=>!prev30Phones.has(p)).length;
+          const returnRate=last30Phones.size>0?Math.round((returning/last30Phones.size)*100):0;
+          return <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
+            <div style={{background:"#1B2E4B",borderRadius:12,padding:"10px 12px"}}>
+              <p style={{margin:0,fontSize:9,color:"#5A8C72",letterSpacing:1,fontWeight:500}}>LAST 30 DAYS</p>
+              <b style={{fontSize:20,color:"#fff"}}>{last30Phones.size}</b>
+              <p style={{margin:0,fontSize:10,color:"#94A3B8"}}>unique customers</p>
+            </div>
+            <div style={{background:"#EBF5EE",borderRadius:12,padding:"10px 12px",border:"0.5px solid #86EFAC"}}>
+              <p style={{margin:0,fontSize:9,color:"#2D7D46",letterSpacing:1,fontWeight:500}}>RETURNING</p>
+              <b style={{fontSize:20,color:"#166534"}}>{returning}</b>
+              <p style={{margin:0,fontSize:10,color:"#2D7D46"}}>came back</p>
+            </div>
+            <div style={{background:"#EBF2FD",borderRadius:12,padding:"10px 12px",border:"0.5px solid #BFDBFE"}}>
+              <p style={{margin:0,fontSize:9,color:"#1B4FA8",letterSpacing:1,fontWeight:500}}>NEW CUSTOMERS</p>
+              <b style={{fontSize:20,color:"#1B4FA8"}}>{newCusts}</b>
+              <p style={{margin:0,fontSize:10,color:"#1B4FA8"}}>first visit</p>
+            </div>
+            <div style={{background:returnRate>=50?"#EBF5EE":returnRate>=30?"#FEF3C7":"#FEF2F2",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(returnRate>=50?"#86EFAC":returnRate>=30?"#FCD34D":"#FECACA")}}>
+              <p style={{margin:0,fontSize:9,color:returnRate>=50?"#2D7D46":returnRate>=30?"#92400E":"#B91C1C",letterSpacing:1,fontWeight:500}}>RETURN RATE</p>
+              <b style={{fontSize:20,color:returnRate>=50?"#166534":returnRate>=30?"#92400E":"#B91C1C"}}>{returnRate}%</b>
+              <p style={{margin:0,fontSize:10,color:"#64748B"}}>vs prev 30 days</p>
+            </div>
+          </div>;
+        })()}
         <input style={S.inp} placeholder="Search by name, phone or ID..." value={cSearch} onChange={e=>setCSearch(e.target.value)}/>
         {fCusts.map(c=>{const cv=visits.filter(v=>v.customerId===c.id&&v.status==="Paid & Closed");
               const cbks=bks.filter(b=>b.customerId===c.id);
@@ -2514,7 +2617,47 @@ export default function App(){
           <input style={S.inp} type="date" value={nEmp.hireDate} onChange={e=>setNEmp({...nEmp,hireDate:e.target.value})}/>
           <button style={{...S.btnP,width:"auto",padding:"0 18px"}} onClick={addEmp}>+ Add</button>
         </div>
-        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",marginBottom:10}}><input type="checkbox" checked={showFired} onChange={e=>setShowFired(e.target.checked)}/> Show inactive</label>
+        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",marginBottom:6}}><input type="checkbox" checked={showFired} onChange={e=>setShowFired(e.target.checked)}/> Show inactive</label>
+        <button onClick={()=>setShowSvcLog(s=>!s)} style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:12,fontSize:12}}>
+          ⏱ {showSvcLog?"Hide":"View"} Service Time Log ({svcLog.length} records)
+        </button>
+        {showSvcLog&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:16}}>
+          <h3 style={{...S.sh,marginBottom:12}}>⏱ Service Time Log — All Employees</h3>
+          <p style={{...S.hlp,marginBottom:10}}>Every completed service: who did it, how long it took vs expected.</p>
+          {svcLog.length===0?<p style={S.hlp}>No records yet. Times are recorded when services are marked Completed.</p>
+          :<div style={{maxHeight:400,overflowY:"auto"}}>
+            {(()=>{
+              // Group by employee
+              const byEmp={};
+              svcLog.forEach(r=>{if(!byEmp[r.employee])byEmp[r.employee]=[];byEmp[r.employee].push(r);});
+              return Object.entries(byEmp).map(([emp,records])=>{
+                const avg=Math.round(records.reduce((s,r)=>s+r.durationMins,0)/records.length);
+                return <div key={emp} style={{marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",borderRadius:10,padding:"8px 12px",marginBottom:6}}>
+                    <b style={{color:"#fff",fontSize:13}}>{emp}</b>
+                    <span style={{color:"#5A8C72",fontSize:11}}>{records.length} services · avg {avg} min</span>
+                  </div>
+                  {records.slice(0,10).map((r,i)=>{
+                    const diff=r.expectedMins>0?r.durationMins-r.expectedMins:null;
+                    const overUnder=diff===null?null:diff>5?"🔴 +"+diff+"m":diff<-5?"🟢 "+diff+"m":"🟡 on time";
+                    return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:i%2===0?"#fff":"#F8FAFC",borderRadius:8,marginBottom:3}}>
+                      <div>
+                        <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{r.service}</span>
+                        <span style={{fontSize:11,color:"#64748B",marginLeft:8}}>#{r.queue} {r.customer}</span>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                        <b style={{fontSize:13,color:"#1B2E4B"}}>{r.durationMins} min</b>
+                        {overUnder&&<span style={{fontSize:10}}>{overUnder}</span>}
+                        <span style={{fontSize:10,color:"#94A3B8"}}>{r.date}</span>
+                      </div>
+                    </div>;
+                  })}
+                  {records.length>10&&<p style={{...S.hlp,textAlign:"center",fontSize:11}}>+ {records.length-10} more records</p>}
+                </div>;
+              });
+            })()}
+          </div>}
+        </div>}
 
         {/* ── Availability Overview ── */}
         <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:14,padding:14,marginBottom:16}}>
@@ -2537,8 +2680,7 @@ export default function App(){
           })}
         </div>
         {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const grossPay=Number(emp.salary||0)+Number(extra?.commissionTotal||0);
-          const incomeTax=Math.round(calcEthTax(grossPay));
-          const net=grossPay-incomeTax-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
+          const net=grossPay-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
             <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?t("deactivate"):t("reactivate")}</button>
@@ -2567,7 +2709,6 @@ export default function App(){
           </div>
           {extra?.breakdown?.length>0&&<details style={{marginBottom:8}}><summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Breakdown ({extra.breakdown.length})</summary><div style={{paddingLeft:10,paddingTop:4}}>{extra.breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,borderBottom:"1px solid #ecdba3",padding:"2px 0"}}><span>{b.name}</span><span>{money(b.income)} → {money(b.commission)}</span></div>)}</div></details>}
           <div style={{...S.tb,padding:"10px 16px",flexDirection:"column",gap:4,alignItems:"stretch"}}>
-          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#94A3B8",fontSize:11}}>Income Tax (ETH)</span><span style={{color:"#fca5a5"}}>−{money(incomeTax)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between"}}><b>{t("netPay")}</b><b style={{fontSize:16,color:"#5A8C72"}}>{money(Math.max(0,Math.round(net)))}</b></div></div>
         </div>);})}
         {periods.length>0&&<><HR/><h3 style={S.sh}>Closed Periods</h3>{periods.slice().reverse().map((cp,i)=><details key={i} style={{...S.li,display:"block",marginBottom:8}}><summary style={{cursor:"pointer",fontWeight:700}}>{cp.period}</summary><div style={{paddingTop:8}}>{cp.employees?.map(e=>{const dd=Number(e.salary||0)/30;const ad=dd*Number(e.absentDays||0);const n=Number(e.salary||0)+Number(e.commissionTotal||0)-Number(e.loan||0)-Number(e.brokerFee||0)-Number(e.otherDeduction||0)-ad;return<div key={e.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #ecdba3",fontSize:13}}><span><b>{e.name}</b> ({e.section})</span><b>{money(Math.max(0,Math.round(n)))}</b></div>;})}</div></details>)}</>}
@@ -2575,6 +2716,40 @@ export default function App(){
       </section>}
 
       {tab==="Dashboard"&&<section style={S.card}><h2 style={S.ct}>{t("dashboard2")}</h2>
+        {/* ── Daily Briefing ── */}
+        {(()=>{
+          const todayBks2=bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show","Completed"].includes(b.status));
+          const availEmps=emps.filter(e=>e.active&&isEmpAvailableToday(e));
+          const lsItems=inventory.filter(i=>i.qty<=i.minQty&&i.minQty>0);
+          return <div style={{background:"#1B2E4B",borderRadius:14,padding:16,marginBottom:16}}>
+            <p style={{margin:"0 0 12px",fontSize:12,fontWeight:500,color:"#5A8C72",letterSpacing:1}}>TODAY AT A GLANCE</p>
+            <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:lsItems.length>0?12:0}}>
+              <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 12px"}}>
+                <p style={{margin:0,fontSize:9,color:"#94A3B8",letterSpacing:1}}>BOOKINGS TODAY</p>
+                <b style={{fontSize:20,color:"#fff"}}>{todayBks2.length}</b>
+                <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>{todayBks2.filter(b=>b.status==="Confirmed").length} confirmed</p>
+              </div>
+              <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 12px"}}>
+                <p style={{margin:0,fontSize:9,color:"#94A3B8",letterSpacing:1}}>STAFF IN TODAY</p>
+                <b style={{fontSize:20,color:"#fff"}}>{availEmps.length}</b>
+                <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>{emps.filter(e=>e.active).length-availEmps.length} off/leave</p>
+              </div>
+              <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 12px"}}>
+                <p style={{margin:0,fontSize:9,color:"#94A3B8",letterSpacing:1}}>QUEUE TODAY</p>
+                <b style={{fontSize:20,color:"#fff"}}>{todayV.length}</b>
+                <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>{todayV.filter(v=>v.status==="Paid & Closed").length} paid</p>
+              </div>
+              <div style={{background:lsItems.length>0?"rgba(185,28,28,0.3)":"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 12px"}}>
+                <p style={{margin:0,fontSize:9,color:"#94A3B8",letterSpacing:1}}>LOW STOCK</p>
+                <b style={{fontSize:20,color:lsItems.length>0?"#fca5a5":"#fff"}}>{lsItems.length}</b>
+                <p style={{margin:0,fontSize:10,color:lsItems.length>0?"#fca5a5":"#5A8C72"}}>{lsItems.length>0?"items need restock":"all good"}</p>
+              </div>
+            </div>
+            {lsItems.length>0&&<div style={{background:"rgba(185,28,28,0.2)",borderRadius:10,padding:"8px 12px",marginTop:4}}>
+              <p style={{margin:0,fontSize:11,color:"#fca5a5",fontWeight:500}}>⚠ Low: {lsItems.slice(0,4).map(i=>i.name).join(" · ")}{lsItems.length>4?" + "+(lsItems.length-4)+" more":""}</p>
+            </div>}
+          </div>;
+        })()}
         {/* Date filter */}
         <div style={{background:"#F1F5F9",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:14}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:8}}>
@@ -2624,8 +2799,80 @@ export default function App(){
           </div>
           {dailyTarget>0&&(()=>{const rev=todayV.filter(v=>v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0);const pct=Math.min(100,Math.round((rev/dailyTarget)*100));const col=pct>=100?"#166534":pct>=60?"#92400e":"#991b1b";return(<><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}><span style={{color:col,fontWeight:700}}>{pct}% of target reached</span><span style={{color:"#374151"}}>{money(rev)} / {money(dailyTarget)}</span></div><div style={{background:"#e5e7eb",borderRadius:8,height:14,overflow:"hidden"}}><div style={{background:pct>=100?"#166534":pct>=60?"#e0b85a":"#ef4444",height:"100%",width:pct+"%",borderRadius:8,transition:"width 0.5s"}}/></div>{pct>=100&&<p style={{color:"#166534",fontWeight:800,fontSize:13,margin:"6px 0 0"}}>🎉 Target reached!</p>}</>);})()}
         </div>
+        <HR/>
+        {(()=>{
+          const ranked=empC.filter(e=>e.active&&e.commissionTotal>0).sort((a,b)=>b.commissionTotal-a.commissionTotal);
+          const topRev=empC.filter(e=>e.active&&e.totalRevenue>0).sort((a,b)=>b.totalRevenue-a.totalRevenue);
+          const topSvc=empC.filter(e=>e.active&&e.serviceCount>0).sort((a,b)=>b.serviceCount-a.serviceCount);
+          if(!ranked.length&&!topSvc.length)return null;
+          const medals=["🥇","🥈","🥉"];
+          return <div style={{marginBottom:14}}>
+            <h3 style={S.sh}>⭐ Best Performing Staff — {period.label}</h3>
+            <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:8}}>
+              <div style={{background:"#F8FAFC",borderRadius:12,padding:12,border:"0.5px solid #E2E8F0"}}>
+                <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOP COMMISSION</p>
+                {ranked.slice(0,3).map((e,i)=><div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <span style={{fontSize:12}}>{medals[i]} {e.name}</span>
+                  <b style={{fontSize:12,color:"#5A8C72"}}>{money(e.commissionTotal)}</b>
+                </div>)}
+              </div>
+              <div style={{background:"#F8FAFC",borderRadius:12,padding:12,border:"0.5px solid #E2E8F0"}}>
+                <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOP REVENUE GENERATED</p>
+                {topRev.slice(0,3).map((e,i)=><div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <span style={{fontSize:12}}>{medals[i]} {e.name}</span>
+                  <b style={{fontSize:12,color:"#1B2E4B"}}>{money(e.totalRevenue)}</b>
+                </div>)}
+              </div>
+              <div style={{background:"#F8FAFC",borderRadius:12,padding:12,border:"0.5px solid #E2E8F0"}}>
+                <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>MOST SERVICES</p>
+                {topSvc.slice(0,3).map((e,i)=><div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <span style={{fontSize:12}}>{medals[i]} {e.name}</span>
+                  <b style={{fontSize:12,color:"#1B2E4B"}}>{e.serviceCount} services</b>
+                </div>)}
+              </div>
+            </div>
+            {ranked[0]&&<div style={{background:"linear-gradient(135deg,#1B2E4B,#243A5E)",borderRadius:12,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <p style={{margin:0,fontSize:10,color:"#5A8C72",fontWeight:500,letterSpacing:1}}>🏆 EMPLOYEE OF THE PERIOD</p>
+                <b style={{fontSize:16,color:"#fff"}}>{ranked[0].name}</b>
+                <p style={{margin:"2px 0 0",fontSize:11,color:"#94A3B8"}}>{ranked[0].section} · {ranked[0].serviceCount} services · {money(ranked[0].commissionTotal)} commission</p>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <p style={{margin:0,fontSize:10,color:"#94A3B8"}}>Top service</p>
+                <b style={{fontSize:12,color:"#5A8C72"}}>{ranked[0].serviceList?.[0]?.name||"—"}</b>
+              </div>
+            </div>}
+          </div>;
+        })()}
         <HR/><h3 style={S.sh}>Commission This Period — {period.label}</h3>
         {empC.filter(e=>e.active).map(emp=><div key={emp.id} style={S.li}><span>{emp.name} ({emp.section})</span><b style={{color:"#166534"}}>{money(emp.commissionTotal)}</b></div>)}
+        <HR/>
+        {(()=>{
+          // Last 7 days revenue chart
+          const days=Array.from({length:7},(_,i)=>{
+            const d=new Date(Date.now()-i*86400000);
+            const ds=d.toISOString().slice(0,10);
+            const rev=visits.filter(v=>v.date===ds&&v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0);
+            return{date:ds,label:d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric"}),rev};
+          }).reverse();
+          const maxRev=Math.max(...days.map(d=>d.rev),1);
+          return <div style={{marginBottom:16}}>
+            <h3 style={S.sh}>📊 Last 7 Days Revenue</h3>
+            <div style={{display:"flex",alignItems:"flex-end",gap:6,height:100,padding:"0 4px"}}>
+              {days.map(d=>(
+                <div key={d.date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  {d.rev>0&&<span style={{fontSize:9,color:"#475569",fontWeight:500}}>{(d.rev/1000).toFixed(1)}k</span>}
+                  <div style={{width:"100%",background:d.date===todayStr()?"#1B2E4B":"#5A8C72",borderRadius:"4px 4px 0 0",height:Math.max(4,Math.round((d.rev/maxRev)*70))+"px",opacity:d.rev===0?0.2:1,transition:"height 0.3s"}}/>
+                  <span style={{fontSize:9,color:"#64748B",textAlign:"center",lineHeight:1.2}}>{d.label}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:10,marginTop:8,justifyContent:"flex-end"}}>
+              <span style={{fontSize:10,color:"#64748B"}}>■ <span style={{color:"#1B2E4B"}}>Today</span></span>
+              <span style={{fontSize:10,color:"#64748B"}}>■ <span style={{color:"#5A8C72"}}>Previous days</span></span>
+            </div>
+          </div>;
+        })()}
         <HR/><h3 style={S.sh}>Revenue by Category</h3>
         {cats.map(cat=>{const ids=svcs.filter(s=>s.category===cat).map(s=>s.id);const rev=dPaid.flatMap(v=>(v.services||[])).filter(l=>ids.includes(l.serviceId)).reduce((s,l)=>s+lineIncome(l),0);return<div key={cat} style={S.li}><span>{cat}</span><b>{money(rev)}</b></div>;})}
           </>);
