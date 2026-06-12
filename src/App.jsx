@@ -2419,7 +2419,7 @@ export default function App(){
             setShowSvcProd(false);
             push("Product linked to service","success");
           }}>+ Save Link</button>
-        </div>
+        </div>}
         {svcProducts.length>0&&<div>
           {svcProducts.map(sp=>(
             <div key={sp.id} style={{...S.li,marginBottom:6}}>
