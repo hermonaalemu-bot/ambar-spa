@@ -882,6 +882,8 @@ export default function App(){
   const loginAttempts=React.useRef({});  // {username: {count, lockedUntil}}
   const[staff,setStaff]=useState(DEFAULT_STAFF);
   const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
+  const[pullY,setPullY]=useState(0);const[pulling,setPulling]=useState(false);const[refreshing,setRefreshing]=useState(false);
+  const pullRef=React.useRef({startY:0,pulling:false});
   const[offlineQueue,setOfflineQueue]=useState([]);
   const offlineQRef=React.useRef([]);
   const[tab,setTab]=useState("");const[mobNav,setMobNav]=useState(false);
@@ -1030,6 +1032,25 @@ export default function App(){
 
   function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
   function dismiss(id){setNotifs(p=>p.filter(n=>n.id!==id));}
+  // Pull to refresh
+  function handleTouchStart(e){
+    if(window.scrollY===0){pullRef.current={startY:e.touches[0].clientY,pulling:true};}
+  }
+  function handleTouchMove(e){
+    if(!pullRef.current.pulling)return;
+    const dy=e.touches[0].clientY-pullRef.current.startY;
+    if(dy>0&&dy<100){setPullY(dy);setPulling(true);}
+  }
+  async function handleTouchEnd(){
+    if(pullRef.current.pulling&&pullY>60){
+      setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
+      setRefreshing(true);push("Refreshing...","info");
+      await loadAll();
+      setRefreshing(false);push("Updated ✓","success");
+    } else {
+      setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
+    }
+  }
   function resetIdle(){clearTimeout(idleRef.current);idleRef.current=setTimeout(()=>setPinLocked(true),30*60*1000);}
   useEffect(()=>{if(!user)return;const evs=["mousemove","keydown","click","touchstart"];evs.forEach(e=>window.addEventListener(e,resetIdle));resetIdle();return()=>{clearTimeout(idleRef.current);evs.forEach(e=>window.removeEventListener(e,resetIdle));};},[user]);
   function unlockPin(){const f=staff.find(s=>s.id===user.id&&s.password===pinInput);if(f){setPinLocked(false);setPinInput("");setPinErr("");}else setPinErr("Wrong password.");}
@@ -1782,8 +1803,27 @@ export default function App(){
     </div>}
   </div>);
 
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#e0b85a",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
-  return(<div style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827"}}>
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  return(<div
+    style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827",touchAction:"pan-y"}}
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+  >
+    {/* Pull to refresh indicator */}
+    {(pulling||refreshing)&&<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,display:"flex",justifyContent:"center",paddingTop:Math.min(pullY,60)+"px",pointerEvents:"none",transition:refreshing?"none":"padding 0.1s"}}>
+      <div style={{background:"#1B2E4B",color:"#5A8C72",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",display:"flex",alignItems:"center",gap:8}}>
+        <span style={{display:"inline-block",animation:refreshing?"spin 1s linear infinite":"none",fontSize:14}}>↻</span>
+        {refreshing?"Refreshing...":pullY>60?"Release to refresh":"Pull to refresh"}
+      </div>
+    </div>}
+    {/* Pull to refresh indicator */}
+    {(pulling||refreshing)&&<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,display:"flex",justifyContent:"center",padding:"8px",pointerEvents:"none"}}>
+      <div style={{background:"#1B2E4B",color:"#5A8C72",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",display:"flex",alignItems:"center",gap:8,transition:"opacity 0.2s"}}>
+        <span style={{display:"inline-block",animation:refreshing?"spin 1s linear infinite":"none"}}>↻</span>
+        {refreshing?"Refreshing...":pullY>60?"Release to refresh ↑":"Pull down to refresh"}
+      </div>
+    </div>}
     <Notifs items={notifs} dismiss={dismiss}/>
     {showGS&&<div style={{position:"fixed",inset:0,background:"rgba(27,46,75,0.7)",zIndex:9990,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"80px 16px 16px"}} onClick={e=>e.target===e.currentTarget&&setShowGS(false)}>
       <div style={{background:"#fff",borderRadius:16,padding:20,width:"100%",maxWidth:560,maxHeight:"70vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
@@ -1825,7 +1865,7 @@ export default function App(){
       </div>
     </div>}
     {offline&&<div style={{background:"#b45309",color:"#fff",textAlign:"center",padding:8,fontSize:13,fontWeight:700}}>⚠ Offline — changes will not save</div>}
-    {saving&&<div style={{background:"#e0b85a",color:"#111827",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
+    {saving&&<div style={{background:"#5A8C72",color:"#fff",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
     <div style={{maxWidth:1400,margin:"0 auto",padding:sc.mob?"12px":"28px"}}>
       <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#1B2E4B",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
         <div><p style={{color:"#5A8C72",fontWeight:500,letterSpacing:2,margin:"0 0 2px",fontSize:9}}>AMBAR SPA & BEAUTY</p>
@@ -1836,12 +1876,12 @@ export default function App(){
           {notifPerm==="granted"&&<span style={{color:"#5A8C72",fontSize:11,marginLeft:6}}>🔔 ✓</span>}
           <button onClick={logout} style={{background:"transparent",border:"0.5px solid #64748B",color:"#94A3B8",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
         </div>
-        <div style={{background:"#e0b85a",color:"#111827",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:24,fontWeight:500,color:"#fff"}}>#{todayV.length+1}</h2></div>
+        <div style={{background:"#5A8C72",color:"#fff",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:24,fontWeight:500,color:"#fff"}}>#{todayV.length+1}</h2></div>
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
-        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
+        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -1866,7 +1906,7 @@ export default function App(){
             const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
             const isWaiting=v.status==="Waiting for Supervisor";
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
-            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#d1d5db":isInProgress?"#1e40af":"#e0b85a"),background:isDone?"#f9fafb":isInProgress?"#eff6ff":"#fffaf2"}}>
+            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#E2E8F0":isInProgress?"#1B4FA8":"#5A8C72"),background:isDone?"#F8FAFC":isInProgress?"#EBF2FD":"#F0FDF4"}}>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
                   <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
@@ -1921,7 +1961,7 @@ export default function App(){
                   <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{background:"#1d4ed8",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>IN PROGRESS</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("In Progress")}>{line.status}</span>
                 </button>)}
                 {waiting.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}>
-                  <span style={{display:"flex",alignItems:"center",gap:6}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#e0b85a",color:"#111827",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
+                  <span style={{display:"flex",alignItems:"center",gap:6}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#5A8C72",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
                 </button>)}
                 {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #e5e7eb"}}>
                   <p style={{fontSize:11,color:"#6b21a8",fontWeight:700,margin:"0 0 4px"}}>⏸ On Hold — will get priority when current service completes</p>
@@ -2209,7 +2249,7 @@ export default function App(){
 
       {tab==="Service Setup"&&<section style={S.card}><h2 style={S.ct}>Service & Price Management</h2>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:20,marginBottom:16}}>
-          <div><h3 style={S.sh}>Categories</h3><div style={S.r2}><input style={S.inp} value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="New category" onKeyDown={e=>e.key==="Enter"&&addCat()}/><button style={S.btnS} onClick={addCat}>+ Add</button></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{cats.map(c=><span key={c} style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700}}>{c}</span>)}</div></div>
+          <div><h3 style={S.sh}>Categories</h3><div style={S.r2}><input style={S.inp} value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="New category" onKeyDown={e=>e.key==="Enter"&&addCat()}/><button style={S.btnS} onClick={addCat}>+ Add</button></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{cats.map(c=><span key={c} style={{background:"#5A8C72",color:"#fff",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700}}>{c}</span>)}</div></div>
           <div><h3 style={S.sh}>Add New Service</h3>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               <select style={S.inp} value={nSvc.category} onChange={e=>setNSvc({...nSvc,category:e.target.value,employeeSection:e.target.value})}>{cats.map(c=><option key={c}>{c}</option>)}</select>
@@ -2638,7 +2678,7 @@ export default function App(){
                   {records.slice(0,10).map((r,i)=>{
                     const diff=r.expectedMins>0?r.durationMins-r.expectedMins:null;
                     const overUnder=diff===null?null:diff>5?"🔴 +"+diff+"m":diff<-5?"🟢 "+diff+"m":"🟡 on time";
-                    return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:i%2===0?"#fff":"#F8FAFC",borderRadius:8,marginBottom:3}}>
+                    return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:i%2===0?"#fff":"#F8FAFC",borderRadius:8,marginBottom:3,color:"#1B2E4B"}}>
                       <div>
                         <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{r.service}</span>
                         <span style={{fontSize:11,color:"#64748B",marginLeft:8}}>#{r.queue} {r.customer}</span>
@@ -2680,7 +2720,7 @@ export default function App(){
         {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const grossPay=Number(emp.salary||0)+Number(extra?.commissionTotal||0);
           const net=grossPay-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#e0b85a",color:"#111827",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
+            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#5A8C72",color:"#fff",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
             <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?t("deactivate"):t("reactivate")}</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:8}}>
@@ -2705,7 +2745,7 @@ export default function App(){
               </label>
             </div>
           </div>
-          {extra?.breakdown?.length>0&&<details style={{marginBottom:8}}><summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Breakdown ({extra.breakdown.length})</summary><div style={{paddingLeft:10,paddingTop:4}}>{extra.breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,borderBottom:"1px solid #ecdba3",padding:"2px 0"}}><span>{b.name}</span><span>{money(b.income)} → {money(b.commission)}</span></div>)}</div></details>}
+          {extra?.breakdown?.length>0&&<details style={{marginBottom:8}}><summary style={{...S.hlp,cursor:"pointer",fontWeight:700}}>Breakdown ({extra.breakdown.length})</summary><div style={{paddingLeft:10,paddingTop:4}}>{extra.breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,borderBottom:"1px solid #ecdba3",padding:"2px 0"}}><span style={{color:"#1B2E4B"}}>{b.name}</span><span style={{color:"#166534"}}>{money(b.income)} → {money(b.commission)}</span></div>)}</div></details>}
           <div style={{...S.tb,padding:"10px 16px",flexDirection:"column",gap:4,alignItems:"stretch"}}>
           <div style={{display:"flex",justifyContent:"space-between"}}><b>{t("netPay")}</b><b style={{fontSize:16,color:"#5A8C72"}}>{money(Math.max(0,Math.round(net)))}</b></div></div>
         </div>);})}
@@ -2891,7 +2931,7 @@ export default function App(){
         </div>
         <h3 style={S.sh}>All Staff ({staff.length})</h3>
         {staff.map(s=><div key={s.id} style={{...S.li,flexWrap:"wrap",gap:10,opacity:s.active?1:0.6}}>
-          <div><b style={{fontSize:15}}>{s.name}</b><span style={{background:s.role==="manager"?"#334155":s.role==="supervisor"?"#1e40af":"#f5e7c0",color:s.role==="manager"?"#e0b85a":s.role==="supervisor"?"#fff":"#6b4c11",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:8}}>{s.role}</span>{!s.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>INACTIVE</span>}<p style={S.hlp}>Username: <b>{s.id}</b></p></div>
+          <div><b style={{fontSize:15}}>{s.name}</b><span style={{background:s.role==="manager"?"#1B2E4B":s.role==="supervisor"?"#1e40af":s.role==="inventory"?"#5A8C72":"#E2E8F0",color:s.role==="manager"?"#fff":s.role==="supervisor"?"#fff":"#1B2E4B",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:8}}>{s.role}</span>{!s.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>INACTIVE</span>}<p style={S.hlp}>Username: <b>{s.id}</b></p></div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><button style={S.btnS} onClick={()=>{setEditStaff(s);setNStaff({id:s.id,name:s.name,role:s.role,password:""});}}>Edit / Reset PW</button><button style={s.active?S.btnD:S.btnS} onClick={()=>setStaffAct(s.id,!s.active)}>{s.active?t("deactivate"):t("reactivate")}</button></div>
         </div>)}
       </section>}
@@ -3115,7 +3155,7 @@ export default function App(){
 
         <HR/>
         {actLog.length===0&&<EMP>No activity recorded yet.</EMP>}
-        {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#111827"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
+        {actLog.map((a,i)=><div key={i} style={S.li}><div><b style={{color:"#1B2E4B"}}>{a.action}</b>{a.detail&&<p style={{...S.hlp,color:"#374151"}}>{a.detail}</p>}</div><div style={{textAlign:"right",flexShrink:0}}><span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700}}>{a.staff_name}</span><p style={{...S.hlp,fontSize:10,marginTop:4,color:"#6b7280"}}>{a.ts?new Date(a.ts).toLocaleString():""}</p></div></div>)}
       </section>}
 
       {tab==="Handover"&&<section style={S.card}><h2 style={S.ct}>{t("handoverLog")}</h2>
@@ -3134,7 +3174,7 @@ export default function App(){
       </section>}
 
     </div>
-    <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}} @media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
+    <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{-webkit-tap-highlight-color:transparent;box-sizing:border-box} body,html,#root{max-width:100vw;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%} button,input,select,textarea{-webkit-appearance:none;border-radius:0} @media(max-width:640px){input,select,textarea{font-size:16px!important}} @media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
   </div>);
 }
 
@@ -3215,7 +3255,7 @@ function SvcTimer({lineId,status}){
 function PS({emps,empC,period}){return <div style={{fontFamily:"Arial,sans-serif",padding:32}}>
   <div style={{textAlign:"center",marginBottom:20}}><h1 style={{margin:0}}>Ambar Spa & Beauty</h1><h2 style={{margin:"4px 0 0",fontWeight:400}}>Payroll — {period.label}</h2><p style={{fontSize:11,color:"#666"}}>Printed: {new Date().toLocaleString()}</p></div>
   <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{background:"#e0b85a"}}>{["Employee","Section","Base","Commission","Absent Ded.","Loan","Broker","Other","NET PAY"].map(h=><th key={h} style={{border:"1px solid #999",padding:"7px 9px",textAlign:"left"}}>{h}</th>)}</tr></thead>
-  <tbody>{emps.filter(e=>e.active).map((emp,i)=>{const ex=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(ex?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return <tr key={emp.id} style={{background:i%2===0?"#fff":"#fffaf2"}}>
+  <tbody>{emps.filter(e=>e.active).map((emp,i)=>{const ex=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(ex?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return <tr key={emp.id} style={{background:i%2===0?"#fff":"#F8FAFC"}}>
     <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{emp.name}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{emp.section}</td>
     <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(emp.salary||0).toLocaleString()}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(ex?.commissionTotal||0).toLocaleString()}</td>
     <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Math.round(ad).toLocaleString()}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(emp.loan||0).toLocaleString()}{emp.loanNote?" ("+emp.loanNote+")":""}</td>
