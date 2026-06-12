@@ -343,7 +343,7 @@ const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
 function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
 
-function EthPicker({value,onChange,label,...props}){
+function EthPicker({value,onChange,label,bookingDates,...props}){
   // Parse current value into Ethiopian date
   const toEth=g=>g?gregToEth(g):{y:2016,m:1,d:1};
   const parsed=toEth(value);
@@ -447,11 +447,13 @@ function EthPicker({value,onChange,label,...props}){
               const isPast=!!(props.minDate&&g<props.minDate);
               const isSel=d===selEth.d&&vm===selEth.m&&vy===selEth.y;
               const isT=d===todEth.d&&vm===todEth.m&&vy===todEth.y;
+              const hasBk=bookingDates&&bookingDates.includes(g);
               return(
-                <button key={d}
+                <div key={d} style={{position:'relative',display:'flex',flexDirection:'column',alignItems:'center'}}>
+                  <button
                   onClick={()=>!isPast&&pickDay(d)}
                   style={{
-                    padding:'7px 2px',borderRadius:8,border:'none',
+                    width:'100%',padding:'7px 2px',borderRadius:8,border:'none',
                     background:isSel?'#1d4ed8':isT?'#dbeafe':'transparent',
                     fontWeight:isSel||isT?700:400,
                     cursor:isPast?'default':'pointer',
@@ -459,6 +461,8 @@ function EthPicker({value,onChange,label,...props}){
                     color:isSel?'#fff':isPast?'#d1d5db':isT?'#1d4ed8':'#111827',
                     opacity:isPast?0.4:1,
                   }}>{d}</button>
+                  {hasBk&&<div style={{width:5,height:5,borderRadius:'50%',background:isSel?'#fff':'#5A8C72',marginTop:-4,marginBottom:2}}/>}
+                </div>
               );
             })}
           </div>
@@ -871,6 +875,7 @@ export default function App(){
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
   const[showRefund,setShowRefund]=useState(false);const[refundAmt,setRefundAmt]=useState("");const[refundReason,setRefundReason]=useState("");
   const[deActiveGrp,setDeActiveGrp]=useState(0);const[deTab2,setDeTab2]=useState("colors");const[deSaved,setDeSaved]=useState(false);
+  const[amTexts,setAmTexts]=useState(()=>({...LANG.am}));
   const[splitMode,setSplitMode]=useState(false);const[splitPayments,setSplitPayments]=useState([]);
   const[spaOnly,setSpaOnly]=useState(false); // spa direct checkout mode
   const[confirmDlg,setConfirmDlg]=useState(null); // {msg,onOk,danger}
@@ -882,6 +887,9 @@ export default function App(){
   const[inventory,setInventory]=useState(DEFAULT_INVENTORY);
   const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
   const[editInvId,setEditInvId]=useState(null);const[editInvData,setEditInvData]=useState({});
+  const[invLog,setInvLog]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");}catch{return[];}});
+  const[showInvLog,setShowInvLog]=useState(false);
+  const[invLogFilter,setInvLogFilter]=useState("all"); // "all" | "out" | "in"
   // Load inventory from Supabase — overrides defaults with saved data
   useEffect(()=>{
     supabase.from("settings").select("*").eq("key","inventory").single()
@@ -891,25 +899,54 @@ export default function App(){
           if(saved&&saved.length>0)setInventory(saved);
         }catch(e){}
       });
+    // Load saved Amharic text overrides
+    supabase.from("settings").select("*").eq("key","amTexts").single()
+      .then(({data})=>{
+        if(data?.value)try{
+          const saved=JSON.parse(data.value);
+          Object.assign(LANG.am,saved);
+          setAmTexts(p=>({...p,...saved}));
+        }catch(e){}
+      });
   },[]);
-  async function saveInv(inv){
+  async function saveInv(inv,logEntry=null){
     setInventory(inv);
+    if(logEntry){
+      const entry={...logEntry,id:Date.now(),ts:new Date().toISOString(),staff:user?.name||"Inventory"};
+      const newLog=[entry,...invLog].slice(0,500); // keep last 500
+      setInvLog(newLog);
+      try{localStorage.setItem("ambar_inv_log",JSON.stringify(newLog));}catch(e){}
+    }
     await supabase.from("settings").upsert({key:"inventory",value:JSON.stringify(inv)});
   }
   async function addInvItem(){
     if(!nInv.name||!nInv.qty)return alert("Enter item name and quantity.");
     const item={id:Date.now(),...nInv,qty:Number(nInv.qty),minQty:Number(nInv.minQty)||0,price:Number(nInv.price)||0};
-    await saveInv([...inventory,item]);
+    await saveInv([...inventory,item],{
+      itemId:item.id,itemName:item.name,category:item.category,
+      change:item.qty,newQty:item.qty,reason:"New item added",type:"in"
+    });
     setNInv({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
     push("Item added: "+item.name,"success");
   }
-  async function updInvQty(id,delta){
-    const updated=inventory.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+delta)}:i);
-    await saveInv(updated);
+  async function updInvQty(id,delta,reason="Manual adjustment"){
+    const item=inventory.find(i=>i.id===id);if(!item)return;
+    const newQty=Math.max(0,item.qty+delta);
+    const updated=inventory.map(i=>i.id===id?{...i,qty:newQty}:i);
+    await saveInv(updated,{
+      itemId:id,itemName:item.name,category:item.category,
+      change:delta,newQty,reason,
+      type:delta>0?"in":"out"
+    });
   }
   async function updateInvItem(id,fields){
+    const item=inventory.find(i=>i.id===id);
     const updated=inventory.map(i=>i.id===id?{...i,...fields}:i);
-    await saveInv(updated);
+    const qtyDiff=(fields.qty!=null?Number(fields.qty):item.qty)-item.qty;
+    await saveInv(updated, qtyDiff!==0?{
+      itemId:id,itemName:fields.name||item.name,category:fields.category||item.category,
+      change:qtyDiff,newQty:fields.qty||item.qty,reason:"Manual edit",type:qtyDiff>0?"in":"out"
+    }:null);
     setEditInvId(null);
     push("Item updated","success");
   }
@@ -922,6 +959,34 @@ export default function App(){
   }
   const INV_CATS=["Salon Products","Hair Products","Nails","Eyelash & Eyebrow","Wax & Eyebrow","Spa Products","Consumables","Cleaning","Equipment","Other"];
   const lowStock=inventory.filter(i=>i.qty<=i.minQty&&i.minQty>0);
+  // Service-product links: {productId, serviceSubs:[], qty:1}
+  const[svcProducts,setSvcProducts]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("ambar_svc_products")||"[]");}catch{return[];}
+  });
+  function saveSvcProducts(sp){setSvcProducts(sp);try{localStorage.setItem("ambar_svc_products",JSON.stringify(sp));}catch(e){}}
+  const[showSvcProd,setShowSvcProd]=useState(false);
+  const[newSvcProd,setNewSvcProd]=useState({productId:"",serviceSubs:[],qty:1});
+
+  // Shine Jam tracker — count services per bottle
+  const shineJamLog=invLog.filter(e=>e.itemName&&e.itemName.toLowerCase().includes("shine jam")&&e.type==="out");
+  const shineJamSvcCounts=shineJamLog.map((entry,idx)=>{
+    const prevEntry=shineJamLog[idx+1];
+    const from=prevEntry?new Date(prevEntry.ts):null;
+    const to=new Date(entry.ts);
+    const subs=["Braids","Ponytails","Twists"];
+    const svcsInRange=visits.filter(v=>{
+      const vd=new Date(v.date+"T12:00:00Z");
+      return(!from||vd>=from)&&vd<=to&&v.status==="Paid & Closed"&&
+        (v.services||[]).some(l=>subs.some(s=>l.sub===s||l.name.toLowerCase().includes("braid")||l.name.toLowerCase().includes("ponytail")||l.name.toLowerCase().includes("twist")));
+    });
+    const svcNames={};
+    svcsInRange.forEach(v=>(v.services||[]).forEach(l=>{
+      if(subs.some(s=>l.sub===s||l.name.toLowerCase().includes("braid")||l.name.toLowerCase().includes("ponytail")||l.name.toLowerCase().includes("twist"))){
+        svcNames[l.name]=(svcNames[l.name]||0)+1;
+      }
+    }));
+    return{ts:entry.ts,total:svcsInRange.length,breakdown:svcNames,bottleNum:shineJamLog.length-idx};
+  });
   const[newCat,setNewCat]=useState("");
   const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:EMP_SECTIONS[0],bookable:false,durationMins:60});
   const[svcF,setSvcF]=useState("All");
@@ -1371,8 +1436,25 @@ export default function App(){
     // When a service is marked Completed → unlock On Hold services for this customer
     if(f==="status"&&v==="Completed"){
       const line=vis.services.find(l=>l.lineId===lid2);
-      // Auto-deduct inventory if linked
-      if(line?.inventoryItem&&line?.inventoryQtyUsed){
+      // Auto-deduct inventory using service-product links
+      const linkedProds=svcProducts.filter(sp=>
+        sp.serviceSubs.includes(line.sub)||sp.serviceSubs.includes(line.employeeSection)
+      );
+      if(linkedProds.length>0){
+        let updInv=[...inventory];
+        linkedProds.forEach(sp=>{
+          updInv=updInv.map(i=>i.id===sp.productId?{...i,qty:Math.max(0,i.qty-sp.qty)}:i);
+          const prod=inventory.find(i=>i.id===sp.productId);
+          if(prod)push("Stock: −"+sp.qty+" "+prod.name+" ("+line.name+")","info");
+        });
+        saveInv(updInv,linkedProds.length>0?{
+          itemId:linkedProds[0].productId,
+          itemName:inventory.find(i=>i.id===linkedProds[0].productId)?.name||"",
+          category:"Auto-deduct",change:-linkedProds[0].qty,
+          newQty:Math.max(0,(inventory.find(i=>i.id===linkedProds[0].productId)?.qty||0)-linkedProds[0].qty),
+          reason:"Service completed: "+line.name,type:"out"
+        }:null);
+      } else if(line?.inventoryItem&&line?.inventoryQtyUsed){
         const updInv=inventory.map(i=>i.name===line.inventoryItem?{...i,qty:Math.max(0,i.qty-Number(line.inventoryQtyUsed||1))}:i);
         saveInv(updInv);push("Stock: −"+line.inventoryQtyUsed+" "+line.inventoryItem,"info");
       }
@@ -1921,7 +2003,7 @@ export default function App(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10,marginBottom:14}}>
           <h2 style={{...S.ct,margin:0}}>{t("bookingMgmt")}</h2>
           <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-            <EthPicker value={bkDate} onChange={d=>setBkDate((d||"").slice(0,10))}/>
+            <EthPicker value={bkDate} onChange={d=>setBkDate((d||"").slice(0,10))} bookingDates={[...new Set(bks.filter(b=>!["Cancelled","No-show","Completed"].includes(b.status)).map(b=>b.date))]}/>
             {user.role!=="supervisor"&&<>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0,background:"#0f766e",color:"#fff"}} onClick={()=>{setShowWalkIn(true);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");}}>{t("spaWalkIn")}</button>
               <button style={{...S.btnP,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={()=>{setShowBkF(true);setEditBk(null);setBkF({customerName:"",customerPhone:"",serviceId:"",date:(bkDate||todayStr()).slice(0,10),time:"10:00",people:1,notes:""});setBkWarn("");}}>{t("newBooking")}</button>
@@ -1987,7 +2069,7 @@ export default function App(){
           <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={async()=>{const{data,error}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});if(data){setBks(data.map(dbBk));push("Loaded "+data.length+" bookings","success");}if(error)push("Error: "+error.message,"warning");}}>{t("refresh")}</button>
         </div>
         <div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#0369a1"}}>
-          📊 {bks.length} total bookings in system · {bks.filter(b=>b.date===bkDate).length} on selected date · {bks.filter(b=>b.status==="Pending").length} pending
+          📊 {bks.filter(b=>!["Cancelled","No-show","Completed"].includes(b.status)&&b.date>=todayStr()).length} active upcoming bookings · {bks.filter(b=>b.date===bkDate&&!["Cancelled","No-show","Completed"].includes(b.status)).length} on selected date · {bks.filter(b=>b.status==="Pending"&&b.date>=todayStr()).length} pending confirmation
         </div>
         <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
         {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
@@ -2204,6 +2286,154 @@ export default function App(){
           </div>);
         })}
         {inventory.length===0&&<EMP>No inventory items yet. Add your first item above.</EMP>}
+
+        {/* ── Inventory Activity Log ── */}
+        <HR/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+          <h3 style={S.sh}>📋 Stock Movement Log</h3>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {["all","in","out"].map(f=>(
+              <button key={f} onClick={()=>setInvLogFilter(f)}
+                style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid "+(invLogFilter===f?"#1B2E4B":"#E2E8F0"),
+                  background:invLogFilter===f?"#1B2E4B":"#fff",color:invLogFilter===f?"#fff":"#475569",fontSize:11,fontWeight:invLogFilter===f?500:400,cursor:"pointer"}}>
+                {f==="all"?"All":f==="in"?"➕ Stock In":"➖ Stock Out"}
+              </button>
+            ))}
+            <button onClick={()=>setShowInvLog(s=>!s)}
+              style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid #E2E8F0",background:"#fff",color:"#475569",fontSize:11,cursor:"pointer"}}>
+              {showInvLog?"Hide Log":"Show Log"}
+            </button>
+          </div>
+        </div>
+        {showInvLog&&<>
+          {invLog.filter(e=>invLogFilter==="all"||e.type===invLogFilter).length===0
+            ?<EMP>No stock movements recorded yet.</EMP>
+            :<div style={{maxHeight:400,overflowY:"auto"}}>
+              {(()=>{
+                const filtered=invLog.filter(e=>invLogFilter==="all"||e.type===invLogFilter);
+                const byDate={};
+                filtered.forEach(e=>{const dk=e.ts?e.ts.slice(0,10):"Unknown";if(!byDate[dk])byDate[dk]=[];byDate[dk].push(e);});
+                const dates=Object.entries(byDate).sort((a,b)=>b[0].localeCompare(a[0]));
+                return dates.map(([date,entries])=>(
+                  <div key={date} style={{marginBottom:14}}>
+                    <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#1B2E4B",background:"#F8FAFC",padding:"4px 8px",borderRadius:6}}>
+                      {date} — {entries.length} movement{entries.length>1?"s":""}
+                      {" · "}
+                      <span style={{color:"#2D7D46"}}>+{entries.filter(e=>e.type==="in").reduce((s,e)=>s+Math.abs(e.change),0)}</span>
+                      {" · "}
+                      <span style={{color:"#B91C1C"}}>−{entries.filter(e=>e.type==="out").reduce((s,e)=>s+Math.abs(e.change),0)}</span>
+                    </p>
+                    {entries.map(e=>(
+                      <div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#fff",border:"0.5px solid #E2E8F0",borderRadius:9,marginBottom:4}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                            <span style={{background:e.type==="in"?"#EBF5EE":"#FEF2F2",color:e.type==="in"?"#166534":"#B91C1C",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>
+                              {e.type==="in"?"IN":"OUT"}
+                            </span>
+                            <b style={{fontSize:13,color:"#1B2E4B"}}>{e.itemName}</b>
+                            <span style={{fontSize:11,color:"#64748B"}}>{e.category}</span>
+                          </div>
+                          <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>{e.reason} · by {e.staff} · Stock: {e.newQty}</p>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <b style={{fontSize:16,color:e.type==="in"?"#2D7D46":"#B91C1C"}}>{e.type==="in"?"+":""}{e.change}</b>
+                          <p style={{margin:0,fontSize:9,color:"#94A3B8"}}>{e.ts?new Date(e.ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):""}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ));
+              })()}
+            </div>}
+        </>}
+
+        {/* ── Shine Jam Tracker ── */}
+        <HR/>
+        <h3 style={S.sh}>✨ Shine Jam Usage Tracker</h3>
+        <p style={{...S.hlp,marginBottom:10}}>Services done per Shine Jam bottle (Braids, Twists, Ponytails)</p>
+        {shineJamSvcCounts.length===0
+          ?<div style={{background:"#F8FAFC",borderRadius:12,padding:14,border:"0.5px solid #E2E8F0"}}>
+            <p style={{margin:0,color:"#64748B",fontSize:13}}>No Shine Jam usage recorded yet. Use the − button on Shine Jam to record when a bottle runs out.</p>
+          </div>
+          :<div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
+            {shineJamSvcCounts.map((entry,i)=>(
+              <div key={i} style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                  <b style={{color:"#1B2E4B",fontSize:13}}>Bottle #{entry.bottleNum}</b>
+                  <span style={{fontSize:11,color:"#64748B"}}>{entry.ts?new Date(entry.ts).toLocaleDateString("en-GB"):""}</span>
+                </div>
+                <div style={{background:"#EBF5EE",borderRadius:8,padding:"8px 12px",marginBottom:8}}>
+                  <b style={{fontSize:22,color:"#166534"}}>{entry.total}</b>
+                  <span style={{fontSize:12,color:"#2D7D46",marginLeft:6}}>services done</span>
+                </div>
+                {Object.entries(entry.breakdown).map(([svc,cnt])=>(
+                  <p key={svc} style={{margin:"3px 0",fontSize:12,color:"#475569"}}>· {svc}: <b>{cnt}</b></p>
+                ))}
+                {Object.keys(entry.breakdown).length===0&&<p style={{margin:0,fontSize:11,color:"#94A3B8",fontStyle:"italic"}}>No matching services found in range</p>}
+              </div>
+            ))}
+          </div>}
+
+        {/* ── Service–Product Links ── */}
+        <HR/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <h3 style={{...S.sh,margin:0}}>🔗 Product–Service Links</h3>
+            <p style={{...S.hlp,margin:"2px 0 0"}}>Link products to services so stock auto-deducts when service is completed</p>
+          </div>
+          <button onClick={()=>setShowSvcProd(s=>!s)} style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:0}}>
+            {showSvcProd?"−":"+ Add Link"}
+          </button>
+        </div>
+        {showSvcProd&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:14,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 80px",gap:8,marginBottom:8}}>
+            <div>
+              <p style={S.lbl}>Product</p>
+              <select style={S.inp} value={newSvcProd.productId} onChange={e=>setNewSvcProd(p=>({...p,productId:e.target.value}))}>
+                <option value="">— Select product —</option>
+                {inventory.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <p style={S.lbl}>Used for service type(s)</p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                {["Braids","Nails","Hair Styling","Spa","Barbershop","Wash & Pedicure","Eyebrow","Wax"].map(sub=>(
+                  <button key={sub} onClick={()=>setNewSvcProd(p=>({...p,serviceSubs:p.serviceSubs.includes(sub)?p.serviceSubs.filter(s=>s!==sub):[...p.serviceSubs,sub]}))}
+                    style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(newSvcProd.serviceSubs.includes(sub)?"#5A8C72":"#CBD5E0"),background:newSvcProd.serviceSubs.includes(sub)?"#EBF5EE":"#fff",color:newSvcProd.serviceSubs.includes(sub)?"#166534":"#475569",fontSize:11,cursor:"pointer"}}>
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p style={S.lbl}>Qty per service</p>
+              <input style={S.inp} type="number" min="1" value={newSvcProd.qty} onChange={e=>setNewSvcProd(p=>({...p,qty:Number(e.target.value)}))}/>
+            </div>
+          </div>
+          <button style={{...S.btnP,width:"auto",padding:"8px 20px"}} onClick={()=>{
+            if(!newSvcProd.productId||!newSvcProd.serviceSubs.length)return alert("Select a product and at least one service type.");
+            const prod=inventory.find(i=>String(i.id)===String(newSvcProd.productId));
+            const link={id:Date.now(),productId:Number(newSvcProd.productId),productName:prod?.name||"",serviceSubs:newSvcProd.serviceSubs,qty:newSvcProd.qty};
+            saveSvcProducts([...svcProducts,link]);
+            setNewSvcProd({productId:"",serviceSubs:[],qty:1});
+            setShowSvcProd(false);
+            push("Product linked to service","success");
+          }}>+ Save Link</button>
+        </div>
+        {svcProducts.length>0&&<div>
+          {svcProducts.map(sp=>(
+            <div key={sp.id} style={{...S.li,marginBottom:6}}>
+              <div>
+                <b style={{color:"#1B2E4B",fontSize:13}}>{sp.productName}</b>
+                <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>
+                  Used for: {sp.serviceSubs.join(", ")} · {sp.qty} unit{sp.qty>1?"s":""} per service
+                </p>
+              </div>
+              <button onClick={()=>saveSvcProducts(svcProducts.filter(s=>s.id!==sp.id))} style={{...S.btnD,flexShrink:0}}>Remove</button>
+            </div>
+          ))}
+        </div>}
+        {svcProducts.length===0&&!showSvcProd&&<p style={{...S.hlp,fontStyle:"italic"}}>No product links yet. Add one above to enable auto-deduction when services are completed.</p>}
       </section>}
 
       {tab==="Daily Closing"&&<section style={S.card}><h2 style={S.ct}>Daily Closing Report</h2>
@@ -2508,8 +2738,10 @@ export default function App(){
         function setD(key,val){saveDes({...design,[key]:val});}
         function resetAll(){saveDes(allDefs);push("Design reset to defaults","success");}
         async function saveToCloud(){
+          // Apply amTexts to LANG.am before saving
+          Object.assign(LANG.am,amTexts);
           await supabase.from("settings").upsert({key:"design",value:JSON.stringify(design)});
-          await supabase.from("settings").upsert({key:"amTexts",value:JSON.stringify(LANG.am)});
+          await supabase.from("settings").upsert({key:"amTexts",value:JSON.stringify(amTexts)});
           setDeSaved(true);setTimeout(()=>setDeSaved(false),2500);
           push("Design saved to all devices","success");
         }
@@ -2615,11 +2847,15 @@ export default function App(){
                   <span style={{fontSize:10,fontWeight:500,color:"#94A3B8"}}>English</span>
                   <span style={{fontSize:10,fontWeight:500,color:"#fff"}}>Amharic</span>
                 </div>
-                {Object.entries(LANG.am).map(([key,val])=>(
+                {Object.entries(amTexts).map(([key,val])=>(
                   <div key={key} style={{display:"grid",gridTemplateColumns:"auto 1fr 1fr",gap:"0 8px",marginBottom:6,alignItems:"center"}}>
                     <span style={{fontSize:9,color:"#94A3B8",fontFamily:"monospace",minWidth:80}}>{key}</span>
                     <div style={{padding:"5px 8px",borderRadius:7,background:"#F8FAFC",border:"0.5px solid #E2E8F0",fontSize:11,color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{LANG.en[key]||key}</div>
-                    <input value={val||""} onChange={e=>{LANG.am[key]=e.target.value;}}
+                    <input value={val||""} onChange={e=>{
+                      const v=e.target.value;
+                      LANG.am[key]=v;
+                      setAmTexts(p=>({...p,[key]:v}));
+                    }}
                       placeholder={LANG.en[key]||key}
                       style={{padding:"5px 8px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",fontSize:12,color:"#1B2E4B",width:"100%"}}/>
                   </div>
