@@ -841,12 +841,12 @@ export default function App(){
     // Layout
     wrap:  {maxWidth:1200,margin:"0 auto",padding:sc.mob?"8px":"14px 20px"},
     card:  {background:design.cardBg||"#ffffff",color:"#1B2E4B",borderRadius:16,padding:sc.mob?14:20,border:"0.5px solid #E2E8F0",boxShadow:"0 2px 12px rgba(27,46,75,0.06)",marginBottom:16},
-    ct:    {margin:"0 0 14px",fontSize:sc.mob?15:17,fontWeight:500,color:"#1B2E4B"},
-    sh:    {margin:"0 0 8px",fontSize:13,fontWeight:500,color:"#1B2E4B"},
-    hlp:   {color:"#64748B",fontSize:11,margin:"2px 0"},
-    lbl:   {margin:"0 0 4px",fontSize:12,fontWeight:500,color:"#334155"},
+    ct:    {margin:"0 0 14px",fontSize:sc.mob?15:17,fontWeight:500,color:design.txPrimary||"#1B2E4B"},
+    sh:    {margin:"0 0 8px",fontSize:13,fontWeight:500,color:design.txPrimary||"#1B2E4B"},
+    hlp:   {color:design.txSecondary||"#64748B",fontSize:11,margin:"2px 0"},
+    lbl:   {margin:"0 0 4px",fontSize:12,fontWeight:500,color:design.txLabel||"#334155"},
     // Inputs
-    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13},
+    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:design.txInp||"#1B2E4B",fontSize:13},
     ii:    {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12,width:"100%",boxSizing:"border-box"},
     ta:    {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",minHeight:60,fontSize:13},
     // Buttons
@@ -2732,7 +2732,7 @@ export default function App(){
             <div style={{background:"#f0fdf4",borderRadius:10,padding:10,border:"1px solid #86efac"}}><p style={{fontSize:10,fontWeight:700,color:"#166534",marginBottom:4}}>Commission</p><b style={{color:"#166534",fontSize:14}}>{money(extra?.commissionTotal||0)}</b></div>
             <div>
               <p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 4px"}}>Weekly Day Off</p>
-              <select value={emp.dayOff??""} onChange={e=>{updEmp(emp.id,"dayOff",e.target.value===""?null:e.target.value);push("Day off saved for "+emp.name,"success");}} style={{width:"100%",padding:"7px 9px",borderRadius:9,border:"1px solid #d1d5db",background:"#fff",fontSize:12,color:"#111827"}}>
+              <select value={emp.dayOff??""} onChange={e=>{updEmp(emp.id,"dayOff",e.target.value===""?null:e.target.value);push("Day off saved for "+emp.name,"success");}} style={{width:"100%",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",fontSize:13,color:"#1B2E4B"}}>
                 <option value="">No fixed day off</option>
                 {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=><option key={i} value={i}>{d}</option>)}
               </select>
@@ -3015,6 +3015,22 @@ export default function App(){
             {key:"scHlTx",   label:"Highlighted Stat Text",  def:"#FFFFFF"},
             {key:"scHlLb",   label:"Highlighted Stat Label", def:"#5A8C72"},
           ]},
+          {group:"Text Colors — All Sections",tokens:[
+            {key:"txPrimary",  label:"Primary Text (headings, names)",  def:"#1B2E4B"},
+            {key:"txSecondary",label:"Secondary Text (sub-labels)",     def:"#64748B"},
+            {key:"txMuted",    label:"Muted Text (hints, placeholders)",def:"#94A3B8"},
+            {key:"txSuccess",  label:"Success / Positive Text",         def:"#166534"},
+            {key:"txDanger",   label:"Danger / Alert Text",             def:"#B91C1C"},
+            {key:"txWarning",  label:"Warning Text",                    def:"#92400E"},
+            {key:"txInfo",     label:"Info / Link Text",                def:"#1B4FA8"},
+            {key:"txAccent",   label:"Accent Text (sage green)",        def:"#5A8C72"},
+            {key:"txOnDark",   label:"Text on Dark Backgrounds",        def:"#FFFFFF"},
+            {key:"txLabel",    label:"Form Label Text",                 def:"#334155"},
+            {key:"txInp",      label:"Input Field Text",                def:"#1B2E4B"},
+            {key:"txQueue",    label:"Queue Number & Name Text",        def:"#1B2E4B"},
+            {key:"txPrice",    label:"Price / Revenue Numbers",         def:"#166534"},
+            {key:"txComm",     label:"Commission Numbers",              def:"#2D7D46"},
+          ]},
         ];
         const activeGrp=deActiveGrp;const setActiveGrp=setDeActiveGrp;
         const deTab=deTab2;const setDeTab=setDeTab2;
@@ -3119,6 +3135,18 @@ export default function App(){
                   <div style={{background:getD("totBg"),borderRadius:8,padding:"8px 10px",marginTop:6,display:"flex",justifyContent:"space-between"}}>
                     <span style={{fontSize:10,color:getD("totLabel")}}>Total Income</span>
                     <span style={{fontSize:12,fontWeight:500,color:getD("totValue")}}>2,500 Birr</span>
+                  </div>
+                  {/* Text preview */}
+                  <div style={{background:"#fff",borderRadius:8,padding:"10px 12px",marginTop:8,border:"0.5px solid #E2E8F0"}}>
+                    <p style={{margin:0,fontSize:11,color:getD("txPrimary")||"#1B2E4B",fontWeight:500}}>Primary Text — Customer Name</p>
+                    <p style={{margin:"3px 0 0",fontSize:10,color:getD("txSecondary")||"#64748B"}}>Secondary — sub-label or phone number</p>
+                    <p style={{margin:"3px 0 0",fontSize:10,color:getD("txMuted")||"#94A3B8"}}>Muted — hint or placeholder</p>
+                    <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,color:getD("txSuccess")||"#166534",fontWeight:500}}>✓ Success</span>
+                      <span style={{fontSize:10,color:getD("txDanger")||"#B91C1C",fontWeight:500}}>✗ Danger</span>
+                      <span style={{fontSize:10,color:getD("txWarning")||"#92400E",fontWeight:500}}>⚠ Warning</span>
+                      <span style={{fontSize:10,color:getD("txAccent")||"#5A8C72",fontWeight:500}}>● Accent</span>
+                    </div>
                   </div>
                 </div>
               </>}
@@ -3269,5 +3297,5 @@ function L({children}){return <p style={{margin:"0 0 4px",fontSize:13,fontWeight
 function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0"}}/>;}
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
-function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"1px solid #c7b06a",background:"#fff",fontSize:12}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"1px solid #e0d4a0",background:"#fffdf7",fontSize:10,marginTop:2}}/>}</div>;}
+function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#334155",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:11,marginTop:3}}/>}</div>;}
 function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
