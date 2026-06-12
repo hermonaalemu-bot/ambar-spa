@@ -1585,9 +1585,7 @@ export default function App(){
     const sameCust=bks.find(b=>b.id!==(editBk?.id||0)&&b.customerPhone===bkF.customerPhone.trim()&&b.date===(bkF.date||bkDate).slice(0,10)&&b.time===bkF.time&&!["Cancelled","No-show","Completed"].includes(b.status));
     if(sameCust)return alert("❌ "+bkF.customerName+" already has a booking at "+bkF.time+" on "+bkF.date+" ("+sameCust.serviceName+"). Cannot double-book the same customer at the same time.");
     const warn=checkConflict(bks,bkF,svcs);
-    if(warn&&!window.confirm(warn+"
-
-Proceed anyway?"))return;
+    if(warn&&!window.confirm(warn+"\n\nProceed anyway?"))return;
     setSaving(true);
     const cid=makeId(bkF.customerName.trim(),bkF.customerPhone.trim());
     if(!custs.find(c=>c.phone===bkF.customerPhone.trim())){await supabase.from("customers").upsert({id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),total_visits:0});setCusts(p=>[...p,{id:cid,name:bkF.customerName.trim(),phone:bkF.customerPhone.trim(),totalVisits:0}]);}
