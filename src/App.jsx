@@ -1019,7 +1019,8 @@ export default function App(){
   const[nSvc,setNSvc]=useState({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:EMP_SECTIONS[0],bookable:false,durationMins:60});
   const[svcF,setSvcF]=useState("All");
   const[nEmp,setNEmp]=useState({name:"",section:EMP_SECTIONS[0]||DC[0],role:"",salary:"",hireDate:todayStr()});
-  const[showFired,setShowFired]=useState(false);const[showSvcLog,setShowSvcLog]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
+  const[showFired,setShowFired]=useState(false);const[showSvcLog,setShowSvcLog]=useState(false);
+  const[showHist,setShowHist]=useState(false);const[cSearch,setCSearch]=useState("");const[clDate,setClDate]=useState(todayStr());
   const[dashDate,setDashDate]=useState(todayStr());const[dashRange,setDashRange]=useState(false);const[dashFrom,setDashFrom]=useState(todayStr());const[dashTo,setDashTo]=useState(todayStr());
   const[bkDate,setBkDate]=useState(todayStr());const[showBkF,setShowBkF]=useState(false);const[editBk,setEditBk]=useState(null);
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:"",gender:"",wantBeautyQueue:false});
@@ -1904,8 +1905,8 @@ export default function App(){
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
-        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
+        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -1955,13 +1956,14 @@ export default function App(){
         </section>
       </main>}
 
-      {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
-        <section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
+      {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:sc.mob&&actId?"1fr":gc,gap:14}}>
+        {/* On mobile: hide queue list when customer is selected */}
+        {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
           <h3 style={S.sh}>⏳ Waiting</h3>
           {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
             :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
-              return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}>
+              return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>{setActId(v.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
                 <span style={{color:"inherit"}}>
                   <b style={{color:"inherit"}}>#{v.queue} — {v.name}</b>
                   {v.note&&<span style={{fontSize:11,marginLeft:8,color:actId===v.id?"rgba(255,255,255,0.7)":"#64748B"}}>({v.note})</span>}
@@ -1981,10 +1983,10 @@ export default function App(){
                   <b style={{fontSize:13,color:"#111827"}}>{svc.name}</b>
                   <span style={{fontSize:11,color:"#6b7280"}}>{inProg.length>0?inProg.length+" in progress · ":""}{waiting.length} waiting{onHold.length>0?" · "+onHold.length+" on hold":""}</span>
                 </div>
-                {inProg.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#EBF2FD",border:"0.5px solid #BFDBFE"}} onClick={()=>setActId(vv.id)}>
+                {inProg.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#EBF2FD",border:"0.5px solid #BFDBFE"}} onClick={()=>{setActId(vv.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
                   <span style={{display:"flex",alignItems:"center",gap:6,color:"inherit"}}><span style={{background:"#1B4FA8",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>IN PROGRESS</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("In Progress")}>{line.status}</span>
                 </button>)}
-                {waiting.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}>
+                {waiting.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>{setActId(vv.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
                   <span style={{display:"flex",alignItems:"center",gap:6,color:"inherit"}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#5A8C72",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
                 </button>)}
                 {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #e5e7eb"}}>
@@ -1994,16 +1996,17 @@ export default function App(){
                   </button>)}
                 </div>}
               </div>);})}
-        </section>
+        </section>}
+        {sc.mob&&actId&&<button onClick={()=>{setActId(null);window.scrollTo({top:0,behavior:"smooth"});}} style={{...S.btnS,width:"auto",padding:"8px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontWeight:500,color:"#1B2E4B"}}>← Back to Queue</button>}
         <section style={S.card}>
-          {!act?<EMP>← Select a customer to assign services.</EMP>:!act.services?<EMP>Loading...</EMP>:<>
+          {!act?(!sc.mob&&<EMP>← Select a customer to assign services.</EMP>):!act.services?<EMP>Loading...</EMP>:<>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
               <div><h2 style={{...S.ct,marginBottom:2}}>#{act.queue} — {act.name}</h2><p style={S.hlp}>{act.groupName||"Individual"} · {act.status}</p></div>
               {(()=>{
                 const custHistory=visits.filter(v=>v.phone===act.phone&&v.status==="Paid & Closed"&&v.id!==act.id).slice(-5).reverse();
                 const custFav=(()=>{const all=custHistory.flatMap(v=>(v.services||[]).map(l=>l.name));if(!all.length)return null;return all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0];})();
-                const[showHist,setShowHist]=React.useState(false);
-                return custHistory.length>0&&<>
+                if(!custHistory.length)return null;
+                return <>
                   <button onClick={()=>setShowHist(s=>!s)} style={{...S.btnS,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}}>
                     📋 {showHist?"Hide":"See"} History ({custHistory.length} visit{custHistory.length>1?"s":""})
                   </button>
