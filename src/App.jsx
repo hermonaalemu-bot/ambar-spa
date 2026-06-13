@@ -856,8 +856,8 @@ export default function App(){
     btnG:  {width:"100%",padding:11,borderRadius:10,border:"none",background:"#5A8C72",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:13,marginBottom:6},
     // List items
     li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6},
-    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#1B2E4B",border:"none",color:"#fff",borderRadius:12,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
-    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6,width:"100%",cursor:"pointer",textAlign:"left"},
+    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#1B2E4B",border:"none",color:"#fff",borderRadius:12,padding:"10px 14px",marginBottom:6,width:"100%",WebkitTextFillColor:"#fff",cursor:"pointer",textAlign:"left"},
+    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6,WebkitTextFillColor:"#1B2E4B",width:"100%",cursor:"pointer",textAlign:"left"},
     // Tabs
     tab:   {padding:"8px 4px",borderRadius:9,border:"0.5px solid #E2E8F0",background:"#fff",color:"#475569",fontWeight:500,cursor:"pointer",fontSize:11},
     tabA:  {padding:"8px 4px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:11},
@@ -913,6 +913,7 @@ export default function App(){
   const[inventory,setInventory]=useState(DEFAULT_INVENTORY);
   const[nInv,setNInv]=useState({name:"",category:"Salon Products",qty:"",unit:"pcs",minQty:"",price:""});
   const[editInvId,setEditInvId]=useState(null);const[editInvData,setEditInvData]=useState({});
+  const[moroccoModal,setMoroccoModal]=useState(null); // {resolve} for Morocco gender picker
   const[invLog,setInvLog]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");}catch{return[];}});
   const[svcLog,setSvcLog]=useState(()=>{try{return JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");}catch{return[];}});
   const[showInvLog,setShowInvLog]=useState(false);
@@ -1177,6 +1178,9 @@ export default function App(){
       if(s7.data?.length)setBks(s7.data.map(dbBk));
       if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
+      // Refresh localStorage logs
+      try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
+      try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
     }catch(e){console.error(e);}
     setLoading(false);
   }
@@ -1460,7 +1464,8 @@ export default function App(){
     // Morocco Bath: auto-add free included service
     const extraLines=[];
     if(isMorocco){
-      const gender=window.prompt("Morocco Bath: Type M for Men (Free Haircut) or F for Women (Free Hair Ironing):","F");
+      const gender=await new Promise(resolve=>{setMoroccoModal({resolve});});
+      setMoroccoModal(null);
       if(gender){
         const isMale=gender.trim().toUpperCase()==="M";
         extraLines.push({lineId:Date.now()+1,name:isMale?"Free Haircut (Morocco Special)":"Free Hair Ironing (Morocco Special)",category:"Barbershop",sub:isMale?"Barbershop":"Hair Styling",price:0,qty:1,discount:0,free:true,commission:10,employeeSection:isMale?"Barbershop":"Hair Styling",employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,moroccoFree:true,moroccoBasePrice:isMale?300:500});
@@ -1642,6 +1647,9 @@ export default function App(){
       return push("This booking is already checked in","warning");
     confirm2("Check in "+b.customerName+"?",async()=>{
     setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");
+      // Update booking with visitId so duplicate guard works on reload
+      await supabase.from("bookings").update({visit_id:vr.id,status:"Arrived"}).eq("id",b.id);
+      setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
     },false);
   }
   async function giveBeautyQueueFromVisit(v){
@@ -1854,6 +1862,22 @@ export default function App(){
         })()}
       </div>
     </div>}
+    {moroccoModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+        <div style={{fontSize:36,marginBottom:12}}>🧖</div>
+        <h3 style={{margin:"0 0 8px",fontSize:16,fontWeight:500,color:"#1B2E4B"}}>Morocco Bath</h3>
+        <p style={{margin:"0 0 20px",fontSize:13,color:"#64748B"}}>Choose gender for the free included service:</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <button onClick={()=>moroccoModal.resolve("F")} style={{padding:"14px",borderRadius:12,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:14,fontWeight:500,color:"#1B2E4B"}}>
+            ♀ Female<br/><span style={{fontSize:11,color:"#64748B",fontWeight:400}}>Free Hair Ironing</span>
+          </button>
+          <button onClick={()=>moroccoModal.resolve("M")} style={{padding:"14px",borderRadius:12,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:14,fontWeight:500,color:"#1B2E4B"}}>
+            ♂ Male<br/><span style={{fontSize:11,color:"#64748B",fontWeight:400}}>Free Haircut</span>
+          </button>
+        </div>
+        <button onClick={()=>moroccoModal.resolve(null)} style={{marginTop:12,padding:"8px 20px",borderRadius:10,border:"0.5px solid #E2E8F0",background:"#F8FAFC",color:"#64748B",cursor:"pointer",fontSize:12}}>Skip free service</button>
+      </div>
+    </div>}
     {confirmDlg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
         <div style={{fontSize:36,textAlign:"center",marginBottom:12}}>{confirmDlg.danger?"⚠️":"❓"}</div>
@@ -1880,8 +1904,8 @@ export default function App(){
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
-        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>setTab(tk)}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
+        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -1938,9 +1962,9 @@ export default function App(){
             :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
               return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}>
-                <span>
-                  <b>#{v.queue} — {v.name}</b>
-                  {v.note&&<span style={{...S.hlp,marginLeft:8}}>({v.note})</span>}
+                <span style={{color:"inherit"}}>
+                  <b style={{color:"inherit"}}>#{v.queue} — {v.name}</b>
+                  {v.note&&<span style={{fontSize:11,marginLeft:8,color:actId===v.id?"rgba(255,255,255,0.7)":"#64748B"}}>({v.note})</span>}
                   <span style={{fontSize:10,color:actId===v.id?"#e0b85a":"#6b7280",marginLeft:8}}>{ahead===0?"Next up":"Position "+(ahead+1)}</span>
                 </span>
                 <span style={SB("Waiting for Supervisor")}>New</span>
@@ -1957,11 +1981,11 @@ export default function App(){
                   <b style={{fontSize:13,color:"#111827"}}>{svc.name}</b>
                   <span style={{fontSize:11,color:"#6b7280"}}>{inProg.length>0?inProg.length+" in progress · ":""}{waiting.length} waiting{onHold.length>0?" · "+onHold.length+" on hold":""}</span>
                 </div>
-                {inProg.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#eff6ff",border:"1px solid #bfdbfe"}} onClick={()=>setActId(vv.id)}>
-                  <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{background:"#1d4ed8",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>IN PROGRESS</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("In Progress")}>{line.status}</span>
+                {inProg.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#EBF2FD",border:"0.5px solid #BFDBFE"}} onClick={()=>setActId(vv.id)}>
+                  <span style={{display:"flex",alignItems:"center",gap:6,color:"inherit"}}><span style={{background:"#1B4FA8",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>IN PROGRESS</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("In Progress")}>{line.status}</span>
                 </button>)}
                 {waiting.map(({visit:vv,line},i)=><button key={line.lineId} style={actId===vv.id?S.liA:S.liB} onClick={()=>setActId(vv.id)}>
-                  <span style={{display:"flex",alignItems:"center",gap:6}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#5A8C72",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
+                  <span style={{display:"flex",alignItems:"center",gap:6,color:"inherit"}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#5A8C72",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
                 </button>)}
                 {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #e5e7eb"}}>
                   <p style={{fontSize:11,color:"#6b21a8",fontWeight:700,margin:"0 0 4px"}}>⏸ On Hold — will get priority when current service completes</p>
@@ -3202,7 +3226,7 @@ export default function App(){
       </section>}
 
     </div>
-    <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{-webkit-tap-highlight-color:transparent;box-sizing:border-box} body,html,#root{max-width:100vw;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%} button,input,select,textarea{-webkit-appearance:none;border-radius:0} @media(max-width:640px){input,select,textarea{font-size:16px!important}} @media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
+    <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{-webkit-tap-highlight-color:transparent;box-sizing:border-box} body,html,#root{max-width:100vw;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%} button{color:inherit;-webkit-appearance:none;border-radius:0;font-family:inherit}input,select,textarea{-webkit-appearance:none;border-radius:0} @media(max-width:640px){input,select,textarea{font-size:16px!important}} @media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
   </div>);
 }
 
