@@ -894,6 +894,9 @@ export default function App(){
   const[emps,setEmps]=useState(DEFAULT_EMPLOYEES);const[custs,setCusts]=useState([]);
   const[visits,setVisits]=useState([]);const[exps,setExps]=useState([]);
   const[periods,setPeriods]=useState([]);const[bks,setBks]=useState([]);const[actLog,setActLog]=useState([]);
+  const[backupLog,setBackupLog]=useState([]);
+  const[lastBackup,setLastBackup]=useState(()=>localStorage.getItem("ambar_spa_last_backup")||null);
+  const autoBackupChecked=useRef(false);
   const[actId,setActId]=useState(null);
   const[svCat,setSvCat]=useState(DC[0]);const[svSub,setSvSub]=useState("All");const[svSvcId,setSvSvcId]=useState("");
   const[coQ,setCoQ]=useState("");
@@ -1165,14 +1168,16 @@ export default function App(){
   async function loadAll(){
     setLoading(true);
     try{
-      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10]=await Promise.all([
+      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11]=await Promise.all([
         supabase.from("services").select("*"),supabase.from("employees").select("*"),
         supabase.from("customers").select("*"),supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
         supabase.from("expenses").select("*"),supabase.from("closed_periods").select("*"),
         supabase.from("bookings").select("*").order("date").order("time"),
         supabase.from("staff").select("*"),supabase.from("categories").select("*"),
         supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(100),
+        supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60),
       ]);
+      if(s11.data)setBackupLog(s11.data);
       if(s9.data?.length)setCats(s9.data.map(c=>c.name));
       if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
       if(s2.data?.length)setEmps(s2.data.map(dbEmp));
@@ -1807,6 +1812,112 @@ export default function App(){
   async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Math.max(0,Number(v)||0);setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("employees").update({[df]:val}).eq("id",id);if(error)push("Failed to save employee change — please retry","error");},800);}
   async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("employees").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
 // ── Commission Excel Export — organized, professional, easy to read ──
+  // ── Build organized backup payload (all business data) ──
+  function buildBackupPayload(backupType){
+    const record_counts={
+      visits:visits.length,bookings:bks.length,customers:custs.length,
+      employees:emps.length,expenses:exps.length,services:svcs.length,
+      categories:cats.length,closed_periods:periods.length,
+      staff:staff.length,activity_log:actLog.length,
+    };
+    const total_records=Object.values(record_counts).reduce((a,b)=>a+b,0);
+    return{
+      _meta:{
+        business:"Ambar Spa & Beauty",
+        format_version:"1.0",
+        generated_at:new Date().toISOString(),
+        generated_by:user?.name||"unknown",
+        backup_type:backupType,
+        record_counts,
+        total_records,
+      },
+      visits,bookings:bks,customers:custs,employees:emps,expenses:exps,
+      services:svcs,categories:cats,closed_periods:periods,
+      staff,activity_log:actLog,
+    };
+  }
+
+  // ── Full data backup — download to this device ──────────
+  async function downloadBackup(){
+    const payload=buildBackupPayload("manual download — "+(user?.name||"unknown"));
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`ambar-spa-backup-${todayStr()}.json`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const ts=new Date().toISOString();
+    localStorage.setItem("ambar_spa_last_backup",ts);
+    setLastBackup(ts);
+    logAct(user,"Backup Downloaded",`Full export — ${payload._meta.total_records} total records`);
+    push("Backup downloaded","success");
+  }
+
+  // ── Cloud backup — saved to Supabase Storage, logged in backup_log ──
+  async function cloudBackup(backupType){
+    try{
+      const payload=buildBackupPayload(backupType);
+      const json=JSON.stringify(payload,null,2);
+      const blob=new Blob([json],{type:"application/json"});
+      const stamp=new Date().toISOString().replace(/[:.]/g,"-");
+      const filename=`backup-${stamp}.json`;
+      const{error}=await supabase.storage.from("backups").upload(filename,blob,{contentType:"application/json"});
+      if(error){console.error(error);push("Cloud backup failed: "+error.message,"error");return null;}
+      const{record_counts,total_records}=payload._meta;
+      const{data}=await supabase.from("backup_log").insert({
+        file_path:filename,triggered_by:backupType,record_counts,total_records,
+      }).select().single();
+      if(data)setBackupLog(p=>[data,...p]);
+      const ts=new Date().toISOString();
+      localStorage.setItem("ambar_spa_last_backup",ts);
+      setLastBackup(ts);
+      logAct(user,"Cloud Backup Created",`${backupType} — ${total_records} total records`);
+      push("Cloud backup saved — "+total_records+" records","success");
+      return data;
+    }catch(e){console.error(e);push("Cloud backup failed","error");return null;}
+  }
+
+  // ── Download a past cloud backup ─────────────────────────
+  async function downloadCloudBackup(filePath){
+    const{data,error}=await supabase.storage.from("backups").download(filePath);
+    if(error){push("Download failed: "+error.message,"error");return;}
+    const url=URL.createObjectURL(data);
+    const a=document.createElement("a");
+    a.href=url;a.download=filePath;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Delete an old cloud backup ────────────────────────────
+  async function deleteCloudBackup(entry){
+    if(!window.confirm("Delete this backup permanently?"))return;
+    await supabase.storage.from("backups").remove([entry.file_path]);
+    await supabase.from("backup_log").delete().eq("id",entry.id);
+    setBackupLog(p=>p.filter(b=>b.id!==entry.id));
+    push("Backup deleted","success");
+  }
+
+  // ── Automatic end-of-day backup (once per day, only if new data) ──
+  useEffect(()=>{
+    if(!user||autoBackupChecked.current)return;
+    if(loading)return;
+    const now=new Date();
+    if(now.getHours()<22)return; // only after 10 PM local time (after the auto-close job)
+    const todayD=todayStr();
+    const hasToday=backupLog.some(b=>(b.created_at||"").slice(0,10)===todayD);
+    if(hasToday){autoBackupChecked.current=true;return;}
+    const currentTotal=visits.length+bks.length+custs.length+emps.length+exps.length+
+      svcs.length+cats.length+periods.length+staff.length;
+    if(currentTotal===0)return;
+    const lastTotal=backupLog[0]?.total_records??-1;
+    if(currentTotal!==lastTotal){
+      autoBackupChecked.current=true;
+      cloudBackup("automatic (end of day)");
+    }else{
+      autoBackupChecked.current=true;
+    }
+  },[loading,backupLog,user,visits,bks,custs,emps,exps,svcs,cats,periods,staff]);
+
   async function downloadCommissionExcel(){
     const XLSX=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
     const wb=XLSX.utils.book_new();
@@ -3184,6 +3295,50 @@ export default function App(){
 
       {tab==="Staff"&&<section style={S.card}><h2 style={S.ct}>{t("staffMgmt")}</h2>
         <p style={S.hlp}>Reception: Reception + Checkout + Bookings. Supervisor: Supervisor + Bookings. Manager: All.</p><HR/>
+
+        {/* Data Backup & Security */}
+        <div style={{background:"#1B2E4B",borderRadius:14,padding:16,marginBottom:16}}>
+          <h3 style={{margin:"0 0 4px",fontWeight:800,fontSize:15,color:"#fff"}}>💾 Data Backup & Security</h3>
+          <p style={{margin:"0 0 12px",fontSize:12,color:"rgba(255,255,255,0.65)"}}>
+            Back up all customers, visits, bookings, employees, expenses, and staff accounts.
+            The system also saves an automatic cloud backup at the end of each day if new data was added.
+          </p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <button onClick={()=>cloudBackup("manual cloud backup — "+(user?.name||""))}
+              style={{...S.btnS,background:"#2D7D46",color:"#fff",borderColor:"#2D7D46"}}>
+              ☁ Backup to Cloud Now
+            </button>
+            <button onClick={downloadBackup}
+              style={{...S.btnS,background:"rgba(255,255,255,0.1)",color:"#fff",borderColor:"rgba(255,255,255,0.3)"}}>
+              💾 Download Backup File
+            </button>
+            <span style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>
+              {(()=>{
+                const daysSince=lastBackup?Math.floor((Date.now()-new Date(lastBackup))/86400000):null;
+                return daysSince===null?"⚠ No backup yet — back up now to protect your data.":
+                  daysSince===0?"✓ Backed up today":
+                  `⚠ Last backup: ${daysSince} day${daysSince===1?"":"s"} ago`;
+              })()}
+              {backupLog[0]&&` · Latest cloud backup: ${new Date(backupLog[0].created_at).toLocaleString()} (${backupLog[0].total_records} records)`}
+            </span>
+          </div>
+        </div>
+
+        {/* Cloud Backup History */}
+        {backupLog.length>0&&<div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16,marginBottom:16}}>
+          <h3 style={{margin:"0 0 10px",fontWeight:800,fontSize:14}}>Cloud Backup History</h3>
+          {backupLog.slice(0,10).map(b=><div key={b.id} style={S.li}>
+            <div>
+              <b style={{fontSize:12}}>{new Date(b.created_at).toLocaleString()}</b>
+              <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>{b.total_records} total records · {b.triggered_by}</p>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>downloadCloudBackup(b.file_path)} style={{...S.btnS,marginBottom:0,fontSize:11,padding:"5px 10px"}}>⬇ Download</button>
+              <button onClick={()=>deleteCloudBackup(b)} style={{...S.btnS,marginBottom:0,fontSize:11,padding:"5px 10px",color:"#DC2626",borderColor:"#DC262644"}}>🗑</button>
+            </div>
+          </div>)}
+        </div>}
+        <HR/>
         <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16,marginBottom:16}}>
           <h3 style={{margin:"0 0 14px",fontWeight:800,fontSize:15}}>{editStaff?"Edit: "+editStaff.id:"Add / Update Staff Account"}</h3>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
