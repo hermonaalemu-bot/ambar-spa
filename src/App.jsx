@@ -247,7 +247,7 @@ function timeSlots(){const s=[];for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++)for(let m=0
 function exportCSV(rows,fn){const k=Object.keys(rows[0]||{});const csv=[k.join(","),...rows.map(r=>k.map(x=>JSON.stringify(r[x]??"")).join(","))].join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download=fn;a.click();}
 function printBookingSlip(b){
   const w=window.open("","_blank","width=380,height=500");
-  w.document.write(`<!DOCTYPE html><html><head><title>Booking Confirmation</title><style>
+  w.document.write(`<!DOCTYPE html><html><head><title>Booking Confirmation</title><meta charset="utf-8"><style>
     body{font-family:Arial,sans-serif;padding:24px;color:#111;max-width:340px;margin:0 auto}
     .logo{text-align:center;margin-bottom:16px}.logo h1{margin:0;font-size:18px;color:#1B2E4B}
     .logo p{margin:4px 0 0;font-size:11px;color:#5A8C72;letter-spacing:2px}
@@ -283,7 +283,7 @@ function printReceipt(visit,emps){
   const tips=visit.tips||[];const tipTotal=tips.reduce((s,t)=>s+Number(t.amount||0),0);
   const visitDate=visit.date||todayStr();
   const lines=(visit.services||[]).filter(l=>l.status!=="Cancelled");
-  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><meta charset="utf-8"><style>
     body{font-family:Arial,sans-serif;padding:20px;max-width:320px;margin:0 auto;font-size:13px;}
     h2{text-align:center;margin:0 0 4px;font-size:18px;}
     .center{text-align:center;} .line{border-top:1px dashed #ccc;margin:8px 0;}
@@ -1146,7 +1146,11 @@ export default function App(){
       // Auto-close stale sessions at 10PM
       if(now.getHours()>=22){
         const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled"].includes(v.status));
-        for(const v of stale){await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed 10PM]"}).eq("id",v.id);}
+        for(const v of stale){
+          const{error}=await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed 10PM]"}).eq("id",v.id);
+          if(error)console.error("Auto-close failed for",v.name,error.message);
+          else setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Cancelled",note:(x.note?x.note+" ":"")+"[Auto-closed 10PM]"}:x));
+        }
         // Generate end of day summary notification
         if(stale.length===0&&now.getHours()===22&&now.getMinutes()<2){
           const paid=visits.filter(v=>v.date===todayStr()&&v.status==="Paid & Closed");
@@ -1448,13 +1452,15 @@ export default function App(){
     const v=visits.find(x=>x.id===id);if(!v)return;
     if(v.services.length>0)return alert("Remove all services before cancelling.");
     confirm2("Cancel and remove this customer?",async()=>{
-      await supabase.from("visits").delete().eq("id",id);
+      const{error}=await supabase.from("visits").delete().eq("id",id);
+      if(error){push("Failed to cancel: "+error.message,"error");return;}
       setVisits(p=>p.filter(x=>x.id!==id));
       if(actId===id)setActId(null);
       logAct(user,"Cancelled visit",v.name);
+      push(v.name+" removed","success");
     },true);
   }
-  async function addDE(){if(!deItem.trim()||!deUnit)return alert("Enter item and price.");const q=Math.max(1,Number(deQty||1)),u=Number(deUnit||0);const row={id:Date.now(),date:todayStr(),type:"Daily Operation",name:deItem,reason:"",qty:q,unit:u,total:q*u};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setDeItem("");setDeQty(1);setDeUnit("");}
+  async function addDE(){if(!deItem.trim()||!deUnit)return alert("Enter item and price.");const q=Math.max(1,Number(deQty||1)),u=Number(deUnit||0);const row={id:Date.now(),date:todayStr(),type:"Daily Operation",name:deItem,reason:"",qty:q,unit:u,total:q*u};const{error}=await supabase.from("expenses").insert(row);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setDeItem("");setDeQty(1);setDeUnit("");}
   async function addSvc(){
     if(!act)return alert("Select a customer first.");
     const s=svcs.find(s=>s.id===Number(svSvcId));if(!s)return alert("Select a service.");
@@ -1479,7 +1485,11 @@ export default function App(){
     setVisits(prev=>prev.map(v=>v.id===act.id?{...v,services:upd,totalService:newTotal,status:"With Supervisor"}:v));
     setSvSvcId("");
     // Save in background with retry
-    await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal,status:"With Supervisor"}).eq("id",act.id));
+    const{error}=await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal,status:"With Supervisor"}).eq("id",act.id));
+    if(error){
+      push("Failed to save service — please retry: "+error.message,"error");
+      setVisits(prev=>prev.map(v=>v.id===act.id?act:v)); // rollback to pre-edit state
+    }
   }
   async function updLine(vid,lid2,f,v){
     const vis=visits.find(x=>x.id===vid);if(!vis)return;
@@ -1526,8 +1536,10 @@ export default function App(){
         if(l.status==="On Hold")return{...l,status:"Waiting"};
         return l;
       });
-      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
-      // Notify supervisor
+      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid).then(({error})=>{
+        if(error){push("Failed to save — please retry","error");return;}
+        setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd}:v));
+      });
       const unlocked=vis.services.filter(l=>l.lineId!==lid2&&l.status==="On Hold");
       if(unlocked.length>0){
         push("⭐ "+vis.name+" #"+vis.queue+" finished "+line.name+" — NEXT in line for: "+unlocked.map(l=>l.name).join(", ")+" (after any In Progress services finish)","success");
@@ -1545,13 +1557,16 @@ export default function App(){
         return l;
       });
       const hasInProgress=upd.some(l=>l.status==="In Progress");
-      await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0),status:hasInProgress?"In Service":"With Supervisor"}).eq("id",vid);
       setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd,status:hasInProgress?"In Service":"With Supervisor"}:v));
+      const{error}=await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0),status:hasInProgress?"In Service":"With Supervisor"}).eq("id",vid);
+      if(error)push("Failed to save status change — please retry","error");
       return;
     }
 
     const upd=vis.services.map(l=>l.lineId!==lid2?l:{...l,[f]:nv});
-    await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
+    setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd}:v));
+    const{error}=await supabase.from("visits").update({services:upd,total_service:upd.reduce((s,l)=>s+lineIncome(l),0)}).eq("id",vid);
+    if(error)push("Failed to save change — please retry","error");
   }
   async function moveLine(vid,lid2,dir){
     const vis=visits.find(x=>x.id===vid);if(!vis)return;
@@ -1559,7 +1574,9 @@ export default function App(){
     const newIdx=dir==="up"?idx-1:idx+1;
     if(newIdx<0||newIdx>=vis.services.length)return;
     const upd=[...vis.services];const tmp=upd[idx];upd[idx]=upd[newIdx];upd[newIdx]=tmp;
-    await supabase.from("visits").update({services:upd}).eq("id",vid);
+    setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd}:v));
+    const{error}=await supabase.from("visits").update({services:upd}).eq("id",vid);
+    if(error)push("Failed to save order — please retry","error");
   }
   function remLine(vid,lid2){
     confirm2("Remove this service?",async()=>{
@@ -1567,15 +1584,26 @@ export default function App(){
       const upd=vis.services.filter(l=>l.lineId!==lid2);
       const newTotal=upd.reduce((s,l)=>s+lineIncome(l),0);
       setVisits(prev=>prev.map(v=>v.id===vid?{...v,services:upd,totalService:newTotal}:v));
-      await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal}).eq("id",vid));
+      await dbRetry(()=>supabase.from("visits").update({services:upd,total_service:newTotal}).eq("id",vid)).then(({error})=>{
+        if(error)push("Failed to save — please retry","error");
+      });
     },true);
   }
   async function markReady(){
     if(!act)return;
     if(!(act.services||[]).length)return alert("Add at least one service before marking ready.");
     if((act.services||[]).some(l=>l.status==="Waiting"&&!l.employee))
-      return alert("Please assign an employee to all services before marking ready.");if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);logAct(user,"Ready for Payment",act.name);}
-  async function reopen(){await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);}
+      return alert("Please assign an employee to all services before marking ready.");if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);
+    const{error}=await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);
+    if(error){push("Failed to mark ready — please retry: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(v=>v.id===act.id?{...v,status:"Ready for Payment"}:v));
+    logAct(user,"Ready for Payment",act.name);
+  }
+  async function reopen(){
+    const{error}=await supabase.from("visits").update({status:"In Service"}).eq("id",act.id);
+    if(error){push("Failed to reopen — please retry","error");return;}
+    setVisits(prev=>prev.map(v=>v.id===act.id?{...v,status:"In Service"}:v));
+  }
   function addTip(){if(!tipEmp)return alert("Select an employee.");if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
   async function processRefund(vid){
     const v=visits.find(x=>x.id===vid);if(!v)return;
@@ -1583,22 +1611,40 @@ export default function App(){
     if(amt>v.totalPaid)return alert("Refund cannot exceed amount paid ("+money(v.totalPaid)+").");
     confirm2("Issue refund of "+money(amt)+" for "+v.name+"?",async()=>{
       const refundNote="[REFUND "+money(amt)+(refundReason?" — "+refundReason:"")+"]";
-      await supabase.from("visits").update({
+      const{error}=await supabase.from("visits").update({
         note:(v.note?v.note+" ":"")+refundNote,
         total_paid:v.totalPaid-amt,
         status:"Paid & Closed"
       }).eq("id",vid);
+      if(error){push("Refund failed to save — please retry: "+error.message,"error");return;}
       setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt}:x));
       logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":""));
       push("Refund of "+money(amt)+" issued for "+v.name,"success");
       setShowRefund(false);setRefundAmt("");setRefundReason("");
     },true);
   }
-  async function confirmPay(grp=false){if(!act)return;const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];for(const id of ids){const v=visits.find(x=>x.id===id);const mt=id===act.id?tips:[];const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);}logAct(user,"Payment",act.name+" — "+money(act.totalService)+" via "+payM);
+  async function confirmPay(grp=false){
+    if(!act)return;
+    const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];
+    for(const id of ids){
+      const v=visits.find(x=>x.id===id);
+      const mt=id===act.id?tips:[];
+      const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);
+      const{error}=await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);
+      if(error){push("Payment save failed for "+v.name+": "+error.message,"error");return;}
+    }
+    setVisits(prev=>prev.map(v=>ids.includes(v.id)?{...v,status:"Paid & Closed",paymentMethod:payM}:v));
+    logAct(user,"Payment",act.name+" — "+money(act.totalService)+" via "+payM);
     // Mark related booking as Completed if exists
     const relBk=bks.find(b=>b.visitId&&ids.includes(b.visitId));
-    if(relBk)await supabase.from("bookings").update({status:"Completed"}).eq("id",relBk.id);
-    setTips([]);setActId(null);setCashGiven("");setShowRefund(false);}
+    if(relBk){
+      const{error}=await supabase.from("bookings").update({status:"Completed"}).eq("id",relBk.id);
+      if(error)console.error("Booking status update failed:",error.message);
+      else setBks(prev=>prev.map(b=>b.id===relBk.id?{...b,status:"Completed"}:b));
+    }
+    push("Payment confirmed — "+money(act.totalService)+" via "+payM,"success");
+    setTips([]);setActId(null);setCashGiven("");setShowRefund(false);
+  }
   async function saveBk(){
     const sid=Number(bkF.serviceId)||0;
     const s=sid?svcs.find(sv=>sv.id===sid&&sv.bookable===true):null;
@@ -1641,16 +1687,26 @@ export default function App(){
   async function updBk(id,status){
     // Optimistic
     setBks(prev=>prev.map(b=>b.id===id?{...b,status}:b));
-    await dbRetry(()=>supabase.from("bookings").update({status}).eq("id",id));
+    const{error}=await dbRetry(()=>supabase.from("bookings").update({status}).eq("id",id));
+    if(error)push("Failed to update booking status — please retry","error");
   }
   async function checkIn(b){
     if(b.visitId&&visits.find(v=>v.id===b.visitId))
       return push("This booking is already checked in","warning");
     confirm2("Check in "+b.customerName+"?",async()=>{
-    setSaving(true);const cid=makeId(b.customerName,b.customerPhone);const tc=visits.filter(v=>v.date===todayStr()).length;const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};await supabase.from("visits").insert(vr);await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);logAct(user,"Check-in",b.customerName);setSaving(false);push(b.customerName+" checked in — Queue #"+vr.queue,"success");
-      // Update booking with visitId so duplicate guard works on reload
-      await supabase.from("bookings").update({visit_id:vr.id,status:"Arrived"}).eq("id",b.id);
+      setSaving(true);
+      const cid=makeId(b.customerName,b.customerPhone);
+      const tc=visits.filter(v=>v.date===todayStr()).length;
+      const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};
+      const{error:visErr}=await supabase.from("visits").insert(vr);
+      if(visErr){push("Check-in failed: "+visErr.message,"error");setSaving(false);return;}
+      const{error:bkErr}=await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);
+      if(bkErr)console.error("Booking status update failed:",bkErr.message);
+      setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
       setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
+      logAct(user,"Check-in",b.customerName);
+      setSaving(false);
+      push(b.customerName+" checked in — Queue #"+vr.queue,"success");
     },false);
   }
   async function giveBeautyQueueFromVisit(v){
@@ -1671,11 +1727,12 @@ export default function App(){
         status:"Waiting for Supervisor",
         note:"From Spa — "+v.services.filter(l=>l.employeeSection==="Spa").map(l=>l.name).join(", ")
       };
-      await supabase.from("visits").insert(vr);
-      setVisits(prev=>[...prev,vr]);
+      const{error:insErr}=await supabase.from("visits").insert(vr);
+      if(insErr){push("Failed to create beauty queue: "+insErr.message,"error");return;}
+      setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
       // Mark original visit with beauty queue number
-      await supabase.from("visits").update({note:(v.note?v.note+" | ":"")+"Transferred to Beauty #"+qNum}).eq("id",v.id);
-
+      const{error:updErr}=await supabase.from("visits").update({note:(v.note?v.note+" | ":"")+"Transferred to Beauty #"+qNum}).eq("id",v.id);
+      if(updErr)console.error("Note update failed:",updErr.message);
       setVisits(prev=>prev.map(vv=>vv.id===v.id?{...vv,beautyQueueNum:qNum}:vv));
       push(v.name+" → Beauty Salon Queue #"+qNum,"success");
     },false);
@@ -1703,55 +1760,228 @@ export default function App(){
       status:"Waiting for Supervisor",
       note:"From Spa Booking — "+b.serviceName+(b.gender?" ("+b.gender+")":"")
     };
-    await supabase.from("visits").insert(vr);
-    setVisits(prev=>[...prev,vr]);
+    const{error:insErr}=await supabase.from("visits").insert(vr);
+    if(insErr){push("Failed to create beauty queue: "+insErr.message,"error");return;}
+    setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
     // Update booking with beauty queue number
-    await supabase.from("bookings").update({beauty_queue_num:qNum}).eq("id",b.id);
+    const{error:bkErr}=await supabase.from("bookings").update({beauty_queue_num:qNum}).eq("id",b.id);
+    if(bkErr)console.error("Booking update failed:",bkErr.message);
     setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,beautyQueueNum:qNum}:bk));
     logAct(user,"Beauty Queue",b.customerName+" — Queue #"+qNum+" (from Spa)");
     push(b.customerName+" added to Beauty Salon as Queue #"+qNum,"success");
   }
-  async function delBk(id){if(!window.confirm("Delete this booking?"))return;await supabase.from("bookings").delete().eq("id",id);}
+  async function delBk(id){
+    if(!window.confirm("Delete this booking?"))return;
+    const{error}=await supabase.from("bookings").delete().eq("id",id);
+    if(error){push("Failed to delete booking: "+error.message,"error");return;}
+    setBks(prev=>prev.filter(b=>b.id!==id));
+    push("Booking deleted","success");
+  }
   async function addSpaWalkIn(){
     if(!wiName.trim()||!wiPhone.trim()||!wiSvcId)return alert("Enter customer name, phone and select a service.");
     setSaving(true);
     const s=svcs.find(sv=>sv.id===Number(wiSvcId));
     const cid=makeId(wiName.trim(),wiPhone.trim());
     const fc=custs.find(c=>c.phone===wiPhone.trim()),ntv=(fc?.totalVisits||0)+1;
-    await supabase.from("customers").upsert({id:cid,name:wiName.trim(),phone:wiPhone.trim(),total_visits:ntv});
+    const{error:custErr}=await supabase.from("customers").upsert({id:cid,name:wiName.trim(),phone:wiPhone.trim(),total_visits:ntv});
+    if(custErr){push("Failed to save customer: "+custErr.message,"error");setSaving(false);return;}
     if(!fc)setCusts(p=>[...p,{id:cid,name:wiName.trim(),phone:wiPhone.trim(),totalVisits:ntv}]);
+    else setCusts(p=>p.map(c=>c.phone===wiPhone.trim()?{...c,totalVisits:ntv}:c));
     const tc=visits.filter(v=>v.date===todayStr()).length;
     const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:wiName.trim(),payer_name:wiName.trim(),phone:wiPhone.trim(),group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(s?"Spa Walk-in: "+s.name:"Spa Walk-in")+(wiNote?" — "+wiNote:"")};
-    await supabase.from("visits").insert(vr);
+    const{error:visErr}=await supabase.from("visits").insert(vr);
+    if(visErr){push("Failed to add walk-in: "+visErr.message,"error");setSaving(false);return;}
+    setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
     logAct(user,"Spa Walk-in",wiName.trim()+(s?" — "+s.name:""));
     setShowWalkIn(false);setWiSvcId("");setWiName("");setWiPhone("");setWiNote("");setSaving(false);
     markArrival(vr.id);
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
-  async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};await supabase.from("expenses").insert(row);setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
-  async function delE(id){if(!window.confirm("Delete?"))return;await supabase.from("expenses").delete().eq("id",id);setExps(p=>p.filter(e=>e.id!==id));}
-  async function addCat(){if(!newCat.trim()||cats.includes(newCat.trim()))return;await supabase.from("categories").insert({name:newCat.trim()});setCats(p=>[...p,newCat.trim()]);setNewCat("");}
-  async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};await supabase.from("services").insert(r);setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
-  async function updSvc(id,f,v){const df=f==="employeeSection"?"employee_section":f==="durationMins"?"duration_mins":f;const val=["price","commission","durationMins"].includes(f)?Number(v)||0:f==="bookable"?v:v;setSvcs(p=>p.map(s=>s.id===id?{...s,[f]:val}:s));clearTimeout(dRef.current[id+f]);dRef.current[id+f]=setTimeout(async()=>await supabase.from("services").update({[df]:val}).eq("id",id),800);}
-  async function delSvc(id){if(!window.confirm("Remove this service?"))return;await supabase.from("services").delete().eq("id",id);setSvcs(p=>p.filter(s=>s.id!==id));}
-  async function addEmp(){if(!nEmp.name.trim())return alert("Enter employee name.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};await supabase.from("employees").insert(r);setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
-  async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Number(v)||0;setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>await supabase.from("employees").update({[df]:val}).eq("id",id),800);}
-  async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;await supabase.from("employees").update({active}).eq("id",id);setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
-  async function closePeriod(){if(!window.confirm("Close pay period "+period.label+"?"))return;const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});for(const e of emps)await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));logAct(user,"Closed period",period.label);alert("Period closed.");}
-  async function saveStaff(){if(!nStaff.id.trim()||!nStaff.name.trim()||!nStaff.password.trim())return alert("Fill all fields.");const r={id:nStaff.id.trim().toLowerCase(),name:nStaff.name.trim(),role:nStaff.role,password:nStaff.password.trim(),active:true};await supabase.from("staff").upsert(r);setStaff(p=>{const i=p.findIndex(s=>s.id===r.id);if(i>=0){const n=[...p];n[i]=r;return n;}return[...p,r];});logAct(user,"Staff saved",r.name);setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);alert("Saved.");}
-  async function setStaffAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;await supabase.from("staff").update({active}).eq("id",id);setStaff(p=>p.map(s=>s.id===id?{...s,active}:s));}
+  async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};const{error}=await supabase.from("expenses").insert(row);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
+  async function delE(id){if(!window.confirm("Delete?"))return;const{error}=await supabase.from("expenses").delete().eq("id",id);if(error){push("Failed to delete: "+error.message,"error");return;}setExps(p=>p.filter(e=>e.id!==id));}
+  async function addCat(){if(!newCat.trim())return alert("Enter a category name.");if(cats.includes(newCat.trim()))return alert("That category already exists.");const{error}=await supabase.from("categories").insert({name:newCat.trim()});if(error){push("Failed to save category: "+error.message,"error");return;}setCats(p=>[...p,newCat.trim()]);setNewCat("");}
+  async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");if(Number(nSvc.price)<=0)return alert("Price must be greater than 0.");if(Number(nSvc.commission||0)<0)return alert("Commission cannot be negative.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};const{error}=await supabase.from("services").insert(r);if(error){push("Failed to save service: "+error.message,"error");return;}setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
+  async function updSvc(id,f,v){const df=f==="employeeSection"?"employee_section":f==="durationMins"?"duration_mins":f;const val=["price","commission","durationMins"].includes(f)?Math.max(0,Number(v)||0):f==="bookable"?v:v;setSvcs(p=>p.map(s=>s.id===id?{...s,[f]:val}:s));clearTimeout(dRef.current[id+f]);dRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("services").update({[df]:val}).eq("id",id);if(error)push("Failed to save service change — please retry","error");},800);}
+  async function delSvc(id){if(!window.confirm("Remove this service?"))return;const{error}=await supabase.from("services").delete().eq("id",id);if(error){push("Failed to delete service: "+error.message,"error");return;}setSvcs(p=>p.filter(s=>s.id!==id));}
+  async function addEmp(){if(!nEmp.name.trim())return alert("Enter employee name.");if(Number(nEmp.salary)<0)return alert("Salary cannot be negative.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};const{error}=await supabase.from("employees").insert(r);if(error){push("Failed to add employee: "+error.message,"error");return;}setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
+  async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Math.max(0,Number(v)||0);setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("employees").update({[df]:val}).eq("id",id);if(error)push("Failed to save employee change — please retry","error");},800);}
+  async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("employees").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
+// ── Commission Excel Export — organized, professional, easy to read ──
+  async function downloadCommissionExcel(){
+    const XLSX=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+    const wb=XLSX.utils.book_new();
+
+    const HEADER_FILL={patternType:"solid",fgColor:{rgb:"1B2E4B"}}; // spa navy
+    const SUBHEAD_FILL={patternType:"solid",fgColor:{rgb:"2D4570"}};
+    const ALT_ROW={patternType:"solid",fgColor:{rgb:"F4F7FB"}};
+    const TOTAL_FILL={patternType:"solid",fgColor:{rgb:"FEF9EC"}};
+    const WHITE={patternType:"solid",fgColor:{rgb:"FFFFFF"}};
+
+    function hCell(v,extra={}){
+      return{v,t:"s",s:{font:{bold:true,color:{rgb:"FFFFFF"},sz:11},
+        fill:HEADER_FILL,alignment:{horizontal:"center",vertical:"center",wrapText:true},
+        border:{bottom:{style:"medium",color:{rgb:"FFFFFF"}}},...extra}};
+    }
+    function strCell(v,fill=WHITE,bold=false){
+      return{v:v||"",t:"s",s:{fill,font:{bold},alignment:{wrapText:true,vertical:"top"},
+        border:{bottom:{style:"thin",color:{rgb:"E0E0E0"}}}}};
+    }
+    function numCell(v,fill=WHITE,fmt="#,##0"){
+      return{v:v!==""&&v!==null&&v!==undefined?Number(v):null,
+        t:v!==""&&v!==null&&v!==undefined?"n":"s",
+        s:{fill,alignment:{horizontal:"right"},numFmt:fmt,
+        border:{bottom:{style:"thin",color:{rgb:"E0E0E0"}}}}};
+    }
+
+    // ── Sheet 1: Current Period Commission Summary ──────────────
+    function buildPeriodSheet(empList,periodLabel,periodStart,periodEnd){
+      const aoa=[];
+      aoa.push([{v:"AMBAR SPA & BEAUTY — EMPLOYEE COMMISSION REPORT",t:"s",
+        s:{font:{bold:true,sz:14,color:{rgb:"FFFFFF"}},fill:HEADER_FILL,alignment:{horizontal:"center"}}}]);
+      aoa.push([{v:`Pay Period: ${periodLabel}  |  Exported: ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})}`,
+        t:"s",s:{font:{italic:true,sz:10,color:{rgb:"FFFFFF"}},fill:SUBHEAD_FILL,alignment:{horizontal:"center"}}}]);
+      aoa.push([]);
+      aoa.push([
+        hCell("Employee"),hCell("Section"),hCell("Services\nCompleted"),
+        hCell("Total Revenue\nGenerated (Birr)"),hCell("Commission\nEarned (Birr)"),
+        hCell("Base\nSalary (Birr)"),hCell("Absent\nDays"),hCell("Loan\n(Birr)"),
+        hCell("Broker Fee\n(Birr)"),hCell("Other\nDeduction (Birr)"),hCell("NET PAY\n(Birr)"),
+      ]);
+      let totalComm=0,totalRev=0,totalNet=0;
+      empList.forEach((e,i)=>{
+        const fill=i%2===0?WHITE:ALT_ROW;
+        const net=Number(e.salary||0)+Number(e.commissionTotal||0)-Number(e.absentDays||0)*(Number(e.salary||0)/30)-Number(e.loan||0)-Number(e.brokerFee||0)-Number(e.otherDeduction||0);
+        totalComm+=Number(e.commissionTotal||0);totalRev+=Number(e.totalRevenue||0);totalNet+=net;
+        aoa.push([
+          strCell(e.name,fill,true),
+          strCell(e.section,fill),
+          numCell(e.serviceCount||0,fill,"0"),
+          numCell(e.totalRevenue||0,fill),
+          numCell(e.commissionTotal||0,{patternType:"solid",fgColor:{rgb:"E8F5E9"}}),
+          numCell(e.salary||0,fill),
+          numCell(e.absentDays||0,fill,"0"),
+          numCell(e.loan||0,fill),
+          numCell(e.brokerFee||0,fill),
+          numCell(e.otherDeduction||0,fill),
+          {v:Math.round(net),t:"n",s:{fill:{patternType:"solid",fgColor:{rgb:"D6EFDB"}},
+            font:{bold:true},alignment:{horizontal:"right"},numFmt:"#,##0",
+            border:{bottom:{style:"thin",color:{rgb:"E0E0E0"}}}}},
+        ]);
+      });
+      // Totals row
+      aoa.push([
+        {v:"TOTAL",t:"s",s:{font:{bold:true},fill:TOTAL_FILL,alignment:{horizontal:"right"}}},
+        {v:"",t:"s",s:{fill:TOTAL_FILL}},
+        {v:empList.reduce((s,e)=>s+(e.serviceCount||0),0),t:"n",s:{font:{bold:true},fill:TOTAL_FILL,alignment:{horizontal:"right"},numFmt:"0"}},
+        {v:Math.round(totalRev),t:"n",s:{font:{bold:true},fill:TOTAL_FILL,alignment:{horizontal:"right"},numFmt:"#,##0"}},
+        {v:Math.round(totalComm),t:"n",s:{font:{bold:true},fill:TOTAL_FILL,alignment:{horizontal:"right"},numFmt:"#,##0"}},
+        {v:"",t:"s",s:{fill:TOTAL_FILL}},{v:"",t:"s",s:{fill:TOTAL_FILL}},
+        {v:"",t:"s",s:{fill:TOTAL_FILL}},{v:"",t:"s",s:{fill:TOTAL_FILL}},{v:"",t:"s",s:{fill:TOTAL_FILL}},
+        {v:Math.round(totalNet),t:"n",s:{font:{bold:true,sz:12},fill:TOTAL_FILL,alignment:{horizontal:"right"},numFmt:"#,##0"}},
+      ]);
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:10}},{s:{r:1,c:0},e:{r:1,c:10}}];
+      ws["!cols"]=[{wch:20},{wch:14},{wch:11},{wch:16},{wch:14},{wch:13},{wch:9},{wch:11},{wch:12},{wch:13},{wch:14}];
+      ws["!rows"]=[{hpt:30},{hpt:22},{hpt:6},{hpt:40}];
+      return ws;
+    }
+
+    const ws1=buildPeriodSheet(empC,period.label,period.start,period.end);
+    XLSX.utils.book_append_sheet(wb,ws1,"Current Period");
+
+    // ── Sheet 2: Per-Employee Service Breakdown (current period) ──
+    const breakdownRows=[];
+    empC.forEach(e=>{
+      if(!e.breakdown||e.breakdown.length===0)return;
+      e.breakdown.forEach(b=>{
+        breakdownRows.push({
+          "Employee":e.name,"Section":e.section,"Service":b.name,
+          "Revenue (Birr)":Math.round(b.income),"Commission (Birr)":Math.round(b.commission),
+        });
+      });
+    });
+    if(breakdownRows.length>0){
+      const ws2=XLSX.utils.json_to_sheet(breakdownRows);
+      ws2["!cols"]=[{wch:20},{wch:14},{wch:28},{wch:14},{wch:14}];
+      XLSX.utils.book_append_sheet(wb,ws2,"Service Breakdown");
+    }
+
+    // ── Sheet 3: Service Popularity per Employee ──────────────
+    const popRows=[];
+    empC.forEach(e=>{
+      if(!e.serviceList||e.serviceList.length===0)return;
+      e.serviceList.forEach(s=>{
+        popRows.push({"Employee":e.name,"Service":s.name,"Times Performed":s.count});
+      });
+    });
+    if(popRows.length>0){
+      const ws3=XLSX.utils.json_to_sheet(popRows);
+      ws3["!cols"]=[{wch:20},{wch:28},{wch:16}];
+      XLSX.utils.book_append_sheet(wb,ws3,"Service Popularity");
+    }
+
+    // ── Sheet 4+: Historical Closed Periods (one sheet each, most recent first) ──
+    const sortedHistory=[...periods].sort((a,b)=>(b.closedAt||"").localeCompare(a.closedAt||"")).slice(0,12);
+    sortedHistory.forEach((p,idx)=>{
+      const empList=(p.employees||[]).map(e=>({...e}));
+      const ws=buildPeriodSheet(empList,p.period,p.start,p.end);
+      const sheetName=("Closed "+p.period).replace(/[\\\/\?\*\[\]:]/g,"-").slice(0,31);
+      XLSX.utils.book_append_sheet(wb,ws,sheetName);
+    });
+
+    // ── Summary sheet ──────────────────────────────────────────
+    const summaryRows=[
+      {"Category":"Export Date","Value":new Date().toLocaleDateString("en-GB")},
+      {"Category":"Current Pay Period","Value":period.label},
+      {"Category":"Active Employees","Value":emps.filter(e=>e.active).length},
+      {"Category":"Current Period — Total Commission (Birr)","Value":Math.round(empC.reduce((s,e)=>s+(e.commissionTotal||0),0))},
+      {"Category":"Current Period — Total Revenue (Birr)","Value":Math.round(empC.reduce((s,e)=>s+(e.totalRevenue||0),0))},
+      {"Category":"Closed Periods Included","Value":sortedHistory.length},
+    ];
+    const wsS=XLSX.utils.json_to_sheet(summaryRows);
+    wsS["!cols"]=[{wch:38},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,wsS,"Summary");
+
+    XLSX.writeFile(wb,`ambar-spa-commission-${todayStr()}.xlsx`);
+    logAct(user,"Commission Excel Exported",period.label+" + "+sortedHistory.length+" historical periods");
+    push("Commission report downloaded — "+(2+sortedHistory.length+(breakdownRows.length>0?1:0)+(popRows.length>0?1:0))+" sheets","success");
+  }
+
+  async function closePeriod(){
+    if(!window.confirm("Close pay period "+period.label+"?"))return;
+    const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));
+    const{error:cpErr}=await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});
+    if(cpErr){push("Failed to close period: "+cpErr.message,"error");return;}
+    let resetFailed=false;
+    for(const e of emps){
+      const{error}=await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);
+      if(error){resetFailed=true;console.error("Reset failed for",e.name,error.message);}
+    }
+    setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));
+    logAct(user,"Closed period",period.label);
+    if(resetFailed)push("Period closed, but some employee resets failed — check Employees tab","warning");
+    else push("Pay period closed successfully","success");
+  }
+  async function saveStaff(){if(!nStaff.id.trim()||!nStaff.name.trim()||!nStaff.password.trim())return alert("Fill all fields.");const r={id:nStaff.id.trim().toLowerCase(),name:nStaff.name.trim(),role:nStaff.role,password:nStaff.password.trim(),active:true};const{error}=await supabase.from("staff").upsert(r);if(error){push("Failed to save staff: "+error.message,"error");return;}setStaff(p=>{const i=p.findIndex(s=>s.id===r.id);if(i>=0){const n=[...p];n[i]=r;return n;}return[...p,r];});logAct(user,"Staff saved",r.name);setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);push("Staff account saved","success");}
+  async function setStaffAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("staff").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setStaff(p=>p.map(s=>s.id===id?{...s,active}:s));}
   async function delCust(id){
     if(!window.confirm("Delete this customer? They can be restored from the Customers tab."))return;
     const c=custs.find(x=>x.id===id);if(!c)return;
     const deletedAt=new Date().toISOString();
     setCusts(p=>p.filter(x=>x.id!==id));
-    push("Customer deleted — tap Restore in Customers tab within 30 days","warning");
     // Soft delete — set deleted_at timestamp
-    await supabase.from("customers").update({deleted_at:deletedAt}).eq("id",id);
+    const{error}=await supabase.from("customers").update({deleted_at:deletedAt}).eq("id",id);
+    if(error){
+      setCusts(p=>[...p,c]); // rollback
+      push("Failed to delete customer: "+error.message,"error");
+      return;
+    }
+    push("Customer deleted — tap Restore in Customers tab within 30 days","warning");
     logAct(user,"Deleted customer",c.name);
   }
   async function restoreCust(id){
-    await supabase.from("customers").update({deleted_at:null}).eq("id",id);
+    const{error}=await supabase.from("customers").update({deleted_at:null}).eq("id",id);
+    if(error){push("Failed to restore customer: "+error.message,"error");return;}
     const{data}=await supabase.from("customers").select("*").eq("id",id).single();
     if(data)setCusts(p=>[...p,dbCust(data)]);
     push("Customer restored","success");
@@ -2109,7 +2339,15 @@ export default function App(){
                 <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#166534"}}>Individual Payments</p>
                 {visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=><div key={v.id} style={{...S.li,marginBottom:6,background:v.status==="Paid & Closed"?"#dcfce7":"#fff"}}>
                   <div><b>{v.name}</b><p style={S.hlp}>{money(v.totalService)}</p></div>
-                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700}}>✓ Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Paid & Closed",paymentMethod:payM,totalPaid:v.totalService}:x));await supabase.from("visits").update({payment_method:payM,total_paid:v.totalService,status:"Paid & Closed",tips:[]}).eq("id",v.id);}}>Pay {money(v.totalService)}</button>}
+                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700}}>✓ Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{
+                    const prevStatus=v.status;
+                    setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Paid & Closed",paymentMethod:payM,totalPaid:v.totalService}:x));
+                    const{error}=await supabase.from("visits").update({payment_method:payM,total_paid:v.totalService,status:"Paid & Closed",tips:[]}).eq("id",v.id);
+                    if(error){
+                      push("Payment failed to save — please retry: "+error.message,"error");
+                      setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:prevStatus}:x));
+                    }
+                  }}>Pay {money(v.totalService)}</button>}
                 </div>)}
               </div>}
             </>}
@@ -2670,7 +2908,7 @@ export default function App(){
       {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>{t("payrollMgmt")}</h2>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
           <div><p style={{...S.hlp,margin:0,color:"#374151"}}>Current pay period</p><b style={{fontSize:15}}>{period.label}</b></div>
-          <div style={{display:"flex",gap:8}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>{t("closePayPeriod")}</button></div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnS,background:"#1B2E4B",color:"#fff",borderColor:"#1B2E4B"}} onClick={downloadCommissionExcel}>📊 Download Commission Report</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>{t("closePayPeriod")}</button></div>
         </div>
         <div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:14,fontSize:13}}>Commissions update live. Close & Pay to freeze and reset for next period.</div>
         <h3 style={S.sh}>{t("addEmployee")}</h3>
@@ -3263,7 +3501,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
               </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} min="1" onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
           {!isSv&&<>
             <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" value={line.discount} onChange={e=>onUpd(line.lineId,"discount",e.target.value)} disabled={locked}/></div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:0}}>Free</p><input type="checkbox" checked={line.free} onChange={e=>onUpd(line.lineId,"free",e.target.checked)} disabled={locked} style={{width:16,height:16}}/></div>
