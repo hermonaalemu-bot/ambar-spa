@@ -1211,8 +1211,10 @@ export default function App(){
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"visits"},p=>{
         setVisits(prev=>prev.map(x=>x.id===p.new.id?dbVis(p.new):x));
         if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push("✅ "+p.new.name+" paid","success");
-        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push("💳 "+p.new.name+" ready for payment","payment");
-              nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
+        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment"){
+          push("💳 "+p.new.name+" ready for payment","payment");
+          nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
+        }
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"visits"},p=>{setVisits(prev=>prev.filter(x=>x.id!==p.old.id));})
       .subscribe();
@@ -1275,7 +1277,9 @@ export default function App(){
       );
       // Seed categories & services only if empty
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
+      let seeded=false;
       if(cc===0){
+        seeded=true;
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
         await supabase.from("services").insert(FULL_SERVICES.map(s=>({
           id:s.id,category:s.category,sub:s.sub,name:s.name,price:s.price,
@@ -1284,8 +1288,9 @@ export default function App(){
         })));
       }
       const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
-      if(sc===0)await supabase.from("staff").insert(DEFAULT_STAFF);
-      await loadAll();
+      if(sc===0){seeded=true;await supabase.from("staff").insert(DEFAULT_STAFF);}
+      // Only reload if we actually seeded fresh data — avoids double-load on normal startup
+      if(seeded)await loadAll();
     }
     seed();
   },[user]);
