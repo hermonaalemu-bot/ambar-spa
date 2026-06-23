@@ -1148,7 +1148,7 @@ export default function App(){
       const now=new Date();
       // Auto-close stale sessions at 10PM
       if(now.getHours()>=22){
-        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled"].includes(v.status));
+        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled","Ready for Payment"].includes(v.status));
         for(const v of stale){
           const{error}=await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed 10PM]"}).eq("id",v.id);
           if(error)console.error("Auto-close failed for",v.name,error.message);
@@ -1602,8 +1602,15 @@ export default function App(){
   async function markReady(){
     if(!act)return;
     if(!(act.services||[]).length)return alert("Add at least one service before marking ready.");
-    if((act.services||[]).some(l=>l.status==="Waiting"&&!l.employee))
-      return alert("Please assign an employee to all services before marking ready.");if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);
+    // Block if any service is still In Progress or On Hold
+    const inProg=act.services.find(l=>["In Progress","On Hold"].includes(l.status));
+    if(inProg)return alert("Cannot mark ready — \""+inProg.name+"\" is still "+inProg.status+". Wait for all services to finish.");
+    // Block if any non-cancelled service is not Completed
+    const notDone=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));
+    if(notDone)return alert("Cannot mark ready — \""+notDone.name+"\" is still "+notDone.status+". Mark it Completed or Cancelled first.");
+    // Block if any non-cancelled service has no employee assigned
+    const noEmp=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);
+    if(noEmp)return alert("Assign an employee to \""+noEmp.name+"\" before marking ready.");
     const{error}=await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);
     if(error){push("Failed to mark ready — please retry: "+error.message,"error");return;}
     setVisits(prev=>prev.map(v=>v.id===act.id?{...v,status:"Ready for Payment"}:v));
@@ -1635,6 +1642,12 @@ export default function App(){
   }
   async function confirmPay(grp=false){
     if(!act)return;
+    // Guard: prevent paying a visit that's already paid
+    if(act.status==="Paid & Closed")return push("This customer is already paid and closed","error");
+    // Guard: prevent paying before marked ready
+    if(act.status!=="Ready for Payment")return push("This customer is not ready for payment yet. Supervisor must mark them ready first.","error");
+    // Guard: must have at least one service
+    if(!(act.services||[]).filter(l=>l.status!=="Cancelled").length)return push("Cannot process payment — no services recorded for this customer","error");
     const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];
     for(const id of ids){
       const v=visits.find(x=>x.id===id);
@@ -2412,7 +2425,15 @@ export default function App(){
               <button style={{...S.btnP,background:"#dc2626",color:"#fff"}} onClick={()=>processRefund(act.id)}>Confirm Refund</button>
             </div>}
           </div>
-           :!act.services?<EMP>Loading...</EMP>:<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
+           :!act.services?<EMP>Loading...</EMP>
+           :act.status!=="Ready for Payment"?<div style={{textAlign:"center",padding:"40px 20px"}}>
+              <div style={{fontSize:40,marginBottom:12}}>⏳</div>
+              <h3 style={{margin:"0 0 8px",color:"#1B2E4B"}}>#{act.queue} — {act.name}</h3>
+              <p style={{color:"#64748B",fontSize:14,margin:"0 0 4px"}}>Status: <b style={{color:"#92400E"}}>{act.status}</b></p>
+              <p style={{color:"#64748B",fontSize:13,margin:0}}>This customer is not ready for payment yet.<br/>Supervisor must mark them "Ready for Payment" first.</p>
+              <button style={{...S.btnS,marginTop:16}} onClick={()=>setActId(null)}>← Back to list</button>
+            </div>
+           :<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
             <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             <HR/><h3 style={{margin:"0 0 4px",fontWeight:800}}>Tips</h3><p style={S.hlp}>Tips go directly to employees, not counted as revenue.</p>
             <div style={S.r2}><select style={S.inp} value={tipEmp} onChange={e=>setTipEmp(e.target.value)}><option value="">Select employee</option>{emps.filter(e=>e.active).map(e=><option key={e.id}>{e.name}</option>)}</select><input style={S.inp} type="number" value={tipAmt} onChange={e=>setTipAmt(e.target.value)} placeholder="Amount (Birr)"/></div>
