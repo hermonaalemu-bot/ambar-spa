@@ -1312,6 +1312,17 @@ export default function App(){
       v.name.toLowerCase().includes(q)||
       v.phone.includes(q));
   },[visits,coQ]);
+
+  // Checkout guard: if the selected visit is not ready, clear it
+  // This catches cases where actId was set from Supervisor tab
+  useEffect(()=>{
+    if(tab==="Checkout"&&actId){
+      const v=visits.find(x=>x.id===actId);
+      if(v&&!["Ready for Payment","Paid & Closed"].includes(v.status)){
+        setActId(null);
+      }
+    }
+  },[tab,actId,visits]);
   const clV=visits.filter(v=>v.date===clDate);
   const clE=exps.filter(e=>e.date===clDate&&e.type==="Daily Operation");
   const clCash=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod==="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
@@ -2264,8 +2275,8 @@ export default function App(){
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
-        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
+        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk==="Checkout"){if(act&&act.status!=="Ready for Payment"&&act.status!=="Paid & Closed")setActId(null);}else if(tk!=="Supervisor")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk==="Checkout"){if(act&&act.status!=="Ready for Payment"&&act.status!=="Paid & Closed")setActId(null);}else if(tk!=="Supervisor")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
