@@ -1046,31 +1046,42 @@ export default function App(){
   async function loadAll(){
     setLoading(true);
     try{
-      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11]=await Promise.all([
-        supabase.from("services").select("*"),supabase.from("employees").select("*"),
-        supabase.from("customers").select("*"),supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
-        supabase.from("expenses").select("*"),supabase.from("closed_periods").select("*"),
+      // Phase 1: Load critical data first (visits, staff, bookings)
+      // These are needed to show the queue immediately
+      const[s4,s8,s7,s1,s9]=await Promise.all([
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
+        supabase.from("staff").select("*"),
         supabase.from("bookings").select("*").order("date").order("time"),
-        supabase.from("staff").select("*"),supabase.from("categories").select("*"),
+        supabase.from("services").select("*"),
+        supabase.from("categories").select("*"),
+      ]);
+      if(s4.data?.length)setVisits(s4.data.map(dbVis));
+      if(s8.data?.length)setStaff(s8.data.map(dbStaff));
+      if(s7.data?.length)setBks(s7.data.map(dbBk));
+      if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
+      if(s9.data?.length)setCats(s9.data.map(c=>c.name));
+      setLoading(false); // show the app as soon as critical data is ready
+
+      // Phase 2: Load secondary data in the background (doesn't block the UI)
+      const[s2,s3,s5,s6,s10,s11]=await Promise.all([
+        supabase.from("employees").select("*"),
+        supabase.from("customers").select("*"),
+        supabase.from("expenses").select("*"),
+        supabase.from("closed_periods").select("*"),
         supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(50),
         supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60),
       ]);
-      if(s11.data)setBackupLog(s11.data);
-      if(s9.data?.length)setCats(s9.data.map(c=>c.name));
-      if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
       if(s2.data?.length)setEmps(s2.data.map(dbEmp));
       if(s3.data?.length)setCusts(s3.data.map(dbCust));
-      if(s4.data?.length)setVisits(s4.data.map(dbVis));
       if(s5.data?.length)setExps(s5.data.map(dbExp));
       if(s6.data?.length)setPeriods(s6.data.map(p=>({period:p.period,start:p.start_date,end:p.end_date,closedAt:p.closed_at,employees:p.employees})));
-      if(s7.data?.length)setBks(s7.data.map(dbBk));
-      if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
-      // Refresh localStorage logs
+      if(s11.data)setBackupLog(s11.data);
+      // Local storage
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
-    }catch(e){console.error(e);}
-    setLoading(false);
+    }catch(e){console.error(e);setLoading(false);}
+
   }
   useEffect(()=>{if(!user){setLoading(false);return;}loadAll();},[user]);
 
@@ -1143,19 +1154,22 @@ export default function App(){
   useEffect(()=>{
     if(!user)return;
     async function seed(){
-      // Always upsert employees so new staff are added even if DB already seeded
-      await supabase.from("employees").upsert(
-        DEFAULT_EMPLOYEES.map(e=>({
-          id:e.id,name:e.name,section:e.section,role:e.role||'',
-          salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
-          other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
-          day_off:e.dayOff??null,on_leave:false
-        })),
-        {onConflict:'id',ignoreDuplicates:false}
-      );
-      // Seed categories & services only if empty
+      // Check if already seeded - only run inserts on fresh install
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
+      const{count:ec}=await supabase.from("employees").select("*",{count:"exact",head:true});
+      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       let seeded=false;
+      if(ec===0){
+        seeded=true;
+        await supabase.from("employees").insert(
+          DEFAULT_EMPLOYEES.map(e=>({
+            id:e.id,name:e.name,section:e.section,role:e.role||'',
+            salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
+            other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
+            day_off:e.dayOff??null,on_leave:false
+          }))
+        );
+      }
       if(cc===0){
         seeded=true;
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
@@ -1165,7 +1179,6 @@ export default function App(){
           bookable:s.bookable,duration_mins:s.durationMins
         })));
       }
-      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       if(sc===0){seeded=true;await supabase.from("staff").insert(DEFAULT_STAFF);}
       // Only reload if we actually seeded fresh data — avoids double-load on normal startup
       if(seeded)await loadAll();
@@ -2009,6 +2022,10 @@ export default function App(){
   const gc=sc.mob?"1fr":"1fr 1.15fr";
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
+
+  // Show loading screen when user is set but data hasn't loaded yet
+  // This prevents any black-screen flash between login and the main app rendering
+  if(user&&loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
   if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
     {/* Header */}
