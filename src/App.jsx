@@ -1046,41 +1046,39 @@ export default function App(){
   async function loadAll(){
     setLoading(true);
     try{
-      // Phase 1: Load critical data first (visits, staff, bookings)
-      // These are needed to show the queue immediately
-      const[s4,s8,s7,s1,s9]=await Promise.all([
-        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
-        supabase.from("staff").select("*"),
-        supabase.from("bookings").select("*").order("date").order("time"),
+      // Load all data in parallel - single phase for reliability
+      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11]=await Promise.all([
         supabase.from("services").select("*"),
-        supabase.from("categories").select("*"),
-      ]);
-      if(s4.data?.length)setVisits(s4.data.map(dbVis));
-      if(s8.data?.length)setStaff(s8.data.map(dbStaff));
-      if(s7.data?.length)setBks(s7.data.map(dbBk));
-      if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
-      if(s9.data?.length)setCats(s9.data.map(c=>c.name));
-      setLoading(false); // show the app as soon as critical data is ready
-
-      // Phase 2: Load secondary data in the background (doesn't block the UI)
-      const[s2,s3,s5,s6,s10,s11]=await Promise.all([
         supabase.from("employees").select("*"),
         supabase.from("customers").select("*"),
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
         supabase.from("expenses").select("*"),
         supabase.from("closed_periods").select("*"),
+        supabase.from("bookings").select("*").order("date").order("time"),
+        supabase.from("staff").select("*"),
+        supabase.from("categories").select("*"),
         supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(50),
         supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60),
       ]);
+      if(s9.data?.length)setCats(s9.data.map(c=>c.name));
+      if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
       if(s2.data?.length)setEmps(s2.data.map(dbEmp));
       if(s3.data?.length)setCusts(s3.data.map(dbCust));
+      if(s4.data?.length)setVisits(s4.data.map(dbVis));
       if(s5.data?.length)setExps(s5.data.map(dbExp));
       if(s6.data?.length)setPeriods(s6.data.map(p=>({period:p.period,start:p.start_date,end:p.end_date,closedAt:p.closed_at,employees:p.employees})));
+      if(s7.data?.length)setBks(s7.data.map(dbBk));
+      if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
       if(s11.data)setBackupLog(s11.data);
-      // Local storage
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
-    }catch(e){console.error(e);setLoading(false);}
+    }catch(e){
+      console.error("loadAll error:",e);
+    }finally{
+      // Always clear loading - no matter what happened above
+      setLoading(false);
+    }
 
   }
   useEffect(()=>{if(!user){setLoading(false);return;}loadAll();},[user]);
@@ -1279,7 +1277,6 @@ export default function App(){
   const todayBk=useMemo(()=>{
     const norm=d=>(d||"").trim().slice(0,10);
     const target=norm(bkDate);
-    console.log("bkDate:",bkDate,"target:",target,"total bks:",bks.length,"matching:",bks.filter(b=>norm(b.date)===target).length);
     let filtered=bks.filter(b=>norm(b.date)===target);
     if(bkSearch.trim()){
       const q=bkSearch.toLowerCase().trim();
