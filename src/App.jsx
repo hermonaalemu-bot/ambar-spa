@@ -1047,7 +1047,7 @@ export default function App(){
     setLoading(true);
     try{
       // Load all data in parallel - single phase for reliability
-      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11]=await Promise.all([
+      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10]=await Promise.all([
         supabase.from("services").select("*"),
         supabase.from("employees").select("*"),
         supabase.from("customers").select("*"),
@@ -1058,7 +1058,6 @@ export default function App(){
         supabase.from("staff").select("*"),
         supabase.from("categories").select("*"),
         supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(50),
-        supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60),
       ]);
       if(s9.data?.length)setCats(s9.data.map(c=>c.name));
       if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
@@ -1070,13 +1069,16 @@ export default function App(){
       if(s7.data?.length)setBks(s7.data.map(dbBk));
       if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
-      if(s11.data)setBackupLog(s11.data);
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
+      // Load backup_log separately - table may not exist yet if SQL hasn't been run
+      try{
+        const{data:bl}=await supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60);
+        if(bl)setBackupLog(bl);
+      }catch(e){/* backup_log table not yet created - safe to ignore */}
     }catch(e){
       console.error("loadAll error:",e);
     }finally{
-      // Always clear loading - no matter what happened above
       setLoading(false);
     }
 
