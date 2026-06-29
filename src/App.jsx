@@ -365,27 +365,157 @@ const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||""
 const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null,gender:r.gender||"",beautyQueueNum:r.beauty_queue_num||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
-function Notifs({items,dismiss}){
-  // Show only the most recent notification (last in array)
-  const latest=items[items.length-1];
-  if(!latest)return null;
-  const bg=latest.type==="success"?"#166534":latest.type==="booking"?"#5b21b6":
-    latest.type==="payment"?"#1e40af":latest.type==="warning"?"#92400e":"#1e3a8a";
-  return<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,
-    padding:"8px 12px",pointerEvents:"auto",
-    animation:"abaToastDown 0.25s cubic-bezier(0.16,1,0.3,1)"}}>
-    <div style={{background:bg,color:"#fff",borderRadius:12,padding:"11px 16px",
-      display:"flex",justifyContent:"space-between",alignItems:"center",
-      boxShadow:"0 4px 16px rgba(0,0,0,0.25)",maxWidth:500,margin:"0 auto"}}>
-      <span style={{fontSize:13,fontWeight:600,flex:1}}>{latest.msg}</span>
-      <button onClick={()=>dismiss(latest.id)}
-        style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",
-          borderRadius:8,width:24,height:24,cursor:"pointer",fontSize:14,
-          display:"flex",alignItems:"center",justifyContent:"center",
-          marginLeft:12,flexShrink:0}}>✕</button>
+function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
+
+function EthPicker({value,onChange,label,bookingDates,...props}){
+  // Parse current value into Ethiopian date
+  const toEth=g=>g?gregToEth(g):{y:2016,m:1,d:1};
+  const parsed=toEth(value);
+  // nav state = what month/year is being viewed in the picker
+  const[vy,setVy]=useState(parsed.y); // view year
+  const[vm,setVm]=useState(parsed.m); // view month
+  const[show,setShow]=useState(false);
+  // Sync view to value when value changes externally
+  useEffect(()=>{
+    const p=toEth(value);
+    setVy(p.y);setVm(p.m);
+  },[value]);
+  // Selected eth date (from value prop)
+  const selEth=toEth(value);
+  // Today in eth
+  const todEth=gregToEth(todayStr());
+  // Gregorian display string
+  const gregStr=value
+    ?new Date(value+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    :'';
+  // Days in viewed month
+  const daysInMonth=vm===13?6:30;
+  // Find weekday of day 1 of viewed month (Mon=0 ... Sun=6)
+  const day1Greg=ethToGreg(vy,vm,1);
+  const day1Dow=new Date(day1Greg+'T12:00:00Z').getDay(); // 0=Sun
+  const startOffset=(day1Dow+6)%7; // convert to Mon-based (Mon=0,Sun=6)
+  const DAY_LABELS=['ሰ','ማ','ረ','ሐ','ዓ','ቅ','እ'];
+  function prevMonth(){
+    if(vm===1){setVm(13);setVy(vy-1);}
+    else setVm(vm-1);
+  }
+  function nextMonth(){
+    if(vm===13){setVm(1);setVy(vy+1);}
+    else setVm(vm+1);
+  }
+  function pickDay(d){
+    const g=ethToGreg(vy,vm,d);
+    if(props.minDate&&g<props.minDate)return;
+    onChange(g);
+    setShow(false);
+  }
+  // Close picker when clicking outside
+  const ref=React.useRef(null);
+  useEffect(()=>{
+    if(!show)return;
+    function handler(e){if(ref.current&&!ref.current.contains(e.target))setShow(false);}
+    document.addEventListener('mousedown',handler);
+    return()=>document.removeEventListener('mousedown',handler);
+  },[show]);
+  return(
+    <div ref={ref} style={{position:'relative',marginBottom:8}}>
+      {label&&<p style={{margin:'0 0 4px',fontSize:12,fontWeight:700,color:'#374151'}}>{label}</p>}
+      {/* Trigger button */}
+      <button type="button" onClick={()=>setShow(v=>!v)}
+        style={{width:'100%',padding:'11px 14px',borderRadius:12,border:'1px solid #e5e7eb',
+          background:'#fff',cursor:'pointer',textAlign:'left',
+          boxShadow:'0 1px 3px rgba(0,0,0,0.06)',display:'block'}}>
+        <div style={{fontSize:15,fontWeight:800,color:'#111827'}}>
+          {ETH_MONTHS[(selEth.m||1)-1]} {selEth.d}, {selEth.y}
+        </div>
+        <div style={{fontSize:11,color:'#6b7280',marginTop:1}}>{gregStr}</div>
+      </button>
+      {/* Dropdown */}
+      {show&&(
+        <div style={{position:'absolute',top:'105%',left:0,zIndex:1000,background:'#fff',
+          borderRadius:16,boxShadow:'0 12px 40px rgba(0,0,0,0.2)',minWidth:300,
+          marginTop:4,overflow:'hidden',border:'1px solid #e5e7eb'}}>
+          {/* Blue header with year + month + nav */}
+          <div style={{background:'#1d4ed8',padding:'14px 16px 12px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <button onClick={prevMonth}
+                style={{background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',
+                  cursor:'pointer',fontSize:20,width:34,height:34,borderRadius:8,
+                  display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900}}>‹</button>
+              <div style={{textAlign:'center'}}>
+                <div style={{color:'rgba(255,255,255,0.7)',fontSize:11,fontWeight:600,letterSpacing:1}}>{vy}</div>
+                <div style={{color:'#fff',fontSize:20,fontWeight:900}}>{ETH_MONTHS[(vm||1)-1]}</div>
+              </div>
+              <button onClick={nextMonth}
+                style={{background:'rgba(255,255,255,0.2)',border:'none',color:'#fff',
+                  cursor:'pointer',fontSize:20,width:34,height:34,borderRadius:8,
+                  display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900}}>›</button>
+            </div>
+          </div>
+          {/* Day headers Mon-Sun */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:'#f8fafc',
+            borderBottom:'1px solid #f1f5f9'}}>
+            {DAY_LABELS.map(d=>(
+              <div key={d} style={{textAlign:'center',fontSize:10,fontWeight:800,
+                color:'#6b7280',padding:'7px 2px'}}>{d}</div>
+            ))}
+          </div>
+          {/* Day grid */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',
+            gap:2,padding:'8px 8px 4px'}}>
+            {/* Empty offset cells */}
+            {Array.from({length:startOffset}).map((_,i)=><div key={'x'+i}/>)}
+            {/* Day buttons */}
+            {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+              const g=ethToGreg(vy,vm,d);
+              const isPast=!!(props.minDate&&g<props.minDate);
+              const isSel=d===selEth.d&&vm===selEth.m&&vy===selEth.y;
+              const isT=d===todEth.d&&vm===todEth.m&&vy===todEth.y;
+              const hasBk=bookingDates&&bookingDates.includes(g);
+              return(
+                <div key={d} style={{position:'relative',display:'flex',flexDirection:'column',alignItems:'center'}}>
+                  <button
+                  onClick={()=>!isPast&&pickDay(d)}
+                  style={{
+                    width:'100%',padding:'7px 2px',borderRadius:8,border:'none',
+                    background:isSel?'#1d4ed8':isT?'#dbeafe':'transparent',
+                    fontWeight:isSel||isT?700:400,
+                    cursor:isPast?'default':'pointer',
+                    fontSize:13,
+                    color:isSel?'#fff':isPast?'#d1d5db':isT?'#1d4ed8':'#111827',
+                    opacity:isPast?0.4:1,
+                  }}>{d}</button>
+                  {hasBk&&<div style={{width:5,height:5,borderRadius:'50%',background:isSel?'#fff':'#5A8C72',marginTop:-4,marginBottom:2}}/>}
+                </div>
+              );
+            })}
+          </div>
+          {/* Footer: gregorian + year/month jump */}
+          <div style={{borderTop:'1px solid #f1f5f9',padding:'8px 12px',
+            display:'flex',justifyContent:'space-between',alignItems:'center',
+            background:'#fafafa'}}>
+            <span style={{fontSize:11,color:'#6b7280',fontStyle:'italic'}}>{gregStr||'No date selected'}</span>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <button onClick={()=>setVy(vy-1)}
+                style={{padding:'2px 7px',border:'1px solid #e5e7eb',borderRadius:5,
+                  background:'#fff',cursor:'pointer',fontSize:12,color:'#374151',fontWeight:700}}>−</button>
+              <span style={{fontSize:12,fontWeight:700,color:'#374151',minWidth:36,textAlign:'center'}}>{vy}</span>
+              <button onClick={()=>setVy(vy+1)}
+                style={{padding:'2px 7px',border:'1px solid #e5e7eb',borderRadius:5,
+                  background:'#fff',cursor:'pointer',fontSize:12,color:'#374151',fontWeight:700}}>+</button>
+              <select value={vm} onChange={e=>setVm(Number(e.target.value))}
+                style={{padding:'3px 5px',borderRadius:6,border:'1px solid #e5e7eb',
+                  fontSize:11,color:'#111827',background:'#fff',marginLeft:4}}>
+                {ETH_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  </div>;
+  );
 }
+
 
 // ── Language strings ─────────────────────────────────────────
 const LANG={
@@ -905,15 +1035,7 @@ export default function App(){
   const[dailyTarget,setDailyTarget]=useState(()=>{try{return Number(localStorage.getItem("ambar_target")||0);}catch{return 0;}});
   const dRef=useRef({});const eRef=useRef({});const undoRef=useRef({});
 
-  function push(msg,type="info"){
-    // Skip "Refreshing..." popup entirely
-    if(msg==="Refreshing...")return;
-    const id=++nid.current;
-    // Replace existing notification immediately (one at a time)
-    setNotifs([{id,msg,type}]);
-    chime(type);
-    setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),4000);
-  }
+  function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
   function dismiss(id){setNotifs(p=>p.filter(n=>n.id!==id));}
   // Pull to refresh
   function handleTouchStart(e){
@@ -929,7 +1051,7 @@ export default function App(){
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
       setRefreshing(true);push("Refreshing...","info");
       await loadAll();
-      setRefreshing(false);
+      setRefreshing(false);push("Updated ✓","success");
     } else {
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
     }
@@ -1046,19 +1168,16 @@ export default function App(){
   async function loadAll(){
     setLoading(true);
     try{
-      // Load all data in parallel - single phase for reliability
-      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10]=await Promise.all([
-        supabase.from("services").select("*"),
-        supabase.from("employees").select("*"),
-        supabase.from("customers").select("*"),
-        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
-        supabase.from("expenses").select("*"),
-        supabase.from("closed_periods").select("*"),
+      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11]=await Promise.all([
+        supabase.from("services").select("*"),supabase.from("employees").select("*"),
+        supabase.from("customers").select("*"),supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
+        supabase.from("expenses").select("*"),supabase.from("closed_periods").select("*"),
         supabase.from("bookings").select("*").order("date").order("time"),
-        supabase.from("staff").select("*"),
-        supabase.from("categories").select("*"),
-        supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(50),
+        supabase.from("staff").select("*"),supabase.from("categories").select("*"),
+        supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(100),
+        supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60),
       ]);
+      if(s11.data)setBackupLog(s11.data);
       if(s9.data?.length)setCats(s9.data.map(c=>c.name));
       if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
       if(s2.data?.length)setEmps(s2.data.map(dbEmp));
@@ -1069,19 +1188,11 @@ export default function App(){
       if(s7.data?.length)setBks(s7.data.map(dbBk));
       if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
+      // Refresh localStorage logs
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
-      // Load backup_log separately - table may not exist yet if SQL hasn't been run
-      try{
-        const{data:bl}=await supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60);
-        if(bl)setBackupLog(bl);
-      }catch(e){/* backup_log table not yet created - safe to ignore */}
-    }catch(e){
-      console.error("loadAll error:",e);
-    }finally{
-      setLoading(false);
-    }
-
+    }catch(e){console.error(e);}
+    setLoading(false);
   }
   useEffect(()=>{if(!user){setLoading(false);return;}loadAll();},[user]);
 
@@ -1124,9 +1235,9 @@ export default function App(){
     function startPoll(){
       if(pollInterval)return;
       pollInterval=setInterval(()=>{
-        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
         supabase.from("bookings").select("*").order("date").order("time").then(({data})=>{if(data)setBks(data.map(dbBk));});
-      },30000); // poll every 30s as realtime fallback only
+      },10000);
     }
     function stopPoll(){clearInterval(pollInterval);pollInterval=null;}
     const onVisible=()=>document.hidden?stopPoll():startPoll();
@@ -1154,22 +1265,19 @@ export default function App(){
   useEffect(()=>{
     if(!user)return;
     async function seed(){
-      // Check if already seeded - only run inserts on fresh install
+      // Always upsert employees so new staff are added even if DB already seeded
+      await supabase.from("employees").upsert(
+        DEFAULT_EMPLOYEES.map(e=>({
+          id:e.id,name:e.name,section:e.section,role:e.role||'',
+          salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
+          other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
+          day_off:e.dayOff??null,on_leave:false
+        })),
+        {onConflict:'id',ignoreDuplicates:false}
+      );
+      // Seed categories & services only if empty
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
-      const{count:ec}=await supabase.from("employees").select("*",{count:"exact",head:true});
-      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       let seeded=false;
-      if(ec===0){
-        seeded=true;
-        await supabase.from("employees").insert(
-          DEFAULT_EMPLOYEES.map(e=>({
-            id:e.id,name:e.name,section:e.section,role:e.role||'',
-            salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
-            other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
-            day_off:e.dayOff??null,on_leave:false
-          }))
-        );
-      }
       if(cc===0){
         seeded=true;
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
@@ -1179,6 +1287,7 @@ export default function App(){
           bookable:s.bookable,duration_mins:s.durationMins
         })));
       }
+      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       if(sc===0){seeded=true;await supabase.from("staff").insert(DEFAULT_STAFF);}
       // Only reload if we actually seeded fresh data — avoids double-load on normal startup
       if(seeded)await loadAll();
@@ -1189,7 +1298,7 @@ export default function App(){
   // Derived
   const act=useMemo(()=>visits.find(v=>v.id===actId)||null,[visits,actId]);
   const period=getPayPeriod(todayStr());
-  const todayV=useMemo(()=>visits.filter(v=>v.date===todayStr()),[visits]);
+  const todayV=visits.filter(v=>v.date===todayStr());
   const svSubs=useMemo(()=>["All",...new Set(svcs.filter(s=>s.category===svCat).map(s=>s.sub))],[svCat,svcs]);
   const svAvail=svcs.filter(s=>s.category===svCat&&(svSub==="All"||s.sub===svSub));
   // FIXED: checkout today only, no past days
@@ -1214,8 +1323,8 @@ export default function App(){
       }
     }
   },[tab,actId,visits]);
-  const clV=useMemo(()=>visits.filter(v=>v.date===clDate),[visits,clDate]);
-  const clE=useMemo(()=>exps.filter(e=>e.date===clDate&&e.type==="Daily Operation"),[exps,clDate]);
+  const clV=visits.filter(v=>v.date===clDate);
+  const clE=exps.filter(e=>e.date===clDate&&e.type==="Daily Operation");
   const clCash=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod==="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
   const clTr=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod!=="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
   const clTips=clV.reduce((s,v)=>s+v.tips.reduce((a,t)=>a+Number(t.amount||0),0),0);
@@ -1279,6 +1388,7 @@ export default function App(){
   const todayBk=useMemo(()=>{
     const norm=d=>(d||"").trim().slice(0,10);
     const target=norm(bkDate);
+    console.log("bkDate:",bkDate,"target:",target,"total bks:",bks.length,"matching:",bks.filter(b=>norm(b.date)===target).length);
     let filtered=bks.filter(b=>norm(b.date)===target);
     if(bkSearch.trim()){
       const q=bkSearch.toLowerCase().trim();
@@ -2022,10 +2132,6 @@ export default function App(){
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
-  // Show loading screen when user is set but data hasn't loaded yet
-  // This prevents any black-screen flash between login and the main app rendering
-  if(user&&loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
-
   if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
     {/* Header */}
     <div style={{textAlign:"center",marginBottom:24}}>
@@ -2076,7 +2182,7 @@ export default function App(){
     </div>}
   </div>);
 
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes abaToastDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}"}</style></div></div>);
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div
     style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827",touchAction:"pan-y"}}
     onTouchStart={handleTouchStart}
