@@ -365,7 +365,27 @@ const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||""
 const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null,gender:r.gender||"",beautyQueueNum:r.beauty_queue_num||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
-function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
+function Notifs({items,dismiss}){
+  // Show only the most recent notification (last in array)
+  const latest=items[items.length-1];
+  if(!latest)return null;
+  const bg=latest.type==="success"?"#166534":latest.type==="booking"?"#5b21b6":
+    latest.type==="payment"?"#1e40af":latest.type==="warning"?"#92400e":"#1e3a8a";
+  return<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,
+    padding:"8px 12px",pointerEvents:"auto",
+    animation:"abaToastDown 0.25s cubic-bezier(0.16,1,0.3,1)"}}>
+    <div style={{background:bg,color:"#fff",borderRadius:12,padding:"11px 16px",
+      display:"flex",justifyContent:"space-between",alignItems:"center",
+      boxShadow:"0 4px 16px rgba(0,0,0,0.25)",maxWidth:500,margin:"0 auto"}}>
+      <span style={{fontSize:13,fontWeight:600,flex:1}}>{latest.msg}</span>
+      <button onClick={()=>dismiss(latest.id)}
+        style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",
+          borderRadius:8,width:24,height:24,cursor:"pointer",fontSize:14,
+          display:"flex",alignItems:"center",justifyContent:"center",
+          marginLeft:12,flexShrink:0}}>✕</button>
+    </div>
+  </div>;
+}
 
 function EthPicker({value,onChange,label,bookingDates,...props}){
   // Parse current value into Ethiopian date
@@ -930,6 +950,28 @@ export default function App(){
           if(saved&&saved.length>0)setInventory(saved);
         }catch(e){}
       });
+    // Load saved design settings (colors) — applies across all devices
+    supabase.from("settings").select("*").eq("key","design").single()
+      .then(({data})=>{
+        if(data?.value)try{
+          const saved=JSON.parse(data.value);
+          if(saved&&typeof saved==="object"){
+            setDesign(p=>({...p,...saved}));
+            try{localStorage.setItem("ambar_design",JSON.stringify({...JSON.parse(localStorage.getItem("ambar_design")||"{}"), ...saved}));}catch(e){}
+          }
+        }catch(e){}
+      });
+    // Load svcProducts from DB (cross-device product-service links)
+    supabase.from("settings").select("*").eq("key","svcProducts").single()
+      .then(({data})=>{
+        if(data?.value)try{
+          const saved=JSON.parse(data.value);
+          if(saved&&Array.isArray(saved)){
+            setSvcProducts(saved);
+            try{localStorage.setItem("ambar_svc_products",JSON.stringify(saved));}catch(e){}
+          }
+        }catch(e){}
+      });
     // Load saved Amharic text overrides
     supabase.from("settings").select("*").eq("key","amTexts").single()
       .then(({data})=>{
@@ -994,7 +1036,12 @@ export default function App(){
   const[svcProducts,setSvcProducts]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("ambar_svc_products")||"[]");}catch{return[];}
   });
-  function saveSvcProducts(sp){setSvcProducts(sp);try{localStorage.setItem("ambar_svc_products",JSON.stringify(sp));}catch(e){}}
+  function saveSvcProducts(sp){
+    setSvcProducts(sp);
+    try{localStorage.setItem("ambar_svc_products",JSON.stringify(sp));}catch(e){}
+    // Also save to DB so it works across all devices
+    supabase.from("settings").upsert({key:"svcProducts",value:JSON.stringify(sp)}).then(()=>{});
+  }
   const[showSvcProd,setShowSvcProd]=useState(false);
   const[newSvcProd,setNewSvcProd]=useState({productId:"",serviceSubs:[],qty:1});
 
@@ -1035,7 +1082,15 @@ export default function App(){
   const[dailyTarget,setDailyTarget]=useState(()=>{try{return Number(localStorage.getItem("ambar_target")||0);}catch{return 0;}});
   const dRef=useRef({});const eRef=useRef({});const undoRef=useRef({});
 
-  function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
+  function push(msg,type="info"){
+    // Skip "Refreshing..." popup entirely
+    if(msg==="Refreshing...")return;
+    const id=++nid.current;
+    // Replace existing notification immediately (one at a time)
+    setNotifs([{id,msg,type}]);
+    chime(type);
+    setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),4000);
+  }
   function dismiss(id){setNotifs(p=>p.filter(n=>n.id!==id));}
   // Pull to refresh
   function handleTouchStart(e){
@@ -1051,7 +1106,7 @@ export default function App(){
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
       setRefreshing(true);push("Refreshing...","info");
       await loadAll();
-      setRefreshing(false);push("Updated ✓","success");
+      setRefreshing(false);
     } else {
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
     }
@@ -1168,16 +1223,19 @@ export default function App(){
   async function loadAll(){
     setLoading(true);
     try{
-      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11]=await Promise.all([
-        supabase.from("services").select("*"),supabase.from("employees").select("*"),
-        supabase.from("customers").select("*"),supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
-        supabase.from("expenses").select("*"),supabase.from("closed_periods").select("*"),
+      // Load all data in parallel - single phase for reliability
+      const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10]=await Promise.all([
+        supabase.from("services").select("*"),
+        supabase.from("employees").select("*"),
+        supabase.from("customers").select("*"),
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
+        supabase.from("expenses").select("*"),
+        supabase.from("closed_periods").select("*"),
         supabase.from("bookings").select("*").order("date").order("time"),
-        supabase.from("staff").select("*"),supabase.from("categories").select("*"),
-        supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(100),
-        supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60),
+        supabase.from("staff").select("*"),
+        supabase.from("categories").select("*"),
+        supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(50),
       ]);
-      if(s11.data)setBackupLog(s11.data);
       if(s9.data?.length)setCats(s9.data.map(c=>c.name));
       if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
       if(s2.data?.length)setEmps(s2.data.map(dbEmp));
@@ -1188,11 +1246,19 @@ export default function App(){
       if(s7.data?.length)setBks(s7.data.map(dbBk));
       if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
-      // Refresh localStorage logs
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
-    }catch(e){console.error(e);}
-    setLoading(false);
+      // Load backup_log separately - table may not exist yet if SQL hasn't been run
+      try{
+        const{data:bl}=await supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60);
+        if(bl)setBackupLog(bl);
+      }catch(e){/* backup_log table not yet created - safe to ignore */}
+    }catch(e){
+      console.error("loadAll error:",e);
+    }finally{
+      setLoading(false);
+    }
+
   }
   useEffect(()=>{if(!user){setLoading(false);return;}loadAll();},[user]);
 
@@ -1235,9 +1301,9 @@ export default function App(){
     function startPoll(){
       if(pollInterval)return;
       pollInterval=setInterval(()=>{
-        supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
         supabase.from("bookings").select("*").order("date").order("time").then(({data})=>{if(data)setBks(data.map(dbBk));});
-      },10000);
+      },30000); // poll every 30s as realtime fallback only
     }
     function stopPoll(){clearInterval(pollInterval);pollInterval=null;}
     const onVisible=()=>document.hidden?stopPoll():startPoll();
@@ -1265,19 +1331,22 @@ export default function App(){
   useEffect(()=>{
     if(!user)return;
     async function seed(){
-      // Always upsert employees so new staff are added even if DB already seeded
-      await supabase.from("employees").upsert(
-        DEFAULT_EMPLOYEES.map(e=>({
-          id:e.id,name:e.name,section:e.section,role:e.role||'',
-          salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
-          other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
-          day_off:e.dayOff??null,on_leave:false
-        })),
-        {onConflict:'id',ignoreDuplicates:false}
-      );
-      // Seed categories & services only if empty
+      // Check if already seeded - only run inserts on fresh install
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
+      const{count:ec}=await supabase.from("employees").select("*",{count:"exact",head:true});
+      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       let seeded=false;
+      if(ec===0){
+        seeded=true;
+        await supabase.from("employees").insert(
+          DEFAULT_EMPLOYEES.map(e=>({
+            id:e.id,name:e.name,section:e.section,role:e.role||'',
+            salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
+            other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
+            day_off:e.dayOff??null,on_leave:false
+          }))
+        );
+      }
       if(cc===0){
         seeded=true;
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
@@ -1287,7 +1356,6 @@ export default function App(){
           bookable:s.bookable,duration_mins:s.durationMins
         })));
       }
-      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
       if(sc===0){seeded=true;await supabase.from("staff").insert(DEFAULT_STAFF);}
       // Only reload if we actually seeded fresh data — avoids double-load on normal startup
       if(seeded)await loadAll();
@@ -1298,7 +1366,7 @@ export default function App(){
   // Derived
   const act=useMemo(()=>visits.find(v=>v.id===actId)||null,[visits,actId]);
   const period=getPayPeriod(todayStr());
-  const todayV=visits.filter(v=>v.date===todayStr());
+  const todayV=useMemo(()=>visits.filter(v=>v.date===todayStr()),[visits]);
   const svSubs=useMemo(()=>["All",...new Set(svcs.filter(s=>s.category===svCat).map(s=>s.sub))],[svCat,svcs]);
   const svAvail=svcs.filter(s=>s.category===svCat&&(svSub==="All"||s.sub===svSub));
   // FIXED: checkout today only, no past days
@@ -1323,8 +1391,8 @@ export default function App(){
       }
     }
   },[tab,actId,visits]);
-  const clV=visits.filter(v=>v.date===clDate);
-  const clE=exps.filter(e=>e.date===clDate&&e.type==="Daily Operation");
+  const clV=useMemo(()=>visits.filter(v=>v.date===clDate),[visits,clDate]);
+  const clE=useMemo(()=>exps.filter(e=>e.date===clDate&&e.type==="Daily Operation"),[exps,clDate]);
   const clCash=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod==="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
   const clTr=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod!=="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
   const clTips=clV.reduce((s,v)=>s+v.tips.reduce((a,t)=>a+Number(t.amount||0),0),0);
@@ -1388,7 +1456,6 @@ export default function App(){
   const todayBk=useMemo(()=>{
     const norm=d=>(d||"").trim().slice(0,10);
     const target=norm(bkDate);
-    console.log("bkDate:",bkDate,"target:",target,"total bks:",bks.length,"matching:",bks.filter(b=>norm(b.date)===target).length);
     let filtered=bks.filter(b=>norm(b.date)===target);
     if(bkSearch.trim()){
       const q=bkSearch.toLowerCase().trim();
@@ -1448,7 +1515,13 @@ export default function App(){
   function logout(){setUser(null);sessionStorage.removeItem("ambar_u");setTab("");}
   function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
-    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");setSaving(true);
+    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");
+    // Check if same phone already has an active visit today
+    const existingToday=visits.find(v=>v.phone===rPhone.trim()&&v.date===todayStr()&&!["Cancelled","Paid & Closed"].includes(v.status));
+    if(existingToday){
+      if(!window.confirm(rName.trim()+" ("+rPhone.trim()+") already has an active visit today (#"+existingToday.queue+" — "+existingToday.status+").\n\nAdd another visit anyway?"))return;
+    }
+    setSaving(true);
     const cnt=Math.max(1,Number(rPpl||1)),gid=Date.now(),gn=cnt>1?rName.trim()+" (Group of "+cnt+")":"";
     const cid=makeId(rName.trim(),rPhone.trim()),tc=visits.filter(v=>v.date===todayStr()).length;
     const fc=custs.find(c=>c.phone===rPhone.trim()),ntv=(fc?.totalVisits||0)+1;
@@ -1632,22 +1705,34 @@ export default function App(){
     if(error){push("Failed to reopen — please retry","error");return;}
     setVisits(prev=>prev.map(v=>v.id===act.id?{...v,status:"In Service"}:v));
   }
-  function addTip(){if(!tipEmp)return alert("Select an employee.");if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
+  function addTip(){
+    if(!tipEmp)return alert("Select an employee.");
+    if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");
+    const maxTip=act?.totalService||0;
+    const existingTips=tips.reduce((s,t)=>s+Number(t.amount||0),0);
+    if(maxTip>0&&Number(tipAmt)+existingTips>maxTip*0.5&&!window.confirm("Tip of "+money(Number(tipAmt))+" is unusually large (more than 50% of the service total of "+money(maxTip)+"). Add anyway?"))return;
+    setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);
+    setTipEmp("");setTipAmt("");
+  }
   async function processRefund(vid){
     const v=visits.find(x=>x.id===vid);if(!v)return;
     const amt=Number(refundAmt);if(!amt||amt<=0)return alert("Enter refund amount.");
     if(amt>v.totalPaid)return alert("Refund cannot exceed amount paid ("+money(v.totalPaid)+").");
-    confirm2("Issue refund of "+money(amt)+" for "+v.name+"?",async()=>{
+    const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
+    const isFullRefund=amt>=v.totalService;
+    confirm2("Issue refund of "+money(amt)+" for "+v.name+"?"+(isFullRefund&&tipTotal>0?"\n\nNote: This is a full refund. Tips of "+money(tipTotal)+" will also be cleared from employee commissions.":""),async()=>{
       const refundNote="[REFUND "+money(amt)+(refundReason?" — "+refundReason:"")+"]";
+      const updatedTips=isFullRefund?[]:v.tips; // clear tips on full refund
       const{error}=await supabase.from("visits").update({
         note:(v.note?v.note+" ":"")+refundNote,
         total_paid:v.totalPaid-amt,
+        tips:updatedTips,
         status:"Paid & Closed"
       }).eq("id",vid);
       if(error){push("Refund failed to save — please retry: "+error.message,"error");return;}
-      setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt}:x));
-      logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":""));
-      push("Refund of "+money(amt)+" issued for "+v.name,"success");
+      setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt,tips:updatedTips}:x));
+      logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":" ")+(isFullRefund&&tipTotal>0?" [tips cleared]":""));
+      push("Refund of "+money(amt)+" issued for "+v.name+(isFullRefund&&tipTotal>0?" — tips cleared":""),"success");
       setShowRefund(false);setRefundAmt("");setRefundReason("");
     },true);
   }
@@ -1832,14 +1917,14 @@ export default function App(){
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
   async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};const{error}=await supabase.from("expenses").insert(row);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
-  async function delE(id){if(!window.confirm("Delete?"))return;const{error}=await supabase.from("expenses").delete().eq("id",id);if(error){push("Failed to delete: "+error.message,"error");return;}setExps(p=>p.filter(e=>e.id!==id));}
+  async function delE(id){if(!window.confirm("Delete?"))return;const e=exps.find(x=>x.id===id);const{error}=await supabase.from("expenses").delete().eq("id",id);if(error){push("Failed to delete: "+error.message,"error");return;}setExps(p=>p.filter(e=>e.id!==id));logAct(user,"Deleted expense",(e?.name||"")+" — "+money(e?.total||0));}
   async function addCat(){if(!newCat.trim())return alert("Enter a category name.");if(cats.includes(newCat.trim()))return alert("That category already exists.");const{error}=await supabase.from("categories").insert({name:newCat.trim()});if(error){push("Failed to save category: "+error.message,"error");return;}setCats(p=>[...p,newCat.trim()]);setNewCat("");}
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");if(Number(nSvc.price)<=0)return alert("Price must be greater than 0.");if(Number(nSvc.commission||0)<0)return alert("Commission cannot be negative.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};const{error}=await supabase.from("services").insert(r);if(error){push("Failed to save service: "+error.message,"error");return;}setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
   async function updSvc(id,f,v){const df=f==="employeeSection"?"employee_section":f==="durationMins"?"duration_mins":f;const val=["price","commission","durationMins"].includes(f)?Math.max(0,Number(v)||0):f==="bookable"?v:v;setSvcs(p=>p.map(s=>s.id===id?{...s,[f]:val}:s));clearTimeout(dRef.current[id+f]);dRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("services").update({[df]:val}).eq("id",id);if(error)push("Failed to save service change — please retry","error");},800);}
-  async function delSvc(id){if(!window.confirm("Remove this service?"))return;const{error}=await supabase.from("services").delete().eq("id",id);if(error){push("Failed to delete service: "+error.message,"error");return;}setSvcs(p=>p.filter(s=>s.id!==id));}
+  async function delSvc(id){if(!window.confirm("Remove this service?"))return;const s=svcs.find(x=>x.id===id);const{error}=await supabase.from("services").delete().eq("id",id);if(error){push("Failed to delete service: "+error.message,"error");return;}setSvcs(p=>p.filter(s=>s.id!==id));logAct(user,"Deleted service",s?.name||"");}
   async function addEmp(){if(!nEmp.name.trim())return alert("Enter employee name.");if(Number(nEmp.salary)<0)return alert("Salary cannot be negative.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};const{error}=await supabase.from("employees").insert(r);if(error){push("Failed to add employee: "+error.message,"error");return;}setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
   async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Math.max(0,Number(v)||0);setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("employees").update({[df]:val}).eq("id",id);if(error)push("Failed to save employee change — please retry","error");},800);}
-  async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("employees").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
+  async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("employees").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));const emp=emps.find(e=>e.id===id);logAct(user,"Employee "+(active?"reactivated":"deactivated"),emp?.name||"");}
 // ── Commission Excel Export — organized, professional, easy to read ──
   // ── Build organized backup payload (all business data) ──
   function buildBackupPayload(backupType){
@@ -2089,6 +2174,9 @@ export default function App(){
 
   async function closePeriod(){
     if(!window.confirm("Close pay period "+period.label+"?"))return;
+    // Prevent closing the same period twice
+    const alreadyClosed=periods.find(p=>p.period===period.label);
+    if(alreadyClosed){push("Pay period "+period.label+" has already been closed on "+new Date(alreadyClosed.closedAt).toLocaleDateString()+". Cannot close it again.","error");return;}
     const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));
     const{error:cpErr}=await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});
     if(cpErr){push("Failed to close period: "+cpErr.message,"error");return;}
@@ -2131,6 +2219,12 @@ export default function App(){
   const gc=sc.mob?"1fr":"1fr 1.15fr";
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
+
+  // Show loading screen when:
+  // 1. User is set but data hasn't loaded yet (loading=true), OR
+  // 2. User is set but tab hasn't been initialized yet (tab='')
+  // Both prevent the black-screen flash after login
+  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
   if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
     {/* Header */}
@@ -2182,7 +2276,7 @@ export default function App(){
     </div>}
   </div>);
 
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes abaToastDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}"}</style></div></div>);
   return(<div
     style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827",touchAction:"pan-y"}}
     onTouchStart={handleTouchStart}
@@ -3695,7 +3789,7 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
           <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
           {!isSv&&<>
-            <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" value={line.discount} onChange={e=>onUpd(line.lineId,"discount",e.target.value)} disabled={locked}/></div>
+            <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="0" value={line.discount} onChange={e=>{const gross=Number(line.price||0)*Number(line.qty||1);const val=Math.min(Math.max(0,Number(e.target.value)||0),gross);onUpd(line.lineId,"discount",val);}} disabled={locked}/></div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:0}}>Free</p><input type="checkbox" checked={line.free} onChange={e=>onUpd(line.lineId,"free",e.target.checked)} disabled={locked} style={{width:16,height:16}}/></div>
           </>}
           <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
