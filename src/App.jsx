@@ -2395,13 +2395,17 @@ export default function App(){
             const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
             const isWaiting=v.status==="Waiting for Supervisor";
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
-            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#E2E8F0":isInProgress?"#1B4FA8":"#5A8C72"),background:isDone?"#F8FAFC":isInProgress?"#EBF2FD":"#F0FDF4"}}>
+            const svcs_=(v.services||[]);
+            const allServicesDone=svcs_.length>0&&svcs_.every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment"&&!isDone;
+            const hasWaiting=svcs_.some(l=>l.status==="Waiting"||l.status==="On Hold");
+            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#E2E8F0":v.status==="Ready for Payment"?"#166534":allServicesDone?"#5A8C72":isInProgress?"#1B4FA8":"#E0B85A"),background:isDone?"#F8FAFC":v.status==="Ready for Payment"?"#F0FDF4":allServicesDone?"#F0FDF4":isInProgress?"#EBF2FD":"#FFFDF7"}}>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
                   <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
                   {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🔄 In Progress</span>}
-                  {isWithSupervisor&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
-                  {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
+                  {allServicesDone&&<span style={{background:"#166534",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✅ All Done — Awaiting Ready</span>}
+                  {isWithSupervisor&&!allServicesDone&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
+                  {!isDone&&!isInProgress&&!allServicesDone&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
                   {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>💳 Ready</span>}
                   {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
                 </div>
@@ -2436,6 +2440,26 @@ export default function App(){
                 <span style={SB("Waiting for Supervisor")}>New</span>
               </button>;
             })}
+          {/* Customers where ALL services are done but not yet marked Ready */}
+          {(()=>{
+            const allDone=visits.filter(v=>
+              v.date===todayStr()&&
+              !["Paid & Closed","Cancelled","Ready for Payment"].includes(v.status)&&
+              (v.services||[]).length>0&&
+              (v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))
+            );
+            if(!allDone.length)return null;
+            return<><HR/><h3 style={{...S.sh,color:"#166534"}}>✅ All Services Done — Mark Ready</h3>
+              <p style={{...S.hlp,color:"#166534",marginBottom:8}}>These customers have finished all services. Select them and click "Mark Ready for Payment".</p>
+              {allDone.map(v=><button key={v.id} style={actId===v.id?S.liA:{...S.liB,background:"#F0FDF4",border:"1px solid #86EFAC"}} onClick={()=>{setActId(v.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
+                <span style={{color:"inherit"}}>
+                  <b style={{color:"inherit"}}>#{v.queue} — {v.name}</b>
+                  <span style={{fontSize:11,marginLeft:8,color:actId===v.id?"rgba(255,255,255,0.7)":"#166534"}}>{(v.services||[]).filter(l=>l.status==="Completed").length} service{(v.services||[]).filter(l=>l.status==="Completed").length!==1?"s":""} completed</span>
+                </span>
+                <span style={{...SB("Ready for Payment"),background:"#DCFCE7",color:"#166534"}}>Mark Ready ▶</span>
+              </button>)}
+            </>;
+          })()}
           <HR/><h3 style={S.sh}>🔄 Active Services</h3>
           {svcQ.length===0&&<p style={S.hlp}>No active queues.</p>}
           {svcs.map(svc=>{const rows=svcQ.filter(r=>r.line.serviceId===svc.id);if(!rows.length)return null;
