@@ -2403,6 +2403,7 @@ export default function App(){
           <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
         </section>
         <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
+          <QueueSummary visits={visits} emps={emps} sc={sc}/>
           {todayV.length===0&&saving&&[1,2,3].map(i=><div key={i} style={{height:42,background:"#F1F5F9",borderRadius:10,marginBottom:6,animation:"pulse 1.5s ease-in-out infinite"}}/>)}
           {todayV.length===0&&!saving&&<EMP>No customers registered yet today.</EMP>}
           {todayV.map((v,idx)=>{
@@ -2443,6 +2444,7 @@ export default function App(){
       {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:sc.mob&&actId?"1fr":gc,gap:14}}>
         {/* On mobile: hide queue list when customer is selected */}
         {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
+          <QueueSummary visits={visits} emps={emps} sc={sc}/>
           <h3 style={S.sh}>⏳ Waiting</h3>
           {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
             :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
@@ -4046,6 +4048,75 @@ function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
   </section>;
 }
 
+function QueueSummary({visits,emps,sc}){
+  const[open,setOpen]=React.useState(false);
+  const today=visits.filter(v=>v.date===new Date().toISOString().slice(0,10));
+  const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
+
+  // Count by section: who is waiting / in progress per section
+  const sections={};
+  active.forEach(v=>{
+    (v.services||[]).forEach(l=>{
+      if(["Completed","Cancelled"].includes(l.status))return;
+      const sec=l.employeeSection||"Other";
+      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
+      if(l.status==="In Progress")sections[sec].inProgress++;
+      else sections[sec].waiting++;
+    });
+    // Customers with no services yet
+    if(!(v.services||[]).length){
+      const sec="Unassigned";
+      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
+      sections[sec].waiting++;
+    }
+  });
+
+  const totalWaiting=active.filter(v=>v.status==="Waiting for Supervisor"||v.status==="With Supervisor").length;
+  const totalInProgress=active.filter(v=>v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress")).length;
+  const totalReady=active.filter(v=>v.status==="Ready for Payment").length;
+  const totalAllDone=active.filter(v=>(v.services||[]).length>0&&(v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment").length;
+  const entries=Object.entries(sections).sort((a,b)=>(b[1].inProgress+b[1].waiting)-(a[1].inProgress+a[1].waiting));
+
+  if(!active.length)return null;
+
+  return<div style={{position:"relative",marginBottom:10}}>
+    <button onClick={()=>setOpen(o=>!o)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#fff"}}>
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:11,fontWeight:500,color:"#5A8C72",letterSpacing:0.5}}>QUEUE STATUS</span>
+        <span style={{display:"flex",gap:6,alignItems:"center"}}>
+          {totalWaiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>⏳ {totalWaiting} waiting</span>}
+          {totalInProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🔄 {totalInProgress} in progress</span>}
+          {totalAllDone>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✅ {totalAllDone} done</span>}
+          {totalReady>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>💳 {totalReady} ready</span>}
+        </span>
+      </div>
+      <span style={{color:"#5A8C72",fontSize:14,flexShrink:0}}>{open?"▲":"▼"}</span>
+    </button>
+
+    {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",padding:12,marginTop:4}}>
+      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>BY SERVICE SECTION</p>
+      {entries.length===0&&<p style={{fontSize:12,color:"#94A3B8",margin:0}}>No active services</p>}
+      {entries.map(([sec,counts])=><div key={sec} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4}}>
+        <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{sec}</span>
+        <div style={{display:"flex",gap:6}}>
+          {counts.waiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.waiting} waiting</span>}
+          {counts.inProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.inProgress} in progress</span>}
+        </div>
+      </div>)}
+      <div style={{borderTop:"0.5px solid #E2E8F0",marginTop:8,paddingTop:8}}>
+        <p style={{margin:"0 0 4px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOTAL ACTIVE TODAY</p>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B2E4B"}}>{active.length}</b> customers</span>
+          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#92400E"}}>{totalWaiting}</b> waiting</span>
+          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B4FA8"}}>{totalInProgress}</b> in progress</span>
+          {totalAllDone>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalAllDone}</b> all done</span>}
+          {totalReady>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalReady}</b> ready for payment</span>}
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
 function SLines({visit,emps,mode,onUpd,onRem,onMove}){
   if(!visit)return null;
   const isSv=mode==="supervisor";const locked=["Ready for Payment","Paid & Closed"].includes(visit.status||"");
@@ -4076,14 +4147,21 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
               </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
           {!isSv&&<>
             <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="0" value={line.discount} onChange={e=>{const gross=Number(line.price||0)*Number(line.qty||1);const val=Math.min(Math.max(0,Number(e.target.value)||0),gross);onUpd(line.lineId,"discount",val);}} disabled={locked}/></div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:0}}>Free</p><input type="checkbox" checked={line.free} onChange={e=>onUpd(line.lineId,"free",e.target.checked)} disabled={locked} style={{width:16,height:16}}/></div>
           </>}
-          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
-          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>On Hold</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked||["Completed","Cancelled"].includes(line.status)}>
+              {line.status==="In Progress"
+                ?<><option value="In Progress">In Progress</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option></>
+                :<><option>Waiting</option><option>On Hold</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></>
+              }
+            </select>
+            {["Completed","Cancelled"].includes(line.status)&&<div style={{marginTop:4,padding:"3px 8px",borderRadius:6,background:line.status==="Completed"?"#dcfce7":"#fee2e2",color:line.status==="Completed"?"#166534":"#991b1b",fontSize:10,fontWeight:700,textAlign:"center"}}>{line.status==="Completed"?"✓ Locked":"✕ Locked"}</div>}
+          </div>
           <SvcTimer lineId={line.lineId} status={line.status}/>
         </div>
       </div>;
@@ -4105,18 +4183,27 @@ function WaitTimer({vid}){
 // Live service timer component
 function SvcTimer({lineId,status}){
   const[mins,setMins]=useState(()=>svcMins(lineId)||0);
+  const[frozenMins,setFrozenMins]=useState(null);
   useEffect(()=>{
-    if(!["In Progress","Waiting"].includes(status))return;
+    // Only count while In Progress
+    if(status!=="In Progress"){
+      // When completed/cancelled, freeze the displayed time
+      if((status==="Completed"||status==="Cancelled")&&frozenMins===null){
+        const m=svcMins(lineId);
+        if(m)setFrozenMins(m);
+      }
+      return;
+    }
     const t=setInterval(()=>setMins(svcMins(lineId)||0),15000);
     return()=>clearInterval(t);
   },[lineId,status]);
-  if(status==="Waiting")return null;
+  if(status==="Waiting"||status==="On Hold")return null;
   if(status==="Completed"||status==="Cancelled"){
-    const m=svcMins(lineId);
+    const m=frozenMins||svcMins(lineId);
     if(!m)return null;
-    return <div style={{fontSize:10,fontWeight:700,color:"#166534",background:"#dcfce7",borderRadius:6,padding:"2px 8px",alignSelf:"flex-end"}}>Done in {m} min</div>;
+    return <div style={{fontSize:10,fontWeight:700,color:"#166534",background:"#dcfce7",borderRadius:6,padding:"2px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>Done in {m} min</div>;
   }
-  if(status==="In Progress"&&mins>0)return <div style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#dbeafe",borderRadius:6,padding:"3px 8px",alignSelf:"flex-end"}}>⏱ {mins} min</div>;
+  if(status==="In Progress"&&mins>0)return <div style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#dbeafe",borderRadius:6,padding:"3px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>⏱ {mins} min</div>;
   return null;
 }
 
