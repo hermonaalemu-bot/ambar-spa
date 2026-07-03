@@ -356,7 +356,7 @@ function checkConflict(bks,form,svcs){
 }
 
 const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
-const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager","inventory"]};
+const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager","inventory"],"Service Duration":["manager","supervisor"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
@@ -1247,6 +1247,15 @@ export default function App(){
       if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
+      // Load service time log from DB (last 500 records)
+      try{
+        const{data:stl}=await supabase.from("service_time_log").select("*").order("date",{ascending:false}).order("id",{ascending:false}).limit(500);
+        if(stl&&stl.length>0){
+          const dbLog=stl.map(r=>({id:r.id,date:r.date,employee:r.employee,service:r.service,sub:r.sub,durationMins:r.actual_mins,expectedMins:r.expected_mins,customer:r.customer,queue:r.queue,section:r.section}));
+          setSvcLog(dbLog);
+          try{localStorage.setItem("ambar_svc_log",JSON.stringify(dbLog));}catch(e){}
+        }
+      }catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
       // Load backup_log separately - table may not exist yet if SQL hasn't been run
       try{
@@ -1621,7 +1630,14 @@ export default function App(){
           logAct(user,"Service completed",line.name+" by "+emp+" — "+dur+" min (expected "+(line.durationMins||"?")+"min)");
           // Save structured service time record
           const svcRecord={id:Date.now(),date:todayStr(),employee:emp,service:line.name,sub:line.sub,durationMins:dur,expectedMins:Number(line.durationMins||0),customer:vis.name,queue:vis.queue};
-          try{const existing=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");localStorage.setItem("ambar_svc_log",JSON.stringify([svcRecord,...existing].slice(0,500)));}catch(e){}
+          try{const existing=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");const updated=[svcRecord,...existing].slice(0,1000);localStorage.setItem("ambar_svc_log",JSON.stringify(updated));setSvcLog(updated);}catch(e){}
+          // Also save to Supabase so it persists across devices
+          supabase.from("service_time_log").insert({
+            employee:emp,service:line.name,sub:line.sub||"",
+            actual_mins:dur,expected_mins:Number(line.durationMins||0),
+            customer:vis.name,date:todayStr(),queue:vis.queue,
+            section:line.employeeSection||""
+          }).then(()=>{});
         }
       }
       // Unlock: any "On Hold" services for this customer → set to Waiting
@@ -3754,6 +3770,9 @@ export default function App(){
         </section>;
       })()}
 
+
+      {tab==="Service Duration"&&<SvcDuration svcLog={svcLog} emps={emps} sc={sc} S={S} CLOSE_HOUR={CLOSE_HOUR}/>}
+
       {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>{t("activityLog2")}</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
 
         <HR/>
@@ -3779,6 +3798,252 @@ export default function App(){
     </div>
     <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{-webkit-tap-highlight-color:transparent;box-sizing:border-box} body,html,#root{max-width:100vw;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%} button{color:inherit;-webkit-appearance:none;border-radius:0;font-family:inherit}input,select,textarea{-webkit-appearance:none;border-radius:0} @media(max-width:640px){input,select,textarea{font-size:16px!important}} @media print{.no-print{display:none!important}.print-only{display:block!important}body{background:white!important}}select option{color:#111827!important;background:#fff!important}select{color:#111827!important}"}</style>
   </div>);
+}
+
+function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
+  const[sdRange,setSdRange]=React.useState(true);
+  const[sdFrom,setSdFrom]=React.useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10);});
+  const[sdTo,setSdTo]=React.useState(()=>new Date().toISOString().slice(0,10));
+  const[sdEmp,setSdEmp]=React.useState("All");
+  const[sdSub,setSdSub]=React.useState("All");
+  const[sdSort,setSdSort]=React.useState("employee");
+  const[expandEmp,setExpandEmp]=React.useState(null);
+  function today(){return new Date().toISOString().slice(0,10);}
+
+  const empNames=["All",...new Set(svcLog.map(r=>r.employee).filter(Boolean))].sort();
+  const subNames=["All",...new Set(svcLog.map(r=>r.sub).filter(Boolean))].sort();
+
+  const filtered=svcLog.filter(r=>{
+    const d=r.date||"";
+    if(sdRange){if(d<sdFrom||d>sdTo)return false;}
+    else{if(d!==sdFrom)return false;}
+    if(sdEmp!=="All"&&r.employee!==sdEmp)return false;
+    if(sdSub!=="All"&&r.sub!==sdSub)return false;
+    return true;
+  });
+
+  const lastSafeTime=(avgMins)=>{
+    if(!avgMins||avgMins<=0)return null;
+    const closeMin=CLOSE_HOUR*60;
+    const latest=closeMin-avgMins-15;
+    if(latest<0||latest<8*60)return null;
+    return String(Math.floor(latest/60)).padStart(2,"0")+":"+String(latest%60).padStart(2,"0");
+  };
+
+  // Per-employee aggregation
+  const empStats=empNames.filter(n=>n!=="All").map(name=>{
+    const logs=filtered.filter(r=>r.employee===name);
+    if(!logs.length)return null;
+    const byService={};
+    logs.forEach(r=>{
+      const k=r.service||"Unknown";
+      if(!byService[k])byService[k]={name:k,sub:r.sub||"",count:0,totalActual:0,totalExpected:0};
+      byService[k].count++;
+      byService[k].totalActual+=Number(r.durationMins||0);
+      byService[k].totalExpected+=Number(r.expectedMins||0);
+    });
+    const services=Object.values(byService).map(s=>({
+      ...s,
+      avgActual:Math.round(s.totalActual/s.count),
+      avgExpected:Math.round(s.totalExpected/s.count),
+      diff:Math.round(s.totalActual/s.count)-Math.round(s.totalExpected/s.count),
+    })).sort((a,b)=>b.count-a.count);
+    const totalActual=logs.reduce((s,r)=>s+Number(r.durationMins||0),0);
+    const avgTime=Math.round(totalActual/logs.length);
+    const slowCount=logs.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
+    const fastCount=logs.filter(r=>Number(r.durationMins||0)<Number(r.expectedMins||0)-5).length;
+    const overMin=logs.reduce((s,r)=>s+Math.max(0,Number(r.durationMins||0)-Number(r.expectedMins||0)),0);
+    const speedScore=Math.max(0,Math.round(100-(overMin/(logs.length*10)*100)));
+    const emp=emps.find(e=>e.name===name);
+    return{name,section:emp?.section||"",totalServices:logs.length,avgTime,slowCount,fastCount,speedScore,services,logs};
+  }).filter(Boolean);
+
+  const totalLogs=filtered.length;
+  const overallAvg=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.durationMins||0),0)/totalLogs):0;
+  const overallExp=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.expectedMins||0),0)/totalLogs):0;
+  const overCount=filtered.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
+
+  const diffColor=(diff)=>diff>10?"#B91C1C":diff<-5?"#1B4FA8":"#166534";
+  const diffBg=(diff)=>diff>10?"#FEF2F2":diff<-5?"#EBF2FD":"#F0FDF4";
+
+  return<section style={S.card}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:16}}>
+      <div>
+        <h2 style={{...S.ct,marginBottom:2}}>⏱ Service Duration</h2>
+        <p style={{...S.hlp,margin:0}}>How long each employee takes per service — identifies slow patterns and helps plan last booking times.</p>
+      </div>
+      <div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 14px",textAlign:"center"}}>
+        <b style={{fontSize:20,color:"#fff",display:"block"}}>{svcLog.length}</b>
+        <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>total records</p>
+      </div>
+    </div>
+
+    {/* ── Filters ── */}
+    <div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(5,1fr)",gap:8,alignItems:"flex-end"}}>
+        <div><p style={S.lbl}>Employee</p>
+          <select style={S.inp} value={sdEmp} onChange={e=>setSdEmp(e.target.value)}>
+            {empNames.map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+        <div><p style={S.lbl}>Service Type</p>
+          <select style={S.inp} value={sdSub} onChange={e=>setSdSub(e.target.value)}>
+            {subNames.map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+        <div><p style={S.lbl}>{sdRange?"From":"Date"}</p>
+          <input type="date" style={S.inp} value={sdFrom} onChange={e=>setSdFrom(e.target.value)}/>
+        </div>
+        {sdRange&&<div><p style={S.lbl}>To</p>
+          <input type="date" style={S.inp} value={sdTo} onChange={e=>setSdTo(e.target.value)}/>
+        </div>}
+        <div><p style={S.lbl}>Mode</p>
+          <button style={{...S.btnS,marginBottom:0}} onClick={()=>{setSdRange(r=>!r);if(!sdRange)setSdTo(today());}}>
+            {sdRange?"📅 Date Range ✓":"📅 Single Day"}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* ── Summary ── */}
+    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:16}}>
+      {[
+        {label:"SERVICES LOGGED",value:totalLogs,sub:"in selected period",bg:"#1B2E4B",tx:"#fff",sub_tx:"#5A8C72"},
+        {label:"AVG ACTUAL TIME",value:overallAvg+" min",sub:"expected: "+overallExp+" min",bg:"#EBF2FD",tx:"#1B4FA8",sub_tx:"#1B4FA8"},
+        {label:"ON TIME",value:totalLogs>0?Math.round(((totalLogs-overCount)/totalLogs)*100)+"%":"—",sub:overCount+" slow, "+(totalLogs-overCount)+" on time",bg:overCount>totalLogs/2?"#FEF2F2":"#F0FDF4",tx:overCount>totalLogs/2?"#B91C1C":"#166534",sub_tx:"#64748B"},
+        {label:"LAST SAFE BOOKING",value:lastSafeTime(overallAvg)||"N/A",sub:"avg "+overallAvg+"m + 15m buffer",bg:"#FEF9EC",tx:"#92400E",sub_tx:"#92400E"},
+      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:12,padding:"12px 14px"}}>
+        <p style={{margin:0,fontSize:9,color:c.sub_tx,fontWeight:500,letterSpacing:0.8}}>{c.label}</p>
+        <b style={{fontSize:sc.mob?18:22,color:c.tx,display:"block",margin:"2px 0"}}>{c.value}</b>
+        <p style={{margin:0,fontSize:10,color:c.sub_tx}}>{c.sub}</p>
+      </div>)}
+    </div>
+
+    {totalLogs===0&&<div style={{textAlign:"center",padding:60,color:"#94A3B8"}}>
+      <div style={{fontSize:48,marginBottom:12}}>⏱</div>
+      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:8}}>No records yet for this period</b>
+      <p style={{fontSize:13,margin:0}}>Times are automatically recorded when a supervisor marks a service Completed.</p>
+    </div>}
+
+    {/* ── Per-Employee Cards ── */}
+    {empStats.length>0&&<>
+      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <h3 style={{...S.sh,margin:0}}>📊 By Employee</h3>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:11,color:"#64748B"}}>Sort:</span>
+          {[["employee","A–Z"],["service","By Services"],["speed","Slowest First"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setSdSort(v)} style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(sdSort===v?"#1B2E4B":"#E2E8F0"),background:sdSort===v?"#1B2E4B":"#fff",color:sdSort===v?"#fff":"#475569",fontSize:11,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
+        {[...empStats].sort((a,b)=>{
+          if(sdSort==="speed")return a.speedScore-b.speedScore;
+          if(sdSort==="service")return b.totalServices-a.totalServices;
+          return a.name.localeCompare(b.name);
+        }).map(emp=>{
+          const sc_color=emp.speedScore>=90?"#166534":emp.speedScore>=70?"#92400E":"#B91C1C";
+          const sc_bg=emp.speedScore>=90?"#F0FDF4":emp.speedScore>=70?"#FEF9EC":"#FEF2F2";
+          const isExp=expandEmp===emp.name;
+          return<div key={emp.name} style={{background:"#fff",border:"0.5px solid #E2E8F0",borderRadius:14,overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{padding:"12px 14px",background:isExp?"#F8FAFC":"#fff",cursor:"pointer"}} onClick={()=>setExpandEmp(isExp?null:emp.name)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                    <b style={{fontSize:14,color:"#111827"}}>{emp.name}</b>
+                    <span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:700}}>{emp.section}</span>
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:"#64748B"}}>{emp.totalServices} services · avg <b style={{color:"#111827"}}>{emp.avgTime} min</b></span>
+                    {emp.slowCount>0&&<span style={{background:"#FEF2F2",color:"#B91C1C",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>🐢 {emp.slowCount} slow</span>}
+                    {emp.fastCount>0&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>⚡ {emp.fastCount} fast</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
+                  <div style={{background:sc_bg,borderRadius:10,padding:"6px 10px",textAlign:"center"}}>
+                    <b style={{fontSize:16,color:sc_color,display:"block"}}>{emp.speedScore}%</b>
+                    <p style={{margin:0,fontSize:9,color:sc_color}}>on-time</p>
+                  </div>
+                  <span style={{fontSize:16,color:"#94A3B8"}}>{isExp?"▲":"▼"}</span>
+                </div>
+              </div>
+              {/* Capacity line */}
+              {emp.avgTime>0&&<div style={{marginTop:8,background:"#FEF9EC",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#92400E"}}>
+                ⏰ Last safe booking: <b>{lastSafeTime(emp.avgTime)||"Cannot take new customers at this time"}</b>
+                <span style={{color:"#B45309",marginLeft:6,fontSize:10}}>(avg {emp.avgTime}m + 15m buffer)</span>
+              </div>}
+            </div>
+
+            {/* Expanded: per-service breakdown */}
+            {isExp&&<div style={{padding:"0 14px 14px"}}>
+              <div style={{borderTop:"0.5px solid #E2E8F0",marginBottom:10,marginTop:4}}/>
+              {/* Service table */}
+              <div style={{overflowX:"auto"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:300}}>
+                  <span>Service</span><span style={{textAlign:"center"}}>×</span><span style={{textAlign:"center"}}>Avg</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
+                </div>
+                {emp.services.map((s,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",minWidth:300}}>
+                  <div>
+                    <span style={{color:"#111827",fontWeight:500}}>{s.name}</span>
+                    {s.sub&&<span style={{color:"#94A3B8",fontSize:10,marginLeft:4,display:"block"}}>{s.sub}</span>}
+                  </div>
+                  <span style={{textAlign:"center",color:"#475569"}}>{s.count}</span>
+                  <span style={{textAlign:"center",fontWeight:700,color:"#1B2E4B"}}>{s.avgActual}m</span>
+                  <span style={{textAlign:"center",color:"#64748B"}}>{s.avgExpected}m</span>
+                  <span style={{textAlign:"center",background:diffBg(s.diff),color:diffColor(s.diff),borderRadius:5,padding:"1px 5px",fontWeight:700,fontSize:11}}>{s.diff>0?"+":""}{s.diff}m</span>
+                </div>)}
+              </div>
+              {/* Recent records for this employee */}
+              <div style={{marginTop:12}}>
+                <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>Recent records:</p>
+                {emp.logs.slice(0,8).map((r,i)=>{
+                  const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
+                  return<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11}}>
+                    <span style={{color:"#374151",flex:1}}>{r.service}</span>
+                    <span style={{color:"#64748B",marginRight:10}}>{r.customer} · {r.date}</span>
+                    <span style={{background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 7px",fontWeight:700,fontSize:11,flexShrink:0}}>{r.durationMins}m {diff>0?"(+"+diff+"m)":diff<0?"("+diff+"m)":"(on time)"}</span>
+                  </div>;
+                })}
+              </div>
+            </div>}
+          </div>;
+        })}
+      </div>
+
+      {/* ── Full log table ── */}
+      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+        <h3 style={{...S.sh,margin:0}}>📋 Full Log — Every Service</h3>
+        <span style={{fontSize:11,color:"#64748B"}}>{filtered.length} records</span>
+      </div>
+      <div style={{overflowX:"auto",maxHeight:500,overflowY:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"6px 10px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:540,position:"sticky",top:0}}>
+          <span>Employee</span><span>Service</span><span>Customer</span><span style={{textAlign:"center"}}>#</span><span style={{textAlign:"center"}}>Actual</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
+        </div>
+        {[...filtered].sort((a,b)=>{
+          if(sdSort==="speed"){const da=Number(a.durationMins||0)-Number(a.expectedMins||0);const db=Number(b.durationMins||0)-Number(b.expectedMins||0);return db-da;}
+          if(sdSort==="service")return(a.service||"").localeCompare(b.service||"");
+          if(sdSort==="date")return(b.date||"").localeCompare(a.date||"");
+          return(a.employee||"").localeCompare(b.employee||"");
+        }).map((r,i)=>{
+          const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
+          return<div key={i} style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"5px 10px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",border:diff>10?"1px solid #FECACA":"none",minWidth:540}}>
+            <span style={{fontWeight:500,color:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.employee}</span>
+            <span style={{color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.service}</span>
+            <span style={{color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.customer}</span>
+            <span style={{textAlign:"center",color:"#64748B"}}>#{r.queue}</span>
+            <span style={{textAlign:"center",fontWeight:700,color:"#111827"}}>{r.durationMins}m</span>
+            <span style={{textAlign:"center",color:"#64748B"}}>{r.expectedMins}m</span>
+            <span style={{textAlign:"center",background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 6px",fontWeight:700}}>{diff>0?"+":""}{diff}m</span>
+          </div>;
+        })}
+        {filtered.length===0&&<div style={{textAlign:"center",padding:30,color:"#94A3B8",fontSize:13}}>No records match this filter.</div>}
+      </div>
+    </>}
+  </section>;
 }
 
 function SLines({visit,emps,mode,onUpd,onRem,onMove}){
