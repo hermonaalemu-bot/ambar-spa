@@ -1076,6 +1076,9 @@ export default function App(){
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:"",gender:"",wantBeautyQueue:false});
   const[bkWarn,setBkWarn]=useState("");const[bkSearch,setBkSearch]=useState("");
   const[showWalkIn,setShowWalkIn]=useState(false);
+  const[checkInModal,setCheckInModal]=useState(null); // {booking} when open
+  const[ciHoldQueue,setCiHoldQueue]=useState(false);
+  const[ciServices,setCiServices]=useState([]); // additional services selected at check-in
   const[wiSvcId,setWiSvcId]=useState("");const[wiName,setWiName]=useState("");const[wiPhone,setWiPhone]=useState("");const[wiNote,setWiNote]=useState("");
   const[nStaff,setNStaff]=useState({id:"",name:"",role:"reception",password:""});const[editStaff,setEditStaff]=useState(null);
   const[handoverNote,setHandoverNote]=useState("");const[handoverLog,setHandoverLog]=useState([]);
@@ -1828,21 +1831,48 @@ export default function App(){
   async function checkIn(b){
     if(b.visitId&&visits.find(v=>v.id===b.visitId))
       return push("This booking is already checked in","warning");
-    confirm2("Check in "+b.customerName+"?",async()=>{
-      setSaving(true);
-      const cid=makeId(b.customerName,b.customerPhone);
-      const tc=visits.filter(v=>v.date===todayStr()).length;
-      const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};
-      const{error:visErr}=await supabase.from("visits").insert(vr);
-      if(visErr){push("Check-in failed: "+visErr.message,"error");setSaving(false);return;}
-      const{error:bkErr}=await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);
-      if(bkErr)console.error("Booking status update failed:",bkErr.message);
-      setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
-      setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
-      logAct(user,"Check-in",b.customerName);
-      setSaving(false);
-      push(b.customerName+" checked in — Queue #"+vr.queue,"success");
-    },false);
+    // Open check-in modal to ask: hold queue? add services?
+    setCiHoldQueue(false);
+    setCiServices([]);
+    setCheckInModal(b);
+  }
+
+  async function confirmCheckIn(){
+    const b=checkInModal;
+    if(!b)return;
+    setSaving(true);
+    const cid=makeId(b.customerName,b.customerPhone);
+    const tc=visits.filter(v=>v.date===todayStr()).length;
+    // Build initial services from booked service + any extras selected
+    const bookedSvc=svcs.find(s=>s.id===b.serviceId||s.name===b.serviceName);
+    const lines=[];
+    if(bookedSvc){
+      lines.push({lineId:Date.now(),serviceId:bookedSvc.id,name:bookedSvc.name,category:bookedSvc.category,sub:bookedSvc.sub,price:Number(bookedSvc.price),qty:1,discount:0,free:false,commission:Number(bookedSvc.commission||0),employeeSection:bookedSvc.employeeSection,employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0});
+    }
+    ciServices.forEach((svcId,i)=>{
+      const s=svcs.find(sv=>sv.id===Number(svcId));
+      if(s)lines.push({lineId:Date.now()+i+1,serviceId:s.id,name:s.name,category:s.category,sub:s.sub,price:Number(s.price),qty:1,discount:0,free:false,commission:Number(s.commission||0),employeeSection:s.employeeSection,employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0});
+    });
+    const totalService=lines.reduce((s,l)=>s+lineIncome(l),0);
+    const vr={
+      id:Date.now(),date:todayStr(),queue:tc+1,
+      customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,
+      group_id:null,group_name:"",
+      services:lines,total_service:totalService,total_paid:0,payment_method:"",tips:[],
+      status:ciHoldQueue?"Waiting for Supervisor":(lines.length>0?"With Supervisor":"Waiting for Supervisor"),
+      note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")
+        +(ciHoldQueue?" [Queue held — not sent to supervisor yet]":"")
+    };
+    const{error:visErr}=await supabase.from("visits").insert({...vr,services:lines,total_service:totalService});
+    if(visErr){push("Check-in failed: "+visErr.message,"error");setSaving(false);return;}
+    const{error:bkErr}=await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);
+    if(bkErr)console.error("Booking status update failed:",bkErr.message);
+    setVisits(prev=>[...prev,dbVis({...vr,services:lines,total_service:totalService,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
+    setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
+    logAct(user,"Check-in",b.customerName+(ciHoldQueue?" (queue held)":"")+(lines.length>0?" — "+lines.length+" service(s) added":""));
+    setSaving(false);
+    setCheckInModal(null);
+    push(b.customerName+" checked in — Queue #"+vr.queue+(ciHoldQueue?" (held)":""),"success");
   }
   async function giveBeautyQueueFromVisit(v){
     // Give beauty salon queue to a spa customer who decided after service
@@ -2343,6 +2373,67 @@ export default function App(){
         })()}
       </div>
     </div>}
+    {/* ── Check-in Modal ── */}
+    {checkInModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:20,padding:24,maxWidth:480,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",maxHeight:"85vh",overflowY:"auto"}}>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:32,marginBottom:6}}>🚶</div>
+          <h3 style={{margin:"0 0 4px",fontSize:17,fontWeight:700,color:"#1B2E4B"}}>Check In — {checkInModal.customerName}</h3>
+          <p style={{margin:0,fontSize:13,color:"#64748B"}}>{checkInModal.serviceName||"Service TBD"} · {checkInModal.time}</p>
+        </div>
+
+        {/* Hold queue option */}
+        <label style={{display:"flex",gap:12,alignItems:"flex-start",background:ciHoldQueue?"#FEF9EC":"#F8FAFC",border:`1.5px solid ${ciHoldQueue?"#E0B85A":"#E2E8F0"}`,borderRadius:12,padding:"12px 14px",cursor:"pointer",marginBottom:14,transition:"all 0.15s"}}>
+          <input type="checkbox" checked={ciHoldQueue} onChange={e=>setCiHoldQueue(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:"#E0B85A",flexShrink:0}}/>
+          <div>
+            <b style={{fontSize:13,color:ciHoldQueue?"#92400E":"#1B2E4B"}}>⏸ Hold Queue — Don't send to supervisor yet</b>
+            <p style={{margin:"3px 0 0",fontSize:11,color:"#64748B"}}>Check this if the customer arrived but is not ready to be served (e.g. waiting for someone, wants to look around first). They will appear as "Waiting" on Reception only — not sent to the Supervisor queue until you remove the hold.</p>
+          </div>
+        </label>
+
+        {/* Services */}
+        <div style={{marginBottom:14}}>
+          <p style={{margin:"0 0 8px",fontSize:13,fontWeight:700,color:"#1B2E4B"}}>Services for this visit</p>
+
+          {/* Booked service */}
+          {checkInModal.serviceName&&checkInModal.serviceName!=="TBD - To Be Confirmed"&&<div style={{display:"flex",alignItems:"center",gap:8,background:"#EBF5EE",border:"1px solid #86EFAC",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
+            <span style={{fontSize:18}}>✅</span>
+            <div>
+              <b style={{fontSize:13,color:"#166534"}}>{checkInModal.serviceName}</b>
+              <p style={{margin:0,fontSize:11,color:"#2D7D46"}}>Booked service — included automatically</p>
+            </div>
+          </div>}
+
+          {/* Additional services */}
+          <p style={{margin:"8px 0 6px",fontSize:12,fontWeight:600,color:"#374151"}}>Add other services they want today:</p>
+          {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{
+            const items=bkSvcs.filter(s=>s.sub===sub&&s.name!==checkInModal.serviceName);
+            if(!items.length)return null;
+            return<div key={sub} style={{marginBottom:8}}>
+              <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#64748B"}}>{sub}</p>
+              {items.map(s=>{
+                const selected=ciServices.includes(String(s.id));
+                return<label key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:8,background:selected?"#EBF2FD":"#fff",border:`0.5px solid ${selected?"#BFDBFE":"#E2E8F0"}`,marginBottom:4,cursor:"pointer"}}>
+                  <input type="checkbox" checked={selected} onChange={e=>{
+                    setCiServices(prev=>e.target.checked?[...prev,String(s.id)]:prev.filter(x=>x!==String(s.id)));
+                  }} style={{width:14,height:14,accentColor:"#1B4FA8"}}/>
+                  <span style={{flex:1,fontSize:12,color:"#111827"}}>{s.name}</span>
+                  <span style={{fontSize:11,color:"#64748B",flexShrink:0}}>{Number(s.price).toLocaleString()} Birr</span>
+                </label>;
+              })}
+            </div>;
+          })}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={()=>{setCheckInModal(null);setCiServices([]);setCiHoldQueue(false);}} style={{padding:"12px",borderRadius:12,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontWeight:700,cursor:"pointer",fontSize:13}}>Cancel</button>
+          <button onClick={confirmCheckIn} disabled={saving} style={{padding:"12px",borderRadius:12,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>
+            {saving?"Saving...":ciHoldQueue?"⏸ Check In (Hold Queue)":"✓ Check In → Supervisor"}
+          </button>
+        </div>
+      </div>
+    </div>}
+
     {moroccoModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
         <div style={{fontSize:36,marginBottom:12}}>🧖</div>
@@ -2435,6 +2526,13 @@ export default function App(){
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>{t("cancel")}</button>}
+              {(v.note||"").includes("[Queue held")&&<button style={{...S.btnS,width:"auto",padding:"5px 12px",fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:600}} onClick={async()=>{
+                const newNote=(v.note||"").replace(" [Queue held — not sent to supervisor yet]","");
+                const{error}=await supabase.from("visits").update({note:newNote}).eq("id",v.id);
+                if(error){push("Failed to release: "+error.message,"error");return;}
+                setVisits(prev=>prev.map(x=>x.id===v.id?{...x,note:newNote}:x));
+                push(v.name+" released to supervisor queue","success");
+              }}>▶ Release to Supervisor</button>}
               </div>
             </div>;
           })}
@@ -2446,8 +2544,8 @@ export default function App(){
         {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
           <QueueSummary visits={visits} emps={emps} sc={sc}/>
           <h3 style={S.sh}>⏳ Waiting</h3>
-          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
-            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
+          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!(v.note||"").includes("[Queue held")).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
+            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!(v.note||"").includes("[Queue held")).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
               return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>{setActId(v.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
                 <span style={{color:"inherit"}}>
@@ -2772,7 +2870,14 @@ export default function App(){
                           </button>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:500}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,marginRight:4}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
-                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>
+                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>{
+                          // Check if the linked visit has services recorded
+                          const linkedVisit=b.visitId?visits.find(v=>v.id===b.visitId):null;
+                          if(linkedVisit&&(linkedVisit.services||[]).filter(l=>l.status!=="Cancelled").length===0){
+                            if(!window.confirm("⚠ "+b.customerName+"'s visit has no services recorded yet.\n\nAre you sure you want to mark this booking as Done? The supervisor should have added at least one service first."))return;
+                          }
+                          updBk(b.id,"Completed");
+                        }}>{t("markDone")}</button></>
                         }
                         {["Pending","Confirmed","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:10}} onClick={()=>printBookingSlip(b)}>🖨 Slip</button>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
