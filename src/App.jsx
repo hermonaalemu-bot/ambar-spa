@@ -155,6 +155,12 @@ const DEFAULT_EMPLOYEES=[
 ];
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const EMP_SECTIONS=["Barbershop","Nails","Wash & Pedicure","Braids","Hair Styling","Spa","Reception","Management"];
+// Visits that are barbershop-only are paid at Reception desk (not Checkout)
+const BARBER_SECTIONS=["Barbershop"];
+function isBarberVisit(v){
+  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
+  return lines.length>0&&lines.every(l=>BARBER_SECTIONS.includes(l.employeeSection||l.sub));
+}
 
 // Ethiopian Calendar
 const ETH_MONTHS=["መስከረም","ጥቅምት","ህዳር","ታህሳስ","ጥር","የካቲት","መጋቢት","ሚያዚያ","ግንቦት","ሰኔ","ሐምሌ","ነሃሴ","ጳጉሜ"];
@@ -1206,7 +1212,7 @@ export default function App(){
       const now=new Date();
       // Auto-close stale sessions at 10PM
       if(now.getHours()>=22){
-        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled","Ready for Payment"].includes(v.status));
+        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled","Ready for Payment","Spa Arrived"].includes(v.status));
         for(const v of stale){
           const{error}=await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed 10PM]"}).eq("id",v.id);
           if(error)console.error("Auto-close failed for",v.name,error.message);
@@ -1385,8 +1391,10 @@ export default function App(){
   const coList=useMemo(()=>{
     const q=coQ.toLowerCase().trim();
     // Only show Ready for Payment and Paid & Closed
+    // Exclude pure barbershop visits — those are paid at Reception desk
     const tv=visits.filter(v=>v.date===todayStr()&&
-      ["Ready for Payment","Paid & Closed"].includes(v.status));
+      ["Ready for Payment","Paid & Closed"].includes(v.status)&&
+      !isBarberVisit(v));
     if(!q)return tv;
     return tv.filter(v=>String(v.queue).includes(q)||
       v.name.toLowerCase().includes(q)||
@@ -1398,7 +1406,7 @@ export default function App(){
   useEffect(()=>{
     if(tab==="Checkout"&&actId){
       const v=visits.find(x=>x.id===actId);
-      if(v&&!["Ready for Payment","Paid & Closed"].includes(v.status)){
+      if(v&&!["Ready for Payment","Paid & Closed","Spa Arrived"].includes(v.status)){
         setActId(null);
       }
     }
@@ -1843,36 +1851,92 @@ export default function App(){
     setSaving(true);
     const cid=makeId(b.customerName,b.customerPhone);
     const tc=visits.filter(v=>v.date===todayStr()).length;
-    // Build initial services from booked service + any extras selected
+    // Spa customers ALWAYS start on reception — status "Spa Arrived"
+    // They are NOT sent to supervisor until reception gives them a queue
     const bookedSvc=svcs.find(s=>s.id===b.serviceId||s.name===b.serviceName);
-    const lines=[];
-    if(bookedSvc){
-      lines.push({lineId:Date.now(),serviceId:bookedSvc.id,name:bookedSvc.name,category:bookedSvc.category,sub:bookedSvc.sub,price:Number(bookedSvc.price),qty:1,discount:0,free:false,commission:Number(bookedSvc.commission||0),employeeSection:bookedSvc.employeeSection,employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0});
-    }
-    ciServices.forEach((svcId,i)=>{
-      const s=svcs.find(sv=>sv.id===Number(svcId));
-      if(s)lines.push({lineId:Date.now()+i+1,serviceId:s.id,name:s.name,category:s.category,sub:s.sub,price:Number(s.price),qty:1,discount:0,free:false,commission:Number(s.commission||0),employeeSection:s.employeeSection,employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0});
-    });
-    const totalService=lines.reduce((s,l)=>s+lineIncome(l),0);
+    const isMorocco=bookedSvc&&(bookedSvc.name.toLowerCase().includes("morocco")||bookedSvc.sub==="Moroccan Bath");
     const vr={
       id:Date.now(),date:todayStr(),queue:tc+1,
       customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,
       group_id:null,group_name:"",
-      services:lines,total_service:totalService,total_paid:0,payment_method:"",tips:[],
-      status:ciHoldQueue?"Waiting for Supervisor":(lines.length>0?"With Supervisor":"Waiting for Supervisor"),
-      note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")
-        +(ciHoldQueue?" [Queue held — not sent to supervisor yet]":"")
+      services:[],total_service:0,total_paid:0,payment_method:"",tips:[],
+      // Always starts as "Spa Arrived" — stays on reception, NOT sent to supervisor
+      status:"Spa Arrived",
+      note:"Spa Check-in: "+(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?b.serviceName:"TBD")
+        +(b.gender?" ("+b.gender+")":"")
+        +(ciHoldQueue&&isMorocco?" [Female hold — waiting for room]":""),
+      spa_booking_id:b.id,
+      spa_service_id:b.serviceId||null,
+      spa_service_name:b.serviceName||"",
+      spa_gender:b.gender||"",
+      is_morocco:isMorocco||false,
     };
-    const{error:visErr}=await supabase.from("visits").insert({...vr,services:lines,total_service:totalService});
+    const{error:visErr}=await supabase.from("visits").insert(vr);
     if(visErr){push("Check-in failed: "+visErr.message,"error");setSaving(false);return;}
     const{error:bkErr}=await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);
     if(bkErr)console.error("Booking status update failed:",bkErr.message);
-    setVisits(prev=>[...prev,dbVis({...vr,services:lines,total_service:totalService,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
+    setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
     setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
-    logAct(user,"Check-in",b.customerName+(ciHoldQueue?" (queue held)":"")+(lines.length>0?" — "+lines.length+" service(s) added":""));
+    logAct(user,"Spa Check-in",b.customerName+" — "+( b.serviceName||"TBD")+(ciHoldQueue&&isMorocco?" (female hold)":""));
     setSaving(false);
     setCheckInModal(null);
-    push(b.customerName+" checked in — Queue #"+vr.queue+(ciHoldQueue?" (held)":""),"success");
+    push(b.customerName+" checked in — waiting on Reception"+( isMorocco&&ciHoldQueue?" (room hold)":""),"success");
+  }
+
+  // Give queue: send ONE spa customer to supervisor with their service data
+  async function giveSpaQueue(v){
+    const isMorocco=v.is_morocco||(v.note||"").toLowerCase().includes("morocco");
+    const isMale=(v.spa_gender||"").toUpperCase()==="M";
+    // Build service lines from their booked service
+    const spaServiceName=v.spa_service_name||v.note?.replace("Spa Check-in: ","")?.split(" (")[0]||"";
+    const bookedSvc=svcs.find(s=>s.name===spaServiceName||s.id===v.spa_service_id);
+    const lines=[];
+    if(bookedSvc){
+      lines.push({
+        lineId:Date.now(),serviceId:bookedSvc.id,
+        name:bookedSvc.name,category:bookedSvc.category,sub:bookedSvc.sub,
+        price:Number(bookedSvc.price),qty:1,discount:0,free:false,
+        commission:Number(bookedSvc.commission||0),
+        employeeSection:bookedSvc.employeeSection,
+        employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0
+      });
+      // Morocco Bath always gets free included service (500 Birr equivalent)
+      if(isMorocco){
+        if(isMale){
+          // Male: Free Haircut — barber earns commission on the 300 Birr base price
+          lines.push({
+            lineId:Date.now()+1,
+            name:"Free Haircut (Morocco Special)",
+            category:"Barbershop",sub:"Barbershop",
+            price:0,qty:1,discount:0,free:true,commission:10,
+            employeeSection:"Barbershop",
+            employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,
+            moroccoFree:true,moroccoBasePrice:300
+          });
+        } else {
+          // Female: Free Hair Ironing — NO commission (it's a courtesy, no charge, no commission)
+          lines.push({
+            lineId:Date.now()+1,
+            name:"Free Hair Ironing (Morocco Special)",
+            category:"Beauty Salon",sub:"Hair Styling",
+            price:0,qty:1,discount:0,free:true,commission:0,
+            employeeSection:"Hair Styling",
+            employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,
+            moroccoFree:false,moroccoBasePrice:0
+          });
+        }
+      }
+    }
+    const totalService=lines.reduce((s,l)=>s+lineIncome(l),0);
+    const{error}=await supabase.from("visits").update({
+      services:lines,total_service:totalService,
+      status:"Waiting for Supervisor",
+      note:(v.note||"")+" [Queue given]"
+    }).eq("id",v.id);
+    if(error){push("Failed to give queue: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===v.id?{...x,services:lines,totalService:totalService,status:"Waiting for Supervisor",note:(x.note||"")+" [Queue given]"}:x));
+    logAct(user,"Spa Queue Given",v.name+" — "+(spaServiceName||"TBD"));
+    push(v.name+" sent to supervisor queue","success");
   }
   async function giveBeautyQueueFromVisit(v){
     // Give beauty salon queue to a spa customer who decided after service
@@ -2373,66 +2437,52 @@ export default function App(){
         })()}
       </div>
     </div>}
-    {/* ── Check-in Modal ── */}
-    {checkInModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:20,padding:24,maxWidth:480,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",maxHeight:"85vh",overflowY:"auto"}}>
-        <div style={{textAlign:"center",marginBottom:16}}>
-          <div style={{fontSize:32,marginBottom:6}}>🚶</div>
-          <h3 style={{margin:"0 0 4px",fontSize:17,fontWeight:700,color:"#1B2E4B"}}>Check In — {checkInModal.customerName}</h3>
-          <p style={{margin:0,fontSize:13,color:"#64748B"}}>{checkInModal.serviceName||"Service TBD"} · {checkInModal.time}</p>
-        </div>
-
-        {/* Hold queue option */}
-        <label style={{display:"flex",gap:12,alignItems:"flex-start",background:ciHoldQueue?"#FEF9EC":"#F8FAFC",border:`1.5px solid ${ciHoldQueue?"#E0B85A":"#E2E8F0"}`,borderRadius:12,padding:"12px 14px",cursor:"pointer",marginBottom:14,transition:"all 0.15s"}}>
-          <input type="checkbox" checked={ciHoldQueue} onChange={e=>setCiHoldQueue(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:"#E0B85A",flexShrink:0}}/>
-          <div>
-            <b style={{fontSize:13,color:ciHoldQueue?"#92400E":"#1B2E4B"}}>⏸ Hold Queue — Don't send to supervisor yet</b>
-            <p style={{margin:"3px 0 0",fontSize:11,color:"#64748B"}}>Check this if the customer arrived but is not ready to be served (e.g. waiting for someone, wants to look around first). They will appear as "Waiting" on Reception only — not sent to the Supervisor queue until you remove the hold.</p>
+    {/* ── Spa Check-in Modal ── */}
+    {checkInModal&&(()=>{
+      const bk=checkInModal;
+      const isMorocco=bk.serviceName&&(bk.serviceName.toLowerCase().includes("morocco")||svcs.find(s=>s.id===bk.serviceId)?.sub==="Moroccan Bath");
+      const isFemale=(bk.gender||"").toUpperCase()==="F"||bk.gender==="Female";
+      const isMale=(bk.gender||"").toUpperCase()==="M"||bk.gender==="Male";
+      return<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style={{background:"#fff",borderRadius:20,padding:24,maxWidth:460,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",maxHeight:"85vh",overflowY:"auto"}}>
+          {/* Header */}
+          <div style={{textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:32,marginBottom:6}}>{isMorocco?"🧖":"🚶"}</div>
+            <h3 style={{margin:"0 0 4px",fontSize:17,fontWeight:700,color:"#1B2E4B"}}>Spa Check-In</h3>
+            <b style={{fontSize:15,color:"#1B2E4B"}}>{bk.customerName}</b>
+            {bk.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700,marginLeft:8}}>{bk.gender}</span>}
+            <p style={{margin:"6px 0 0",fontSize:13,color:"#64748B"}}>{bk.serviceName||"Service TBD"} · {bk.time}</p>
           </div>
-        </label>
 
-        {/* Services */}
-        <div style={{marginBottom:14}}>
-          <p style={{margin:"0 0 8px",fontSize:13,fontWeight:700,color:"#1B2E4B"}}>Services for this visit</p>
+          {/* Booked service info */}
+          <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:12,padding:"10px 14px",marginBottom:12}}>
+            <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#0369A1"}}>BOOKED SERVICE</p>
+            <b style={{fontSize:13,color:"#0C4A6E"}}>{bk.serviceName||"To Be Confirmed"}</b>
+            {isMorocco&&<div style={{marginTop:6,background:"#FFFBEB",border:"0.5px solid #FCD34D",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#92400E"}}>
+              🎁 Morocco Bath includes a free {isMale?"Haircut (300 Birr)":"Hair Ironing (500 Birr)"} — automatically added when queue is given to supervisor
+            </div>}
+          </div>
 
-          {/* Booked service */}
-          {checkInModal.serviceName&&checkInModal.serviceName!=="TBD - To Be Confirmed"&&<div style={{display:"flex",alignItems:"center",gap:8,background:"#EBF5EE",border:"1px solid #86EFAC",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
-            <span style={{fontSize:18}}>✅</span>
+          {/* Hold queue — only for Morocco female */}
+          {isMorocco&&isFemale&&<label style={{display:"flex",gap:10,alignItems:"flex-start",background:ciHoldQueue?"#FEF9EC":"#F8FAFC",border:`1.5px solid ${ciHoldQueue?"#E0B85A":"#E2E8F0"}`,borderRadius:12,padding:"10px 14px",cursor:"pointer",marginBottom:12,transition:"all 0.15s"}}>
+            <input type="checkbox" checked={ciHoldQueue} onChange={e=>setCiHoldQueue(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:"#E0B85A",flexShrink:0}}/>
             <div>
-              <b style={{fontSize:13,color:"#166534"}}>{checkInModal.serviceName}</b>
-              <p style={{margin:0,fontSize:11,color:"#2D7D46"}}>Booked service — included automatically</p>
+              <b style={{fontSize:12,color:ciHoldQueue?"#92400E":"#1B2E4B"}}>⏸ Hold — Waiting for female-only room</b>
+              <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>Keep her on reception until the room is ready. Use "Give Queue" when room is available.</p>
             </div>
-          </div>}
+          </label>}
 
-          {/* Additional services */}
-          <p style={{margin:"8px 0 6px",fontSize:12,fontWeight:600,color:"#374151"}}>Add other services they want today:</p>
-          {["Moroccan Bath","Steam & Sauna","Massage"].map(sub=>{
-            const items=bkSvcs.filter(s=>s.sub===sub&&s.name!==checkInModal.serviceName);
-            if(!items.length)return null;
-            return<div key={sub} style={{marginBottom:8}}>
-              <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#64748B"}}>{sub}</p>
-              {items.map(s=>{
-                const selected=ciServices.includes(String(s.id));
-                return<label key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:8,background:selected?"#EBF2FD":"#fff",border:`0.5px solid ${selected?"#BFDBFE":"#E2E8F0"}`,marginBottom:4,cursor:"pointer"}}>
-                  <input type="checkbox" checked={selected} onChange={e=>{
-                    setCiServices(prev=>e.target.checked?[...prev,String(s.id)]:prev.filter(x=>x!==String(s.id)));
-                  }} style={{width:14,height:14,accentColor:"#1B4FA8"}}/>
-                  <span style={{flex:1,fontSize:12,color:"#111827"}}>{s.name}</span>
-                  <span style={{fontSize:11,color:"#64748B",flexShrink:0}}>{Number(s.price).toLocaleString()} Birr</span>
-                </label>;
-              })}
-            </div>;
-          })}
-        </div>
+          <p style={{margin:"0 0 6px",fontSize:12,color:"#64748B",fontStyle:"italic"}}>Customer stays on Reception. Use "Give Queue" button when ready to send to supervisor.</p>
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={()=>{setCheckInModal(null);setCiServices([]);setCiHoldQueue(false);}} style={{padding:"12px",borderRadius:12,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontWeight:700,cursor:"pointer",fontSize:13}}>Cancel</button>
-          <button onClick={confirmCheckIn} disabled={saving} style={{padding:"12px",borderRadius:12,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>
-            {saving?"Saving...":ciHoldQueue?"⏸ Check In (Hold Queue)":"✓ Check In → Supervisor"}
-          </button>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
+            <button onClick={()=>{setCheckInModal(null);setCiHoldQueue(false);}} style={{padding:"12px",borderRadius:12,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontWeight:700,cursor:"pointer",fontSize:13}}>Cancel</button>
+            <button onClick={confirmCheckIn} disabled={saving} style={{padding:"12px",borderRadius:12,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>
+              {saving?"Saving...":ciHoldQueue?"⏸ Check In (Hold Room)":"✓ Check In"}
+            </button>
+          </div>
         </div>
-      </div>
-    </div>}
+      </div>;
+    })()}
 
     {moroccoModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
@@ -2502,6 +2552,8 @@ export default function App(){
             const isInProgress=v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress");
             const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
             const isWaiting=v.status==="Waiting for Supervisor";
+            const isSpaArrived=v.status==="Spa Arrived";
+            const isSpaHold=(v.note||"").includes("[Female hold") || (v.note||"").includes("[room hold") || (v.note||"").includes("Female hold");
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
             const svcs_=(v.services||[]);
             const allServicesDone=svcs_.length>0&&svcs_.every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment"&&!isDone;
@@ -2512,8 +2564,9 @@ export default function App(){
                   <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
                   {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🔄 In Progress</span>}
                   {allServicesDone&&<span style={{background:"#166534",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✅ All Done — Awaiting Ready</span>}
+                  {isSpaArrived&&<span style={{background:"#E0F2FE",color:"#0369A1",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🧖 Spa Arrived{isSpaHold?" — Holding Room":""}</span>}
                   {isWithSupervisor&&!allServicesDone&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
-                  {!isDone&&!isInProgress&&!allServicesDone&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
+                  {!isDone&&!isInProgress&&!allServicesDone&&!isSpaArrived&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
                   {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>💳 Ready</span>}
                   {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
                 </div>
@@ -2526,17 +2579,79 @@ export default function App(){
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>{t("cancel")}</button>}
-              {(v.note||"").includes("[Queue held")&&<button style={{...S.btnS,width:"auto",padding:"5px 12px",fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:600}} onClick={async()=>{
-                const newNote=(v.note||"").replace(" [Queue held — not sent to supervisor yet]","");
+              {/* Spa Arrived: Give Queue button */}
+              {isSpaArrived&&!isSpaHold&&<button style={{...S.btnP,width:"auto",padding:"5px 14px",fontSize:11,marginBottom:0}} onClick={()=>giveSpaQueue(v)}>▶ Give Queue</button>}
+              {/* Morocco female hold: release when room ready */}
+              {isSpaArrived&&isSpaHold&&<button style={{...S.btnS,width:"auto",padding:"5px 12px",fontSize:11,color:"#0369A1",borderColor:"#BAE6FD",fontWeight:600,marginBottom:0}} onClick={async()=>{
+                const newNote=(v.note||"").replace(" [Female hold — waiting for room]","").replace(" [room hold]","");
                 const{error}=await supabase.from("visits").update({note:newNote}).eq("id",v.id);
-                if(error){push("Failed to release: "+error.message,"error");return;}
+                if(error){push("Failed: "+error.message,"error");return;}
                 setVisits(prev=>prev.map(x=>x.id===v.id?{...x,note:newNote}:x));
-                push(v.name+" released to supervisor queue","success");
-              }}>▶ Release to Supervisor</button>}
+                push("Room ready — "+v.name+" can now receive queue","success");
+              }}>🚪 Room Ready — Give Queue</button>}
+              {/* After all spa services done: option to add beauty services */}
+              {allServicesDone&&<button style={{...S.btnS,width:"auto",padding:"5px 12px",fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:600,marginBottom:0}} onClick={()=>giveBeautyQueueFromVisit(v)}>💇 Add Beauty Services</button>}
               </div>
             </div>;
           })}
         </section>
+
+        {/* ── Barbershop Payments ── Reception handles all barbershop payments */}
+        {(()=>{
+          const barberReady=todayV.filter(v=>
+            isBarberVisit(v)&&
+            v.status==="Ready for Payment"
+          );
+          const barberInProgress=todayV.filter(v=>
+            isBarberVisit(v)&&
+            !["Paid & Closed","Cancelled","Ready for Payment"].includes(v.status)
+          );
+          if(!barberReady.length&&!barberInProgress.length)return null;
+          return<section style={{...S.card,borderTop:"3px solid #1B2E4B"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <div>
+                <h2 style={{...S.ct,marginBottom:0}}>💈 Barbershop Payments</h2>
+                <p style={{...S.hlp,margin:0}}>All barbershop payments are handled here at Reception</p>
+              </div>
+              {barberReady.length>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>💳 {barberReady.length} ready to pay</span>}
+            </div>
+
+            {/* Ready for payment */}
+            {barberReady.map(v=><div key={v.id} style={{background:"#F0FDF4",border:"1.5px solid #86EFAC",borderRadius:14,padding:"12px 14px",marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
+                    <span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>💳 Ready to Pay</span>
+                  </div>
+                  {(v.services||[]).filter(l=>l.status!=="Cancelled").map((l,i)=><div key={i} style={{fontSize:12,color:"#374151",marginBottom:2}}>
+                    ✂ {l.name} {l.employee?<span style={{color:"#64748B"}}>— {l.employee}</span>:null} <b style={{color:"#1B2E4B"}}>{Number(l.price*l.qty).toLocaleString()} Birr</b>
+                  </div>)}
+                  <b style={{fontSize:15,color:"#166534",marginTop:4,display:"block"}}>Total: {(v.totalService||0).toLocaleString()} Birr</b>
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {["Cash","Card","Transfer"].map(method=><button key={method} onClick={async()=>{
+                    if(!window.confirm("Collect "+method+" payment of "+(v.totalService||0).toLocaleString()+" Birr from "+v.name+"?"))return;
+                    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:v.totalService,payment_method:method}).eq("id",v.id);
+                    if(error){push("Payment failed: "+error.message,"error");return;}
+                    setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Paid & Closed",totalPaid:v.totalService,paymentMethod:method}:x));
+                    logAct(user,"Barbershop Payment",v.name+" — "+(v.totalService||0).toLocaleString()+" Birr via "+method);
+                    push(v.name+" — payment collected via "+method,"success");
+                  }} style={{padding:"8px 14px",borderRadius:10,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>{method}</button>)}
+                </div>
+              </div>
+            </div>)}
+
+            {/* In progress - just info */}
+            {barberInProgress.length>0&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:"10px 14px"}}>
+              <p style={{margin:"0 0 6px",fontSize:12,fontWeight:700,color:"#374151"}}>Currently being served ({barberInProgress.length}):</p>
+              {barberInProgress.map(v=><div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:"#475569",marginBottom:4}}>
+                <span>#{v.queue} {v.name}</span>
+                <span style={{...SB(v.status),...{borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:600}}}>{v.status}</span>
+              </div>)}
+            </div>}
+          </section>;
+        })()}
       </main>}
 
       {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:sc.mob&&actId?"1fr":gc,gap:14}}>
@@ -4330,4 +4445,4 @@ function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#334155",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:11,marginTop:3}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
+function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"},"Spa Arrived":{bg:"#E0F2FE",co:"#0369A1"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
