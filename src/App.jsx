@@ -362,7 +362,7 @@ function checkConflict(bks,form,svcs){
 }
 
 const BKC={Pending:{bg:"#fef3c7",co:"#92400e"},Confirmed:{bg:"#dbeafe",co:"#1e40af"},Arrived:{bg:"#dcfce7",co:"#166534"},Completed:{bg:"#f0fdf4",co:"#14532d"},Cancelled:{bg:"#fee2e2",co:"#991b1b"},"No-show":{bg:"#f3f4f6",co:"#6b7280"}};
-const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager","inventory"],"Service Duration":["manager","supervisor"]};
+const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"],Checkout:["reception","manager"],Bookings:["reception","supervisor","manager"],"Service Setup":["manager"],"Daily Closing":["manager"],Expenses:["manager"],Customers:["manager"],Payroll:["manager"],Dashboard:["manager"],Staff:["manager"],"Activity Log":["manager"],Handover:["reception","supervisor","manager"],"Design Editor":["manager"],Inventory:["manager","inventory"],"Service Duration":["manager","supervisor"],"Barbershop":["reception","manager"]};
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
@@ -921,6 +921,7 @@ export default function App(){
   const[visits,setVisits]=useState([]);const[exps,setExps]=useState([]);
   const[periods,setPeriods]=useState([]);const[bks,setBks]=useState([]);const[actLog,setActLog]=useState([]);
   const[backupLog,setBackupLog]=useState([]);
+  const[queueEnabled,setQueueEnabled]=useState(true); // Queue on/off toggle (saved to DB)
   const[lastBackup,setLastBackup]=useState(()=>localStorage.getItem("ambar_spa_last_backup")||null);
   const autoBackupChecked=useRef(false);
   const[actId,setActId]=useState(null);
@@ -967,6 +968,9 @@ export default function App(){
           }
         }catch(e){}
       });
+    // Load queue toggle setting
+    supabase.from("settings").select("*").eq("key","queueEnabled").single()
+      .then(({data})=>{if(data?.value!=null)setQueueEnabled(data.value==="true"||data.value===true);});
     // Load svcProducts from DB (cross-device product-service links)
     supabase.from("settings").select("*").eq("key","svcProducts").single()
       .then(({data})=>{
@@ -3993,6 +3997,8 @@ export default function App(){
       })()}
 
 
+      {tab==="Barbershop"&&<BarberTab visits={visits} emps={emps} svcs={svcs} user={user} supabase={supabase} sc={sc} S={S} SB={SB} money={money} todayStr={todayStr} logAct={logAct} push={push} setVisits={setVisits} queueEnabled={queueEnabled} setQueueEnabled={setQueueEnabled} saving={saving} setSaving={setSaving}/>}
+
       {tab==="Service Duration"&&<SvcDuration svcLog={svcLog} emps={emps} sc={sc} S={S} CLOSE_HOUR={CLOSE_HOUR}/>}
 
       {tab==="Activity Log"&&<section style={S.card}><h2 style={S.ct}>{t("activityLog2")}</h2><p style={{...S.hlp,color:"#374151"}}>Last 100 actions across all staff.</p>
@@ -4334,6 +4340,260 @@ function QueueSummary({visits,emps,sc}){
         </div>
       </div>
     </div>}
+  </div>;
+}
+
+function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving}){
+  const[bName,setBName]=React.useState("");
+  const[bPhone,setBPhone]=React.useState("");
+  const[bNote,setBNote]=React.useState("");
+  const[bSvcId,setBSvcId]=React.useState("");
+  const[showReg,setShowReg]=React.useState(false);
+
+  const today=visits.filter(v=>v.date===todayStr()&&
+    (v.services||[]).some(l=>l.employeeSection==="Barbershop"||l.category==="Barbershop")||
+    v.status!=="Paid & Closed"&&v.status!=="Cancelled"&&(v.services||[]).length>0&&
+    (v.services||[]).every(l=>l.employeeSection==="Barbershop"||l.category==="Barbershop")
+  ).sort((a,b)=>a.queue-b.queue);
+
+  const barberEmps=emps.filter(e=>e.active&&e.section==="Barbershop");
+  const barberSvcs=svcs.filter(s=>s.category==="Barbershop"||s.employeeSection==="Barbershop");
+  function lineIncome(l){const g=Number(l.price||0)*Number(l.qty||1)-Number(l.discount||0);return l.free?0:Math.max(0,g);}
+
+  async function addBarberWalkIn(){
+    if(!bName.trim())return alert("Enter customer name.");
+    const svc=barberSvcs.find(s=>s.id===Number(bSvcId));
+    const cid=bName.trim().toLowerCase().replace(/\s+/g,"_")+"_"+( bPhone.trim()||"walkin");
+    const qNum=queueEnabled?visits.filter(v=>v.date===todayStr()).length+1:0;
+    const lines=svc?[{
+      lineId:Date.now(),serviceId:svc.id,name:svc.name,
+      category:"Barbershop",sub:svc.sub||"Barbershop",
+      price:Number(svc.price),qty:1,discount:0,free:false,
+      commission:Number(svc.commission||0),employeeSection:"Barbershop",
+      employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0
+    }]:[];
+    const vr={id:Date.now(),date:todayStr(),queue:qNum,
+      customer_id:cid,name:bName.trim(),payer_name:bName.trim(),
+      phone:bPhone.trim(),group_id:null,group_name:"",
+      services:lines,total_service:lines.reduce((s,l)=>s+lineIncome(l),0),
+      total_paid:0,payment_method:"",tips:[],
+      status:"Waiting for Supervisor",
+      note:bNote.trim()||""
+    };
+    setSaving(true);
+    const{error}=await supabase.from("visits").insert(vr);
+    setSaving(false);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>[...prev,{...vr,totalService:vr.total_service,totalPaid:0,customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null}]);
+    logAct(user,"Barbershop Walk-in",bName.trim()+(svc?" — "+svc.name:""));
+    setBName("");setBPhone("");setBNote("");setBSvcId("");setShowReg(false);
+    push(bName.trim()+" added"+(queueEnabled?" — Queue #"+qNum:""),"success");
+  }
+
+  async function assignBarber(visitId,lineId,empName){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const upd=(v.services||[]).map(l=>l.lineId===lineId?{...l,employee:empName,status:empName?"In Progress":"Waiting"}:l);
+    const{error}=await supabase.from("visits").update({services:upd,status:"In Service"}).eq("id",visitId);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:"In Service"}:x));
+  }
+
+  async function markBarberDone(visitId,lineId){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const upd=(v.services||[]).map(l=>l.lineId===lineId?{...l,status:"Completed"}:l);
+    const allDone=upd.every(l=>["Completed","Cancelled"].includes(l.status));
+    const newStatus=allDone?"Ready for Payment":"In Service";
+    const{error}=await supabase.from("visits").update({services:upd,status:newStatus}).eq("id",visitId);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:newStatus}:x));
+    if(allDone)push(v.name+" — ready for payment","success");
+  }
+
+  async function collectPayment(visitId,method){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const total=v.totalService||(v.services||[]).reduce((s,l)=>s+lineIncome(l),0);
+    if(!window.confirm("Collect "+method+" payment of "+total.toLocaleString()+" Birr from "+v.name+"?"))return;
+    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:total,payment_method:method}).eq("id",visitId);
+    if(error){push("Payment failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,status:"Paid & Closed",totalPaid:total,paymentMethod:method}:x));
+    logAct(user,"Barbershop Payment",v.name+" — "+total.toLocaleString()+" Birr via "+method);
+    push(v.name+" — "+total.toLocaleString()+" Birr collected via "+method,"success");
+  }
+
+  async function toggleQueue(val){
+    setQueueEnabled(val);
+    await supabase.from("settings").upsert({key:"queueEnabled",value:String(val)});
+    push("Queue numbers "+(val?"enabled":"disabled"),"success");
+  }
+
+  // Separate by status
+  const waiting=today.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status));
+  const inProgress=today.filter(v=>v.status==="In Service");
+  const readyToPay=today.filter(v=>v.status==="Ready for Payment");
+  const paid=today.filter(v=>v.status==="Paid & Closed");
+
+  const totalRevToday=paid.reduce((s,v)=>s+(v.totalPaid||0),0);
+  const pendingRevenue=readyToPay.reduce((s,v)=>s+(v.totalService||0),0)+inProgress.reduce((s,v)=>s+(v.totalService||0),0);
+
+  return<section style={{...S.card,maxWidth:"100%"}}>
+    {/* ── Header ── */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:16}}>
+      <div>
+        <h2 style={{...S.ct,marginBottom:2}}>💈 Barbershop</h2>
+        <p style={{...S.hlp,margin:0}}>Manage walk-ins, assign barbers, and collect payments</p>
+      </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+        {/* Queue toggle */}
+        <label style={{display:"flex",alignItems:"center",gap:8,background:queueEnabled?"#F0FDF4":"#FEF2F2",border:`1.5px solid ${queueEnabled?"#86EFAC":"#FECACA"}`,borderRadius:10,padding:"6px 14px",cursor:"pointer"}}>
+          <div style={{position:"relative",width:40,height:22}}>
+            <input type="checkbox" checked={queueEnabled} onChange={e=>toggleQueue(e.target.checked)} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
+            <div style={{position:"absolute",inset:0,background:queueEnabled?"#166534":"#DC2626",borderRadius:11,transition:"background 0.2s"}}/>
+            <div style={{position:"absolute",top:2,left:queueEnabled?20:2,width:18,height:18,background:"#fff",borderRadius:9,transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
+          </div>
+          <span style={{fontSize:12,fontWeight:700,color:queueEnabled?"#166534":"#DC2626"}}>{queueEnabled?"Queue ON":"Queue OFF"}</span>
+        </label>
+        <button onClick={()=>setShowReg(r=>!r)} style={{...S.btnP,width:"auto",padding:"8px 18px",margin:0}}>+ Add Customer</button>
+      </div>
+    </div>
+
+    {/* ── Stats row ── */}
+    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:16}}>
+      {[
+        {label:"WAITING",value:waiting.length,bg:"#FEF3C7",tx:"#92400E"},
+        {label:"IN CHAIR",value:inProgress.length,bg:"#DBEAFE",tx:"#1B4FA8"},
+        {label:"READY TO PAY",value:readyToPay.length,bg:"#DCFCE7",tx:"#166534"},
+        {label:"PAID TODAY",value:totalRevToday.toLocaleString()+" Birr",bg:"#F0FDF4",tx:"#166534"},
+      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+        <b style={{fontSize:c.label==="PAID TODAY"?14:22,color:c.tx,display:"block"}}>{c.value}</b>
+        <p style={{margin:0,fontSize:9,color:c.tx,fontWeight:600,letterSpacing:0.8}}>{c.label}</p>
+      </div>)}
+    </div>
+
+    {/* ── Add customer form ── */}
+    {showReg&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:16}}>
+      <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Barbershop Customer</h3>
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
+        <div><p style={S.lbl}>Name *</p><input style={S.inp} placeholder="Customer name" value={bName} onChange={e=>setBName(e.target.value)}/></div>
+        <div><p style={S.lbl}>Phone</p><input style={S.inp} placeholder="Phone number" value={bPhone} onChange={e=>setBPhone(e.target.value)}/></div>
+        <div><p style={S.lbl}>Service</p>
+          <select style={{...S.inp,color:"#111827"}} value={bSvcId} onChange={e=>setBSvcId(e.target.value)}>
+            <option value="">Select service...</option>
+            {barberSvcs.map(s=><option key={s.id} value={s.id}>{s.name} — {Number(s.price).toLocaleString()} Birr</option>)}
+          </select>
+        </div>
+        <div><p style={S.lbl}>Note</p><input style={S.inp} placeholder="Any note (optional)" value={bNote} onChange={e=>setBNote(e.target.value)}/></div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={addBarberWalkIn} disabled={saving||!bName.trim()} style={{...S.btnP,width:"auto",padding:"8px 20px",margin:0}}>{saving?"Adding...":"✓ Add to Queue"}</button>
+        <button onClick={()=>{setShowReg(false);setBName("");setBPhone("");setBNote("");setBSvcId("");}} style={{...S.btnS,width:"auto",padding:"8px 16px",margin:0}}>Cancel</button>
+      </div>
+    </div>}
+
+    {/* ── No customers ── */}
+    {today.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:"#94A3B8"}}>
+      <div style={{fontSize:48,marginBottom:10}}>💈</div>
+      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:6}}>No barbershop customers today</b>
+      <p style={{fontSize:13,margin:0}}>Click "+ Add Customer" to add a walk-in</p>
+    </div>}
+
+    {/* ── Waiting ── */}
+    {waiting.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 8px"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:"#F59E0B"}}/>
+        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#92400E"}}>⏳ Waiting ({waiting.length})</h3>
+      </div>
+      {waiting.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="waiting" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome}/>)}
+    </>}
+
+    {/* ── In Progress ── */}
+    {inProgress.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:"#3B82F6"}}/>
+        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#1B4FA8"}}>✂ In Chair ({inProgress.length})</h3>
+      </div>
+      {inProgress.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="inprogress" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome}/>)}
+    </>}
+
+    {/* ── Ready to Pay ── */}
+    {readyToPay.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:"#16A34A"}}/>
+        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>💳 Ready to Pay ({readyToPay.length})</h3>
+      </div>
+      {readyToPay.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="payment" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome}/>)}
+    </>}
+
+    {/* ── Paid today (collapsible) ── */}
+    {paid.length>0&&<details style={{marginTop:16}}>
+      <summary style={{cursor:"pointer",fontSize:12,fontWeight:700,color:"#64748B",padding:"6px 0"}}>✓ Paid Today ({paid.length}) — {totalRevToday.toLocaleString()} Birr</summary>
+      {paid.map(v=><div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F0FDF4",borderRadius:8,marginTop:4,fontSize:12}}>
+        <span style={{fontWeight:500,color:"#111827"}}>{queueEnabled&&v.queue?"#"+v.queue+" — ":""}{v.name}</span>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <span style={{color:"#64748B"}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name).join(", ")}</span>
+          <b style={{color:"#166534"}}>{(v.totalPaid||0).toLocaleString()} Birr</b>
+          <span style={{...SB("Paid & Closed"),...{borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:600}}}>via {v.paymentMethod}</span>
+        </div>
+      </div>)}
+    </details>}
+  </section>;
+}
+
+function BarberCard({v,barberEmps,mode,onAssign,onDone,onPay,queueEnabled,money,lineIncome}){
+  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
+  const total=lines.reduce((s,l)=>s+lineIncome(l),0);
+  const cardBg=mode==="payment"?"#F0FDF4":mode==="inprogress"?"#EBF2FD":"#FFFDF7";
+  const borderColor=mode==="payment"?"#86EFAC":mode==="inprogress"?"#BFDBFE":"#FDE68A";
+
+  return<div style={{background:cardBg,border:`1.5px solid ${borderColor}`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+      <div style={{flex:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+          {queueEnabled&&v.queue>0&&<span style={{background:"#1B2E4B",color:"#E0B85A",borderRadius:8,padding:"2px 10px",fontSize:13,fontWeight:900}}>#{v.queue}</span>}
+          <b style={{fontSize:15,color:"#111827"}}>{v.name}</b>
+          {v.phone&&<span style={{fontSize:11,color:"#64748B"}}>{v.phone}</span>}
+          {v.note&&<span style={{fontSize:11,color:"#64748B",fontStyle:"italic"}}>· {v.note}</span>}
+        </div>
+
+        {/* Service lines */}
+        {lines.map((l,i)=><div key={i} style={{display:"flex",alignItems:"center",padding:"6px 10px",background:"rgba(255,255,255,0.7)",borderRadius:9,marginBottom:4,flexWrap:"wrap",gap:8}}>
+          <span style={{flex:1,fontSize:13,fontWeight:500,color:"#111827"}}>{l.name}</span>
+          <b style={{fontSize:13,color:"#1B2E4B"}}>{Number(l.price||0).toLocaleString()} Birr</b>
+
+          {/* Assign barber dropdown */}
+          {mode!=="payment"&&l.status!=="Completed"&&<select
+            style={{padding:"4px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12,minWidth:110}}
+            value={l.employee||""}
+            onChange={e=>onAssign(v.id,l.lineId,e.target.value)}>
+            <option value="">Assign barber...</option>
+            {barberEmps.map(e=><option key={e.id}>{e.name}</option>)}
+          </select>}
+
+          {/* Status badge */}
+          {l.employee&&l.status==="In Progress"&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✂ {l.employee}</span>}
+          {l.status==="Completed"&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✓ Done</span>}
+
+          {/* Mark Done button */}
+          {mode==="inprogress"&&l.status==="In Progress"&&l.employee&&<button
+            onClick={()=>onDone(v.id,l.lineId)}
+            style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#166534",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+            ✓ Done
+          </button>}
+        </div>)}
+
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:4}}>
+          <b style={{fontSize:15,color:mode==="payment"?"#166534":"#1B2E4B"}}>{total.toLocaleString()} Birr total</b>
+        </div>
+      </div>
+
+      {/* Payment buttons */}
+      {mode==="payment"&&<div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+        {["Cash","Card","Transfer"].map(m=><button key={m}
+          onClick={()=>onPay(v.id,m)}
+          style={{padding:"8px 16px",borderRadius:10,border:"none",background:m==="Cash"?"#1B2E4B":m==="Card"?"#1B4FA8":"#0369A1",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+          {m==="Cash"?"💵":m==="Card"?"💳":"📱"} {m}
+        </button>)}
+      </div>}
+    </div>
   </div>;
 }
 
