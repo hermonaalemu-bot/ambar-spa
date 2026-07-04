@@ -4348,6 +4348,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
   const[bPhone,setBPhone]=React.useState("");
   const[bNote,setBNote]=React.useState("");
   const[bSvcId,setBSvcId]=React.useState("");
+  const[bBarber,setBBarber]=React.useState(""); // preferred barber at registration
   const[showReg,setShowReg]=React.useState(false);
 
   const today=visits.filter(v=>v.date===todayStr()&&
@@ -4365,20 +4366,23 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     const svc=barberSvcs.find(s=>s.id===Number(bSvcId));
     const cid=bName.trim().toLowerCase().replace(/\s+/g,"_")+"_"+( bPhone.trim()||"walkin");
     const qNum=queueEnabled?visits.filter(v=>v.date===todayStr()).length+1:0;
+    // If a specific barber was chosen, auto-assign them
+    const chosenBarber=bBarber&&bBarber!=="random"?bBarber:"";
     const lines=svc?[{
       lineId:Date.now(),serviceId:svc.id,name:svc.name,
       category:"Barbershop",sub:svc.sub||"Barbershop",
       price:Number(svc.price),qty:1,discount:0,free:false,
       commission:Number(svc.commission||0),employeeSection:"Barbershop",
-      employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0
+      employee:chosenBarber,preferredEmployee:chosenBarber,
+      status:chosenBarber?"In Progress":"Waiting",wigDeduction:0
     }]:[];
     const vr={id:Date.now(),date:todayStr(),queue:qNum,
       customer_id:cid,name:bName.trim(),payer_name:bName.trim(),
       phone:bPhone.trim(),group_id:null,group_name:"",
       services:lines,total_service:lines.reduce((s,l)=>s+lineIncome(l),0),
       total_paid:0,payment_method:"",tips:[],
-      status:"Waiting for Supervisor",
-      note:bNote.trim()||""
+      status:chosenBarber?"In Service":"Waiting for Supervisor",
+      note:bNote.trim()||(bBarber&&bBarber!=="random"?"Preferred: "+bBarber:"")
     };
     setSaving(true);
     const{error}=await supabase.from("visits").insert(vr);
@@ -4386,7 +4390,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     if(error){push("Failed: "+error.message,"error");return;}
     setVisits(prev=>[...prev,{...vr,totalService:vr.total_service,totalPaid:0,customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null}]);
     logAct(user,"Barbershop Walk-in",bName.trim()+(svc?" — "+svc.name:""));
-    setBName("");setBPhone("");setBNote("");setBSvcId("");setShowReg(false);
+    setBName("");setBPhone("");setBNote("");setBSvcId("");setBBarber("");setShowReg(false);
     push(bName.trim()+" added"+(queueEnabled?" — Queue #"+qNum:""),"success");
   }
 
@@ -4432,6 +4436,19 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
   const readyToPay=today.filter(v=>v.status==="Ready for Payment");
   const paid=today.filter(v=>v.status==="Paid & Closed");
 
+  // Per-barber queue counts (waiting + in progress)
+  const barberQueues={};
+  barberEmps.forEach(e=>{barberQueues[e.name]={waiting:0,inProgress:0,total:0};});
+  [...waiting,...inProgress].forEach(v=>{
+    (v.services||[]).forEach(l=>{
+      if(l.employee&&barberQueues[l.employee]){
+        if(l.status==="In Progress")barberQueues[l.employee].inProgress++;
+        else barberQueues[l.employee].waiting++;
+        barberQueues[l.employee].total++;
+      }
+    });
+  });
+
   const totalRevToday=paid.reduce((s,v)=>s+(v.totalPaid||0),0);
   const pendingRevenue=readyToPay.reduce((s,v)=>s+(v.totalService||0),0)+inProgress.reduce((s,v)=>s+(v.totalService||0),0);
 
@@ -4469,6 +4486,27 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
       </div>)}
     </div>
 
+    {/* ── Per-barber load (only when queue is on and there are barbers) ── */}
+    {queueEnabled&&barberEmps.length>0&&(waiting.length>0||inProgress.length>0)&&<div style={{background:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#5A8C72",letterSpacing:1}}>BARBER QUEUE LOAD</p>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {barberEmps.map(e=>{
+          const q=barberQueues[e.name]||{waiting:0,inProgress:0,total:0};
+          const load=q.total===0?"free":q.total<=1?"light":q.total<=2?"moderate":"busy";
+          const loadColor=load==="free"?"#5A8C72":load==="light"?"#E0B85A":load==="moderate"?"#F59E0B":"#DC2626";
+          const loadBg=load==="free"?"rgba(90,140,114,0.15)":load==="light"?"rgba(224,184,90,0.15)":load==="moderate"?"rgba(245,158,11,0.15)":"rgba(220,38,38,0.15)";
+          return<div key={e.id} style={{background:loadBg,border:`1px solid ${loadColor}33`,borderRadius:10,padding:"8px 14px",minWidth:120,flex:1}}>
+            <b style={{fontSize:13,color:"#fff",display:"block"}}>✂ {e.name}</b>
+            <div style={{display:"flex",gap:6,marginTop:4,alignItems:"center"}}>
+              <span style={{background:loadColor,color:"#fff",borderRadius:8,padding:"1px 8px",fontSize:11,fontWeight:700}}>{q.total===0?"Free":q.total+" in queue"}</span>
+              {q.inProgress>0&&<span style={{color:"#94A3B8",fontSize:10}}>{q.inProgress} in chair</span>}
+              {q.waiting>0&&<span style={{color:"#94A3B8",fontSize:10}}>{q.waiting} waiting</span>}
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>}
+
     {/* ── Add customer form ── */}
     {showReg&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:16}}>
       <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Barbershop Customer</h3>
@@ -4480,6 +4518,27 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
             <option value="">Select service...</option>
             {barberSvcs.map(s=><option key={s.id} value={s.id}>{s.name} — {Number(s.price).toLocaleString()} Birr</option>)}
           </select>
+        </div>
+        <div>
+          <p style={S.lbl}>Preferred Barber</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[{val:"",label:"No preference"},
+              {val:"random",label:"🎲 Random"},
+              ...barberEmps.map(e=>({val:e.name,label:"✂ "+e.name}))
+            ].map(opt=><button key={opt.val} type="button"
+              onClick={()=>setBBarber(opt.val)}
+              style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bBarber===opt.val?"#1B2E4B":"#E2E8F0"}`,background:bBarber===opt.val?"#1B2E4B":"#fff",color:bBarber===opt.val?"#fff":"#374151",fontSize:12,fontWeight:bBarber===opt.val?700:400,cursor:"pointer",transition:"all 0.15s"}}>
+              {opt.label}
+              {queueEnabled&&opt.val&&opt.val!=="random"&&barberQueues[opt.val]!==undefined&&
+                <span style={{marginLeft:5,background:bBarber===opt.val?"rgba(255,255,255,0.2)":"#F1F5F9",color:bBarber===opt.val?"#fff":"#64748B",borderRadius:10,padding:"0 5px",fontSize:10,fontWeight:700}}>
+                  {barberQueues[opt.val]?.total||0}
+                </span>
+              }
+            </button>)}
+          </div>
+          {bBarber&&bBarber!=="random"&&barberQueues[bBarber]&&queueEnabled&&<p style={{margin:"4px 0 0",fontSize:11,color:"#64748B"}}>
+            {barberEmps.find(e=>e.name===bBarber)?.name||bBarber} currently has {barberQueues[bBarber].total} customer{barberQueues[bBarber].total!==1?"s":""} ({barberQueues[bBarber].inProgress} in chair, {barberQueues[bBarber].waiting} waiting)
+          </p>}
         </div>
         <div><p style={S.lbl}>Note</p><input style={S.inp} placeholder="Any note (optional)" value={bNote} onChange={e=>setBNote(e.target.value)}/></div>
       </div>
@@ -4502,7 +4561,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         <div style={{width:8,height:8,borderRadius:4,background:"#F59E0B"}}/>
         <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#92400E"}}>⏳ Waiting ({waiting.length})</h3>
       </div>
-      {waiting.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="waiting" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome}/>)}
+      {waiting.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="waiting" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} barberQueues={barberQueues}/>)}
     </>}
 
     {/* ── In Progress ── */}
@@ -4511,7 +4570,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         <div style={{width:8,height:8,borderRadius:4,background:"#3B82F6"}}/>
         <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#1B4FA8"}}>✂ In Chair ({inProgress.length})</h3>
       </div>
-      {inProgress.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="inprogress" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome}/>)}
+      {inProgress.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="inprogress" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} barberQueues={barberQueues}/>)}
     </>}
 
     {/* ── Ready to Pay ── */}
@@ -4520,7 +4579,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         <div style={{width:8,height:8,borderRadius:4,background:"#16A34A"}}/>
         <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>💳 Ready to Pay ({readyToPay.length})</h3>
       </div>
-      {readyToPay.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="payment" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome}/>)}
+      {readyToPay.map(v=><BarberCard key={v.id} v={v} barberEmps={barberEmps} mode="payment" onAssign={assignBarber} onDone={markBarberDone} onPay={collectPayment} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} barberQueues={barberQueues}/>)}
     </>}
 
     {/* ── Paid today (collapsible) ── */}
@@ -4538,7 +4597,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
   </section>;
 }
 
-function BarberCard({v,barberEmps,mode,onAssign,onDone,onPay,queueEnabled,money,lineIncome}){
+function BarberCard({v,barberEmps,mode,onAssign,onDone,onPay,queueEnabled,money,lineIncome,barberQueues={}}){
   const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
   const total=lines.reduce((s,l)=>s+lineIncome(l),0);
   const cardBg=mode==="payment"?"#F0FDF4":mode==="inprogress"?"#EBF2FD":"#FFFDF7";
@@ -4561,11 +4620,14 @@ function BarberCard({v,barberEmps,mode,onAssign,onDone,onPay,queueEnabled,money,
 
           {/* Assign barber dropdown */}
           {mode!=="payment"&&l.status!=="Completed"&&<select
-            style={{padding:"4px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12,minWidth:110}}
+            style={{padding:"4px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",color:"#111827",fontSize:12,minWidth:130}}
             value={l.employee||""}
             onChange={e=>onAssign(v.id,l.lineId,e.target.value)}>
             <option value="">Assign barber...</option>
-            {barberEmps.map(e=><option key={e.id}>{e.name}</option>)}
+            {barberEmps.map(e=>{
+              const q=barberQueues[e.name]||{total:0};
+              return<option key={e.id} value={e.name}>{e.name}{queueEnabled&&q.total>0?" ("+q.total+" in queue)":""}</option>;
+            })}
           </select>}
 
           {/* Status badge */}
