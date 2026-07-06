@@ -10,14 +10,14 @@ const DEFAULT_STAFF=[
   {id:"manager",     name:"Manager",     role:"manager",    password:"9999",active:true},
   {id:"inventory1",  name:"Inventory",   role:"inventory",  password:"5678",active:true},
 ];
+const BARBER_SECTIONS=["Barbershop","Hair Wash & Color"];
+function isBarberVisit(v){const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");return lines.length>0&&lines.every(l=>BARBER_SECTIONS.includes(l.employeeSection)||l.category==="Barbershop");}
 const DC=["Barbershop","Beauty Salon","Spa"];
 const FS=[
   // ── Barbershop ──────────────────────────────────────────
-  // Barbers (Andom, Haftom) — haircuts, 10% commission
   {id:101,cat:"Barbershop",sub:"Hair",  name:"Adult Haircut",  price:500, cm:10,es:"Barbershop",        bk:false,dm:30},
   {id:102,cat:"Barbershop",sub:"Hair",  name:"Child Haircut",  price:300, cm:10,es:"Barbershop",        bk:false,dm:20},
   {id:103,cat:"Barbershop",sub:"Beard", name:"Beard Trim",     price:200, cm:10,es:"Barbershop",        bk:false,dm:20},
-  // Roza — wash, color, treatment — 10% commission
   {id:104,cat:"Barbershop",sub:"Wash",      name:"Hair Wash",         price:300, cm:10,es:"Hair Wash & Color",bk:false,dm:20},
   {id:105,cat:"Barbershop",sub:"Color",     name:"Hair Color",         price:1500,cm:10,es:"Hair Wash & Color",bk:false,dm:60},
   {id:106,cat:"Barbershop",sub:"Color",     name:"Hair Color & Wash",  price:1800,cm:10,es:"Hair Wash & Color",bk:false,dm:90},
@@ -162,12 +162,6 @@ const DEFAULT_EMPLOYEES=[
 ];
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const EMP_SECTIONS=["Barbershop","Hair Wash & Color","Nails","Wash & Pedicure","Braids","Hair Styling","Spa","Reception","Management"];
-// Visits that are barbershop-only are paid at Reception desk (not Checkout)
-const BARBER_SECTIONS=["Barbershop"];
-function isBarberVisit(v){
-  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
-  return lines.length>0&&lines.every(l=>BARBER_SECTIONS.includes(l.employeeSection||l.sub));
-}
 
 // Ethiopian Calendar
 const ETH_MONTHS=["መስከረም","ጥቅምት","ህዳር","ታህሳስ","ጥር","የካቲት","መጋቢት","ሚያዚያ","ግንቦት","ሰኔ","ሐምሌ","ነሃሴ","ጳጉሜ"];
@@ -378,27 +372,7 @@ const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||""
 const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null,gender:r.gender||"",beautyQueueNum:r.beauty_queue_num||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
-function Notifs({items,dismiss}){
-  // Show only the most recent notification (last in array)
-  const latest=items[items.length-1];
-  if(!latest)return null;
-  const bg=latest.type==="success"?"#166534":latest.type==="booking"?"#5b21b6":
-    latest.type==="payment"?"#1e40af":latest.type==="warning"?"#92400e":"#1e3a8a";
-  return<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,
-    padding:"8px 12px",pointerEvents:"auto",
-    animation:"abaToastDown 0.25s cubic-bezier(0.16,1,0.3,1)"}}>
-    <div style={{background:bg,color:"#fff",borderRadius:12,padding:"11px 16px",
-      display:"flex",justifyContent:"space-between",alignItems:"center",
-      boxShadow:"0 4px 16px rgba(0,0,0,0.25)",maxWidth:500,margin:"0 auto"}}>
-      <span style={{fontSize:13,fontWeight:600,flex:1}}>{latest.msg}</span>
-      <button onClick={()=>dismiss(latest.id)}
-        style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",
-          borderRadius:8,width:24,height:24,cursor:"pointer",fontSize:14,
-          display:"flex",alignItems:"center",justifyContent:"center",
-          marginLeft:12,flexShrink:0}}>✕</button>
-    </div>
-  </div>;
-}
+function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
 
 function EthPicker({value,onChange,label,bookingDates,...props}){
   // Parse current value into Ethiopian date
@@ -843,6 +817,770 @@ const DEFAULT_INVENTORY=[
   {id:100,name:"Envelopes",category:"Consumables",qty:1,unit:"pcs",minQty:5,price:0},
   {id:101,name:"Paper (A4)",category:"Consumables",qty:5,unit:"pcs",minQty:1,price:0},
 ];
+
+function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
+  const[sdRange,setSdRange]=React.useState(true);
+  const[sdFrom,setSdFrom]=React.useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10);});
+  const[sdTo,setSdTo]=React.useState(()=>new Date().toISOString().slice(0,10));
+  const[sdEmp,setSdEmp]=React.useState("All");
+  const[sdSub,setSdSub]=React.useState("All");
+  const[sdSort,setSdSort]=React.useState("employee");
+  const[expandEmp,setExpandEmp]=React.useState(null);
+  function today(){return new Date().toISOString().slice(0,10);}
+
+  const empNames=["All",...new Set(svcLog.map(r=>r.employee).filter(Boolean))].sort();
+  const subNames=["All",...new Set(svcLog.map(r=>r.sub).filter(Boolean))].sort();
+
+  const filtered=svcLog.filter(r=>{
+    const d=r.date||"";
+    if(sdRange){if(d<sdFrom||d>sdTo)return false;}
+    else{if(d!==sdFrom)return false;}
+    if(sdEmp!=="All"&&r.employee!==sdEmp)return false;
+    if(sdSub!=="All"&&r.sub!==sdSub)return false;
+    return true;
+  });
+
+  const lastSafeTime=(avgMins)=>{
+    if(!avgMins||avgMins<=0)return null;
+    const closeMin=CLOSE_HOUR*60;
+    const latest=closeMin-avgMins-15;
+    if(latest<0||latest<8*60)return null;
+    return String(Math.floor(latest/60)).padStart(2,"0")+":"+String(latest%60).padStart(2,"0");
+  };
+
+  // Per-employee aggregation
+  const empStats=empNames.filter(n=>n!=="All").map(name=>{
+    const logs=filtered.filter(r=>r.employee===name);
+    if(!logs.length)return null;
+    const byService={};
+    logs.forEach(r=>{
+      const k=r.service||"Unknown";
+      if(!byService[k])byService[k]={name:k,sub:r.sub||"",count:0,totalActual:0,totalExpected:0};
+      byService[k].count++;
+      byService[k].totalActual+=Number(r.durationMins||0);
+      byService[k].totalExpected+=Number(r.expectedMins||0);
+    });
+    const services=Object.values(byService).map(s=>({
+      ...s,
+      avgActual:Math.round(s.totalActual/s.count),
+      avgExpected:Math.round(s.totalExpected/s.count),
+      diff:Math.round(s.totalActual/s.count)-Math.round(s.totalExpected/s.count),
+    })).sort((a,b)=>b.count-a.count);
+    const totalActual=logs.reduce((s,r)=>s+Number(r.durationMins||0),0);
+    const avgTime=Math.round(totalActual/logs.length);
+    const slowCount=logs.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
+    const fastCount=logs.filter(r=>Number(r.durationMins||0)<Number(r.expectedMins||0)-5).length;
+    const overMin=logs.reduce((s,r)=>s+Math.max(0,Number(r.durationMins||0)-Number(r.expectedMins||0)),0);
+    const speedScore=Math.max(0,Math.round(100-(overMin/(logs.length*10)*100)));
+    const emp=emps.find(e=>e.name===name);
+    return{name,section:emp?.section||"",totalServices:logs.length,avgTime,slowCount,fastCount,speedScore,services,logs};
+  }).filter(Boolean);
+
+  const totalLogs=filtered.length;
+  const overallAvg=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.durationMins||0),0)/totalLogs):0;
+  const overallExp=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.expectedMins||0),0)/totalLogs):0;
+  const overCount=filtered.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
+
+  const diffColor=(diff)=>diff>10?"#B91C1C":diff<-5?"#1B4FA8":"#166534";
+  const diffBg=(diff)=>diff>10?"#FEF2F2":diff<-5?"#EBF2FD":"#F0FDF4";
+
+  return<section style={S.card}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:16}}>
+      <div>
+        <h2 style={{...S.ct,marginBottom:2}}>⏱ Service Duration</h2>
+        <p style={{...S.hlp,margin:0}}>How long each employee takes per service — identifies slow patterns and helps plan last booking times.</p>
+      </div>
+      <div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 14px",textAlign:"center"}}>
+        <b style={{fontSize:20,color:"#fff",display:"block"}}>{svcLog.length}</b>
+        <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>total records</p>
+      </div>
+    </div>
+
+    {/* ── Filters ── */}
+    <div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(5,1fr)",gap:8,alignItems:"flex-end"}}>
+        <div><p style={S.lbl}>Employee</p>
+          <select style={S.inp} value={sdEmp} onChange={e=>setSdEmp(e.target.value)}>
+            {empNames.map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+        <div><p style={S.lbl}>Service Type</p>
+          <select style={S.inp} value={sdSub} onChange={e=>setSdSub(e.target.value)}>
+            {subNames.map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+        <div><p style={S.lbl}>{sdRange?"From":"Date"}</p>
+          <input type="date" style={S.inp} value={sdFrom} onChange={e=>setSdFrom(e.target.value)}/>
+        </div>
+        {sdRange&&<div><p style={S.lbl}>To</p>
+          <input type="date" style={S.inp} value={sdTo} onChange={e=>setSdTo(e.target.value)}/>
+        </div>}
+        <div><p style={S.lbl}>Mode</p>
+          <button style={{...S.btnS,marginBottom:0}} onClick={()=>{setSdRange(r=>!r);if(!sdRange)setSdTo(today());}}>
+            {sdRange?"📅 Date Range ✓":"📅 Single Day"}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* ── Summary ── */}
+    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:16}}>
+      {[
+        {label:"SERVICES LOGGED",value:totalLogs,sub:"in selected period",bg:"#1B2E4B",tx:"#fff",sub_tx:"#5A8C72"},
+        {label:"AVG ACTUAL TIME",value:overallAvg+" min",sub:"expected: "+overallExp+" min",bg:"#EBF2FD",tx:"#1B4FA8",sub_tx:"#1B4FA8"},
+        {label:"ON TIME",value:totalLogs>0?Math.round(((totalLogs-overCount)/totalLogs)*100)+"%":"—",sub:overCount+" slow, "+(totalLogs-overCount)+" on time",bg:overCount>totalLogs/2?"#FEF2F2":"#F0FDF4",tx:overCount>totalLogs/2?"#B91C1C":"#166534",sub_tx:"#64748B"},
+        {label:"LAST SAFE BOOKING",value:lastSafeTime(overallAvg)||"N/A",sub:"avg "+overallAvg+"m + 15m buffer",bg:"#FEF9EC",tx:"#92400E",sub_tx:"#92400E"},
+      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:12,padding:"12px 14px"}}>
+        <p style={{margin:0,fontSize:9,color:c.sub_tx,fontWeight:500,letterSpacing:0.8}}>{c.label}</p>
+        <b style={{fontSize:sc.mob?18:22,color:c.tx,display:"block",margin:"2px 0"}}>{c.value}</b>
+        <p style={{margin:0,fontSize:10,color:c.sub_tx}}>{c.sub}</p>
+      </div>)}
+    </div>
+
+    {totalLogs===0&&<div style={{textAlign:"center",padding:60,color:"#94A3B8"}}>
+      <div style={{fontSize:48,marginBottom:12}}>⏱</div>
+      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:8}}>No records yet for this period</b>
+      <p style={{fontSize:13,margin:0}}>Times are automatically recorded when a supervisor marks a service Completed.</p>
+    </div>}
+
+    {/* ── Per-Employee Cards ── */}
+    {empStats.length>0&&<>
+      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <h3 style={{...S.sh,margin:0}}>📊 By Employee</h3>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:11,color:"#64748B"}}>Sort:</span>
+          {[["employee","A–Z"],["service","By Services"],["speed","Slowest First"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setSdSort(v)} style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(sdSort===v?"#1B2E4B":"#E2E8F0"),background:sdSort===v?"#1B2E4B":"#fff",color:sdSort===v?"#fff":"#475569",fontSize:11,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
+        {[...empStats].sort((a,b)=>{
+          if(sdSort==="speed")return a.speedScore-b.speedScore;
+          if(sdSort==="service")return b.totalServices-a.totalServices;
+          return a.name.localeCompare(b.name);
+        }).map(emp=>{
+          const sc_color=emp.speedScore>=90?"#166534":emp.speedScore>=70?"#92400E":"#B91C1C";
+          const sc_bg=emp.speedScore>=90?"#F0FDF4":emp.speedScore>=70?"#FEF9EC":"#FEF2F2";
+          const isExp=expandEmp===emp.name;
+          return<div key={emp.name} style={{background:"#fff",border:"0.5px solid #E2E8F0",borderRadius:14,overflow:"hidden"}}>
+            {/* Header */}
+            <div style={{padding:"12px 14px",background:isExp?"#F8FAFC":"#fff",cursor:"pointer"}} onClick={()=>setExpandEmp(isExp?null:emp.name)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                    <b style={{fontSize:14,color:"#111827"}}>{emp.name}</b>
+                    <span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:700}}>{emp.section}</span>
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:"#64748B"}}>{emp.totalServices} services · avg <b style={{color:"#111827"}}>{emp.avgTime} min</b></span>
+                    {emp.slowCount>0&&<span style={{background:"#FEF2F2",color:"#B91C1C",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>🐢 {emp.slowCount} slow</span>}
+                    {emp.fastCount>0&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>⚡ {emp.fastCount} fast</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
+                  <div style={{background:sc_bg,borderRadius:10,padding:"6px 10px",textAlign:"center"}}>
+                    <b style={{fontSize:16,color:sc_color,display:"block"}}>{emp.speedScore}%</b>
+                    <p style={{margin:0,fontSize:9,color:sc_color}}>on-time</p>
+                  </div>
+                  <span style={{fontSize:16,color:"#94A3B8"}}>{isExp?"▲":"▼"}</span>
+                </div>
+              </div>
+              {/* Capacity line */}
+              {emp.avgTime>0&&<div style={{marginTop:8,background:"#FEF9EC",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#92400E"}}>
+                ⏰ Last safe booking: <b>{lastSafeTime(emp.avgTime)||"Cannot take new customers at this time"}</b>
+                <span style={{color:"#B45309",marginLeft:6,fontSize:10}}>(avg {emp.avgTime}m + 15m buffer)</span>
+              </div>}
+            </div>
+
+            {/* Expanded: per-service breakdown */}
+            {isExp&&<div style={{padding:"0 14px 14px"}}>
+              <div style={{borderTop:"0.5px solid #E2E8F0",marginBottom:10,marginTop:4}}/>
+              {/* Service table */}
+              <div style={{overflowX:"auto"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:300}}>
+                  <span>Service</span><span style={{textAlign:"center"}}>×</span><span style={{textAlign:"center"}}>Avg</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
+                </div>
+                {emp.services.map((s,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",minWidth:300}}>
+                  <div>
+                    <span style={{color:"#111827",fontWeight:500}}>{s.name}</span>
+                    {s.sub&&<span style={{color:"#94A3B8",fontSize:10,marginLeft:4,display:"block"}}>{s.sub}</span>}
+                  </div>
+                  <span style={{textAlign:"center",color:"#475569"}}>{s.count}</span>
+                  <span style={{textAlign:"center",fontWeight:700,color:"#1B2E4B"}}>{s.avgActual}m</span>
+                  <span style={{textAlign:"center",color:"#64748B"}}>{s.avgExpected}m</span>
+                  <span style={{textAlign:"center",background:diffBg(s.diff),color:diffColor(s.diff),borderRadius:5,padding:"1px 5px",fontWeight:700,fontSize:11}}>{s.diff>0?"+":""}{s.diff}m</span>
+                </div>)}
+              </div>
+              {/* Recent records for this employee */}
+              <div style={{marginTop:12}}>
+                <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>Recent records:</p>
+                {emp.logs.slice(0,8).map((r,i)=>{
+                  const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
+                  return<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11}}>
+                    <span style={{color:"#374151",flex:1}}>{r.service}</span>
+                    <span style={{color:"#64748B",marginRight:10}}>{r.customer} · {r.date}</span>
+                    <span style={{background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 7px",fontWeight:700,fontSize:11,flexShrink:0}}>{r.durationMins}m {diff>0?"(+"+diff+"m)":diff<0?"("+diff+"m)":"(on time)"}</span>
+                  </div>;
+                })}
+              </div>
+            </div>}
+          </div>;
+        })}
+      </div>
+
+      {/* ── Full log table ── */}
+      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+        <h3 style={{...S.sh,margin:0}}>📋 Full Log — Every Service</h3>
+        <span style={{fontSize:11,color:"#64748B"}}>{filtered.length} records</span>
+      </div>
+      <div style={{overflowX:"auto",maxHeight:500,overflowY:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"6px 10px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:540,position:"sticky",top:0}}>
+          <span>Employee</span><span>Service</span><span>Customer</span><span style={{textAlign:"center"}}>#</span><span style={{textAlign:"center"}}>Actual</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
+        </div>
+        {[...filtered].sort((a,b)=>{
+          if(sdSort==="speed"){const da=Number(a.durationMins||0)-Number(a.expectedMins||0);const db=Number(b.durationMins||0)-Number(b.expectedMins||0);return db-da;}
+          if(sdSort==="service")return(a.service||"").localeCompare(b.service||"");
+          if(sdSort==="date")return(b.date||"").localeCompare(a.date||"");
+          return(a.employee||"").localeCompare(b.employee||"");
+        }).map((r,i)=>{
+          const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
+          return<div key={i} style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"5px 10px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",border:diff>10?"1px solid #FECACA":"none",minWidth:540}}>
+            <span style={{fontWeight:500,color:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.employee}</span>
+            <span style={{color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.service}</span>
+            <span style={{color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.customer}</span>
+            <span style={{textAlign:"center",color:"#64748B"}}>#{r.queue}</span>
+            <span style={{textAlign:"center",fontWeight:700,color:"#111827"}}>{r.durationMins}m</span>
+            <span style={{textAlign:"center",color:"#64748B"}}>{r.expectedMins}m</span>
+            <span style={{textAlign:"center",background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 6px",fontWeight:700}}>{diff>0?"+":""}{diff}m</span>
+          </div>;
+        })}
+        {filtered.length===0&&<div style={{textAlign:"center",padding:30,color:"#94A3B8",fontSize:13}}>No records match this filter.</div>}
+      </div>
+    </>}
+  </section>;
+}
+
+function QueueSummary({visits,emps,sc}){
+  const[open,setOpen]=React.useState(false);
+  const today=visits.filter(v=>v.date===new Date().toISOString().slice(0,10));
+  const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
+
+  // Count by section: who is waiting / in progress per section
+  const sections={};
+  active.forEach(v=>{
+    (v.services||[]).forEach(l=>{
+      if(["Completed","Cancelled"].includes(l.status))return;
+      const sec=l.employeeSection||"Other";
+      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
+      if(l.status==="In Progress")sections[sec].inProgress++;
+      else sections[sec].waiting++;
+    });
+    // Customers with no services yet
+    if(!(v.services||[]).length){
+      const sec="Unassigned";
+      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
+      sections[sec].waiting++;
+    }
+  });
+
+  const totalWaiting=active.filter(v=>v.status==="Waiting for Supervisor"||v.status==="With Supervisor").length;
+  const totalInProgress=active.filter(v=>v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress")).length;
+  const totalReady=active.filter(v=>v.status==="Ready for Payment").length;
+  const totalAllDone=active.filter(v=>(v.services||[]).length>0&&(v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment").length;
+  const entries=Object.entries(sections).sort((a,b)=>(b[1].inProgress+b[1].waiting)-(a[1].inProgress+a[1].waiting));
+
+  if(!active.length)return null;
+
+  return<div style={{position:"relative",marginBottom:10}}>
+    <button onClick={()=>setOpen(o=>!o)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#fff"}}>
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:11,fontWeight:500,color:"#5A8C72",letterSpacing:0.5}}>QUEUE STATUS</span>
+        <span style={{display:"flex",gap:6,alignItems:"center"}}>
+          {totalWaiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>⏳ {totalWaiting} waiting</span>}
+          {totalInProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🔄 {totalInProgress} in progress</span>}
+          {totalAllDone>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✅ {totalAllDone} done</span>}
+          {totalReady>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>💳 {totalReady} ready</span>}
+        </span>
+      </div>
+      <span style={{color:"#5A8C72",fontSize:14,flexShrink:0}}>{open?"▲":"▼"}</span>
+    </button>
+
+    {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",padding:12,marginTop:4}}>
+      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>BY SERVICE SECTION</p>
+      {entries.length===0&&<p style={{fontSize:12,color:"#94A3B8",margin:0}}>No active services</p>}
+      {entries.map(([sec,counts])=><div key={sec} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4}}>
+        <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{sec}</span>
+        <div style={{display:"flex",gap:6}}>
+          {counts.waiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.waiting} waiting</span>}
+          {counts.inProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.inProgress} in progress</span>}
+        </div>
+      </div>)}
+      <div style={{borderTop:"0.5px solid #E2E8F0",marginTop:8,paddingTop:8}}>
+        <p style={{margin:"0 0 4px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOTAL ACTIVE TODAY</p>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B2E4B"}}>{active.length}</b> customers</span>
+          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#92400E"}}>{totalWaiting}</b> waiting</span>
+          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B4FA8"}}>{totalInProgress}</b> in progress</span>
+          {totalAllDone>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalAllDone}</b> all done</span>}
+          {totalReady>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalReady}</b> ready for payment</span>}
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
+function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving}){
+  const[bName,setBName]=React.useState("");
+  const[bPhone,setBPhone]=React.useState("");
+  const[bNote,setBNote]=React.useState("");
+  const[bSvcIds,setBSvcIds]=React.useState([]); // multiple services
+  const[bBarber,setBBarber]=React.useState("");
+  const[bRoza,setBRoza]=React.useState("");    // separate Roza preference
+  const[showReg,setShowReg]=React.useState(false);
+  const[tipModal,setTipModal]=React.useState(null); // {visitId}
+  const[tipAmt,setTipAmt]=React.useState("");
+  const[tipEmpName,setTipEmpName]=React.useState("");
+
+  const barberEmps=emps.filter(e=>e.active&&e.section==="Barbershop");
+  const rozaEmps=emps.filter(e=>e.active&&(e.section==="Hair Wash & Color"||e.name==="Roza"||e.name==="ሮዛ"));
+  const allBarberStaff=[...barberEmps,...rozaEmps];
+  const barberSvcs=svcs.filter(s=>s.category==="Barbershop"&&(s.employeeSection==="Barbershop"||!s.employeeSection));
+  const rozaSvcs=svcs.filter(s=>s.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(s.sub));
+  const allAreaSvcs=[...barberSvcs,...rozaSvcs];
+  function lineIncome(l){return l.free?0:Math.max(0,Number(l.price||0)*Number(l.qty||1)-Number(l.discount||0));}
+
+  // Today's barbershop visits
+  const today=visits.filter(v=>{
+    if(v.date!==todayStr())return false;
+    if(["Paid & Closed","Cancelled"].includes(v.status)&&v.status!=="Paid & Closed")return false;
+    const lines=v.services||[];
+    if(lines.length===0)return false;
+    return lines.some(l=>["Barbershop","Hair Wash & Color"].includes(l.employeeSection)||l.category==="Barbershop");
+  }).sort((a,b)=>a.queue-b.queue);
+
+  const waiting=today.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status));
+  const inProgress=today.filter(v=>v.status==="In Service");
+  const readyToPay=today.filter(v=>v.status==="Ready for Payment");
+  const paid=today.filter(v=>v.status==="Paid & Closed");
+
+  // Per-staff queue counts (waiting by preference, in-progress by assignment)
+  const staffQueues={};
+  allBarberStaff.forEach(e=>{staffQueues[e.name]={waiting:0,inProgress:0,total:0};});
+  waiting.forEach(v=>{
+    const pref=(v.services||[]).map(l=>l.preferredEmployee||l.employee).find(Boolean);
+    if(pref&&staffQueues[pref]){staffQueues[pref].waiting++;staffQueues[pref].total++;}
+  });
+  inProgress.forEach(v=>{
+    (v.services||[]).filter(l=>l.status==="In Progress").forEach(l=>{
+      const emp=l.employee;
+      if(emp&&staffQueues[emp]){staffQueues[emp].inProgress++;staffQueues[emp].total++;}
+    });
+  });
+
+  const totalRevToday=paid.reduce((s,v)=>s+(v.totalPaid||0),0);
+
+  async function addWalkIn(){
+    if(!bName.trim())return alert("Enter customer name.");
+    if(!bSvcIds.length)return alert("Select at least one service.");
+    const lines=bSvcIds.map((sid,i)=>{
+      const svc=allAreaSvcs.find(s=>s.id===Number(sid));
+      if(!svc)return null;
+      const prefEmp=svc.employeeSection==="Hair Wash & Color"?(bRoza||""):(bBarber&&bBarber!=="random"?bBarber:"");
+      return{lineId:Date.now()+i,serviceId:svc.id,name:svc.name,
+        category:"Barbershop",sub:svc.sub||"Barbershop",
+        price:Number(svc.price),qty:1,discount:0,free:false,
+        commission:Number(svc.commission||svc.cm||0),
+        employeeSection:svc.employeeSection||"Barbershop",
+        employee:"",preferredEmployee:prefEmp,status:"Waiting",wigDeduction:0};
+    }).filter(Boolean);
+    const qNum=queueEnabled?visits.filter(v=>v.date===todayStr()).length+1:0;
+    const cid=bName.trim().toLowerCase().replace(/\s+/g,"_")+"_"+(bPhone.trim()||"walkin")+Date.now();
+    const prefNote=[bBarber&&bBarber!=="random"?"Barber: "+bBarber:"",bRoza?"Roza: "+bRoza:""].filter(Boolean).join(" · ");
+    const vr={id:Date.now(),date:todayStr(),queue:qNum,
+      customer_id:cid,name:bName.trim(),payer_name:bName.trim(),
+      phone:bPhone.trim(),group_id:null,group_name:"",
+      services:lines,total_service:lines.reduce((s,l)=>s+lineIncome(l),0),
+      total_paid:0,payment_method:"",tips:[],
+      status:"Waiting for Supervisor",
+      note:[bNote.trim(),prefNote].filter(Boolean).join(" — ")
+    };
+    setSaving(true);
+    const{error}=await supabase.from("visits").insert(vr);
+    setSaving(false);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>[...prev,{...vr,totalService:vr.total_service,totalPaid:0,
+      customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null}]);
+    logAct(user,"Barbershop Walk-in",bName.trim()+" — "+lines.map(l=>l.name).join(", "));
+    setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");setShowReg(false);
+    push(bName.trim()+" added"+(queueEnabled?" — Queue #"+qNum:""),"success");
+  }
+
+  async function assignStaff(visitId,lineId,empName){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const upd=(v.services||[]).map(l=>l.lineId===lineId
+      ?{...l,employee:empName,preferredEmployee:l.preferredEmployee||empName,status:empName?"In Progress":"Waiting"}
+      :l);
+    const hasInProgress=upd.some(l=>l.status==="In Progress");
+    const{error}=await supabase.from("visits").update({services:upd,status:hasInProgress?"In Service":"Waiting for Supervisor"}).eq("id",visitId);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:hasInProgress?"In Service":"Waiting for Supervisor"}:x));
+  }
+
+  async function markDone(visitId,lineId){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const upd=(v.services||[]).map(l=>l.lineId===lineId?{...l,status:"Completed"}:l);
+    const allDone=upd.filter(l=>l.status!=="Cancelled").every(l=>l.status==="Completed");
+    const newStatus=allDone?"Ready for Payment":"In Service";
+    const{error}=await supabase.from("visits").update({services:upd,status:newStatus}).eq("id",visitId);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:newStatus}:x));
+    if(allDone)push(v.name+" — ready to pay","success");
+  }
+
+  async function addTipToVisit(visitId){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const amt=Number(tipAmt);
+    if(!amt||amt<=0)return alert("Enter tip amount.");
+    if(!tipEmpName)return alert("Select who gets the tip.");
+    const newTips=[...(v.tips||[]),{id:Date.now(),employee:tipEmpName,amount:amt}];
+    const{error}=await supabase.from("visits").update({tips:newTips}).eq("id",visitId);
+    if(error){push("Failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,tips:newTips}:x));
+    setTipModal(null);setTipAmt("");setTipEmpName("");
+    push("Tip of "+amt.toLocaleString()+" Birr added for "+tipEmpName,"success");
+  }
+
+  async function collectPayment(visitId,method){
+    const v=visits.find(x=>x.id===visitId);if(!v)return;
+    const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
+    const total=(v.totalService||0)+tipTotal;
+    if(!window.confirm("Collect "+method+" payment of "+total.toLocaleString()+" Birr from "+v.name+"?"+(tipTotal>0?"\n(includes "+tipTotal.toLocaleString()+" Birr in tips)":"")))return;
+    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:total,payment_method:method}).eq("id",visitId);
+    if(error){push("Payment failed: "+error.message,"error");return;}
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,status:"Paid & Closed",totalPaid:total,paymentMethod:method}:x));
+    logAct(user,"Barbershop Payment",v.name+" — "+total.toLocaleString()+" Birr via "+method);
+    push(v.name+" — "+total.toLocaleString()+" Birr collected via "+method,"success");
+  }
+
+  async function toggleQueue(val){
+    setQueueEnabled(val);
+    await supabase.from("settings").upsert({key:"queueEnabled",value:String(val)});
+    push("Queue numbers "+(val?"enabled":"disabled"),"success");
+  }
+
+  const loadColor=(n)=>n===0?"#166534":n===1?"#92400E":n===2?"#B45309":"#DC2626";
+  const loadBg=(n)=>n===0?"rgba(22,101,52,0.12)":n===1?"rgba(146,64,14,0.12)":n===2?"rgba(180,83,9,0.12)":"rgba(220,38,38,0.12)";
+  const loadLabel=(n)=>n===0?"Free":n===1?"1 in queue":n+" in queue";
+
+  return<section style={{...S.card,maxWidth:"100%"}}>
+    {/* ── Header ── */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:14}}>
+      <div>
+        <h2 style={{...S.ct,marginBottom:2}}>💈 Barbershop</h2>
+        <p style={{...S.hlp,margin:0}}>Manage walk-ins, assign staff, and collect payments</p>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,background:queueEnabled?"#F0FDF4":"#FEF2F2",border:`1.5px solid ${queueEnabled?"#86EFAC":"#FECACA"}`,borderRadius:10,padding:"6px 12px",cursor:"pointer"}}>
+          <div style={{position:"relative",width:36,height:20,flexShrink:0}}>
+            <input type="checkbox" checked={queueEnabled} onChange={e=>toggleQueue(e.target.checked)} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
+            <div style={{position:"absolute",inset:0,background:queueEnabled?"#166534":"#DC2626",borderRadius:10,transition:"background 0.2s"}}/>
+            <div style={{position:"absolute",top:2,left:queueEnabled?18:2,width:16,height:16,background:"#fff",borderRadius:8,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.25)"}}/>
+          </div>
+          <span style={{fontSize:12,fontWeight:700,color:queueEnabled?"#166534":"#DC2626"}}>{queueEnabled?"Queue ON":"Queue OFF"}</span>
+        </label>
+        <button onClick={()=>setShowReg(r=>!r)} style={{...S.btnP,width:"auto",padding:"8px 18px",margin:0}}>+ Walk-in</button>
+      </div>
+    </div>
+
+    {/* ── Stats ── */}
+    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
+      {[
+        {label:"WAITING",value:waiting.length,bg:"#FEF3C7",tx:"#92400E"},
+        {label:"IN CHAIR",value:inProgress.length,bg:"#DBEAFE",tx:"#1B4FA8"},
+        {label:"READY TO PAY",value:readyToPay.length,bg:"#DCFCE7",tx:"#166534"},
+        {label:"PAID TODAY",value:totalRevToday.toLocaleString()+" Birr",bg:"#F0FDF4",tx:"#166534"},
+      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+        <b style={{fontSize:c.value!==undefined&&typeof c.value==="string"?13:22,color:c.tx,display:"block"}}>{c.value}</b>
+        <p style={{margin:0,fontSize:9,color:c.tx,fontWeight:600,letterSpacing:0.8}}>{c.label}</p>
+      </div>)}
+    </div>
+
+    {/* ── Staff load panel ── */}
+    {queueEnabled&&allBarberStaff.length>0&&(waiting.length>0||inProgress.length>0)&&<div style={{background:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#5A8C72",letterSpacing:1}}>STAFF QUEUE</p>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {allBarberStaff.map(e=>{
+          const q=staffQueues[e.name]||{waiting:0,inProgress:0,total:0};
+          return<div key={e.id} style={{background:loadBg(q.total),border:`1px solid ${loadColor(q.total)}33`,borderRadius:10,padding:"8px 12px",flex:1,minWidth:120}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <b style={{fontSize:12,color:"#fff"}}>{e.name}</b>
+                <p style={{margin:"1px 0 0",fontSize:9,color:"#94A3B8"}}>{e.section==="Hair Wash & Color"?"💆 Wash/Color/Treatment":"✂ Barber"}</p>
+              </div>
+              <span style={{background:loadColor(q.total),color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{loadLabel(q.total)}</span>
+            </div>
+            {(q.inProgress>0||q.waiting>0)&&<div style={{marginTop:4,display:"flex",gap:4}}>
+              {q.inProgress>0&&<span style={{background:"rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:4,padding:"0 6px",fontSize:10}}>{q.inProgress} in chair</span>}
+              {q.waiting>0&&<span style={{background:"rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:4,padding:"0 6px",fontSize:10}}>{q.waiting} waiting</span>}
+            </div>}
+          </div>;
+        })}
+      </div>
+    </div>}
+
+    {/* ── Add walk-in form ── */}
+    {showReg&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:14}}>
+      <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Walk-in Customer</h3>
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
+        <div><p style={S.lbl}>Name *</p><input style={S.inp} placeholder="Customer name" value={bName} onChange={e=>setBName(e.target.value)}/></div>
+        <div><p style={S.lbl}>Phone</p><input style={S.inp} placeholder="Phone (optional)" value={bPhone} onChange={e=>setBPhone(e.target.value)}/></div>
+      </div>
+
+      {/* Services — split by type */}
+      <div style={{marginBottom:12}}>
+        <p style={{...S.lbl,marginBottom:6}}>Services *</p>
+        {/* Barbershop services */}
+        {barberSvcs.length>0&&<div style={{marginBottom:8}}>
+          <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#1B2E4B"}}>✂ Haircut / Beard</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {barberSvcs.map(s=>{
+              const sel=bSvcIds.includes(String(s.id));
+              return<button key={s.id} type="button" onClick={()=>setBSvcIds(p=>sel?p.filter(x=>x!==String(s.id)):[...p,String(s.id)])}
+                style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#1B2E4B":"#E2E8F0"}`,background:sel?"#1B2E4B":"#fff",color:sel?"#fff":"#374151",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
+                {s.name} — {Number(s.price).toLocaleString()} Birr
+              </button>;
+            })}
+          </div>
+        </div>}
+        {/* Roza services */}
+        {rozaSvcs.length>0&&<div>
+          <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#5A8C72"}}>💆 Wash / Color / Treatment (Roza)</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {rozaSvcs.map(s=>{
+              const sel=bSvcIds.includes(String(s.id));
+              return<button key={s.id} type="button" onClick={()=>setBSvcIds(p=>sel?p.filter(x=>x!==String(s.id)):[...p,String(s.id)])}
+                style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#5A8C72":"#E2E8F0"}`,background:sel?"#5A8C72":"#fff",color:sel?"#fff":"#374151",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
+                {s.name} — {Number(s.price).toLocaleString()} Birr
+              </button>;
+            })}
+          </div>
+        </div>}
+      </div>
+
+      {/* Staff preference — only show relevant section if service selected */}
+      {bSvcIds.some(id=>barberSvcs.find(s=>s.id===Number(id)))&&barberEmps.length>0&&<div style={{marginBottom:10}}>
+        <p style={S.lbl}>Preferred Barber</p>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[{val:"",label:"Any barber"},{val:"random",label:"🎲 Random"},...barberEmps.map(e=>({val:e.name,label:"✂ "+e.name}))].map(opt=><button key={opt.val} type="button"
+            onClick={()=>setBBarber(opt.val)}
+            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bBarber===opt.val?"#1B2E4B":"#E2E8F0"}`,background:bBarber===opt.val?"#1B2E4B":"#fff",color:bBarber===opt.val?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:bBarber===opt.val?700:400}}>
+            {opt.label}
+            {queueEnabled&&opt.val&&opt.val!=="random"&&staffQueues[opt.val]!==undefined&&<span style={{marginLeft:4,fontSize:10,opacity:0.7}}>({loadLabel(staffQueues[opt.val]?.total||0)})</span>}
+          </button>)}
+        </div>
+      </div>}
+
+      {bSvcIds.some(id=>rozaSvcs.find(s=>s.id===Number(id)))&&rozaEmps.length>0&&<div style={{marginBottom:10}}>
+        <p style={S.lbl}>Roza / Hair Technician</p>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[{val:"",label:"Any"},...rozaEmps.map(e=>({val:e.name,label:"💆 "+e.name}))].map(opt=><button key={opt.val} type="button"
+            onClick={()=>setBRoza(opt.val)}
+            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bRoza===opt.val?"#5A8C72":"#E2E8F0"}`,background:bRoza===opt.val?"#5A8C72":"#fff",color:bRoza===opt.val?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:bRoza===opt.val?700:400}}>
+            {opt.label}
+          </button>)}
+        </div>
+      </div>}
+
+      <div><p style={S.lbl}>Note</p><input style={S.inp} placeholder="Any note (optional)" value={bNote} onChange={e=>setBNote(e.target.value)}/></div>
+
+      {bSvcIds.length>0&&<div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 12px",margin:"10px 0",fontSize:12,color:"#fff"}}>
+        <b>Total: {allAreaSvcs.filter(s=>bSvcIds.includes(String(s.id))).reduce((s,sv)=>s+Number(sv.price),0).toLocaleString()} Birr</b>
+        <span style={{color:"#94A3B8",marginLeft:8}}>{bSvcIds.length} service{bSvcIds.length!==1?"s":""} selected</span>
+      </div>}
+
+      <div style={{display:"flex",gap:8,marginTop:8}}>
+        <button onClick={addWalkIn} disabled={saving||!bName.trim()||!bSvcIds.length} style={{...S.btnP,width:"auto",padding:"9px 20px",margin:0}}>{saving?"Adding...":"✓ Add to Queue"}</button>
+        <button onClick={()=>{setShowReg(false);setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");}} style={{...S.btnS,width:"auto",padding:"9px 16px",margin:0}}>Cancel</button>
+      </div>
+    </div>}
+
+    {/* ── Tip modal ── */}
+    {tipModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:360,width:"100%"}}>
+        <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700}}>💰 Add Tip</h3>
+        <p style={S.lbl}>Who gets the tip?</p>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setTipEmpName(e.name)}
+            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${tipEmpName===e.name?"#1B2E4B":"#E2E8F0"}`,background:tipEmpName===e.name?"#1B2E4B":"#fff",color:tipEmpName===e.name?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:tipEmpName===e.name?700:400}}>
+            {e.name}
+          </button>)}
+        </div>
+        <p style={S.lbl}>Tip Amount (Birr)</p>
+        <input style={{...S.inp,marginBottom:16}} type="number" min="1" placeholder="e.g. 50" value={tipAmt} onChange={e=>setTipAmt(e.target.value)}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <button onClick={()=>{setTipModal(null);setTipAmt("");setTipEmpName("");}} style={{padding:"10px",borderRadius:10,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:700}}>Cancel</button>
+          <button onClick={()=>addTipToVisit(tipModal)} style={{padding:"10px",borderRadius:10,border:"none",background:"#166534",color:"#fff",cursor:"pointer",fontWeight:700}}>Add Tip</button>
+        </div>
+      </div>
+    </div>}
+
+    {/* ── No customers ── */}
+    {today.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:"#94A3B8"}}>
+      <div style={{fontSize:48,marginBottom:10}}>💈</div>
+      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:6}}>No customers today</b>
+      <p style={{fontSize:13,margin:0}}>Click "+ Walk-in" to add a customer</p>
+    </div>}
+
+    {/* ── Waiting ── */}
+    {waiting.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 8px"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:"#F59E0B"}}/>
+        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#92400E"}}>⏳ Waiting ({waiting.length})</h3>
+      </div>
+      {waiting.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="waiting" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
+    </>}
+
+    {/* ── In Chair ── */}
+    {inProgress.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:"#3B82F6"}}/>
+        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#1B4FA8"}}>✂ In Chair ({inProgress.length})</h3>
+      </div>
+      {inProgress.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="inprogress" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
+    </>}
+
+    {/* ── Ready to Pay ── */}
+    {readyToPay.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:"#16A34A"}}/>
+        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>💳 Ready to Pay ({readyToPay.length})</h3>
+      </div>
+      {readyToPay.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="payment" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
+    </>}
+
+    {/* ── Paid today ── */}
+    {paid.length>0&&<details style={{marginTop:14}}>
+      <summary style={{cursor:"pointer",fontSize:12,fontWeight:700,color:"#64748B",padding:"6px 0",userSelect:"none"}}>
+        ✓ Paid Today ({paid.length}) — {totalRevToday.toLocaleString()} Birr total
+      </summary>
+      {paid.map(v=>{
+        const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
+        return<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 12px",background:"#F0FDF4",borderRadius:10,marginTop:4,fontSize:12,flexWrap:"wrap",gap:6}}>
+          <div>
+            <span style={{fontWeight:600,color:"#111827"}}>{queueEnabled&&v.queue>0?"#"+v.queue+" — ":""}{v.name}</span>
+            <p style={{margin:"2px 0 0",color:"#64748B",fontSize:11}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
+            {tipTotal>0&&<p style={{margin:"2px 0 0",color:"#92400E",fontSize:11}}>💰 Tips: {tipTotal.toLocaleString()} Birr</p>}
+          </div>
+          <div style={{textAlign:"right"}}>
+            <b style={{color:"#166534",display:"block"}}>{(v.totalPaid||0).toLocaleString()} Birr</b>
+            <span style={{fontSize:10,color:"#64748B"}}>via {v.paymentMethod}</span>
+          </div>
+        </div>;
+      })}
+    </details>}
+  </section>;
+}
+
+
+
+function BarberCard({v,allBarberStaff,barberEmps,rozaEmps,barberSvcs,rozaSvcs,mode,onAssign,onDone,onPay,onTip,queueEnabled,money,lineIncome,staffQueues={}}){
+  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
+  const svcTotal=lines.reduce((s,l)=>s+lineIncome(l),0);
+  const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
+  const total=svcTotal+tipTotal;
+  const cardBg=mode==="payment"?"#F0FDF4":mode==="inprogress"?"#EBF2FD":"#FFFDF7";
+  const borderColor=mode==="payment"?"#86EFAC":mode==="inprogress"?"#BFDBFE":"#FDE68A";
+
+  // Determine which staff pool each service belongs to
+  function staffForLine(l){
+    const isRoza=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
+    return isRoza?rozaEmps:barberEmps;
+  }
+
+  return<div style={{background:cardBg,border:`1.5px solid ${borderColor}`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
+    {/* Customer header */}
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+      {queueEnabled&&v.queue>0&&<span style={{background:"#1B2E4B",color:"#E0B85A",borderRadius:8,padding:"2px 10px",fontSize:13,fontWeight:900}}>#{v.queue}</span>}
+      <b style={{fontSize:15,color:"#111827",flex:1}}>{v.name}</b>
+      {v.phone&&<span style={{fontSize:11,color:"#64748B"}}>{v.phone}</span>}
+    </div>
+    {v.note&&<p style={{margin:"0 0 8px",fontSize:11,color:"#64748B",fontStyle:"italic"}}>📝 {v.note}</p>}
+
+    {/* Service lines */}
+    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+      {lines.map((l,i)=>{
+        const staff=staffForLine(l);
+        const isRozaLine=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
+        const accentColor=isRozaLine?"#5A8C72":"#1B2E4B";
+        return<div key={i} style={{background:"rgba(255,255,255,0.8)",borderRadius:10,padding:"8px 10px",border:`0.5px solid ${isRozaLine?"#5A8C7230":"#1B2E4B20"}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,fontWeight:600,color:accentColor,flexShrink:0}}>{isRozaLine?"💆":"✂"}</span>
+            <span style={{flex:1,fontSize:13,fontWeight:500,color:"#111827"}}>{l.name}</span>
+            <b style={{fontSize:12,color:"#1B2E4B",flexShrink:0}}>{Number(l.price||0).toLocaleString()} Birr</b>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
+            {/* Assign dropdown — only show when not completed */}
+            {l.status!=="Completed"&&mode!=="payment"&&<select
+              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${accentColor}44`,background:"#fff",color:"#111827",fontSize:12,flex:1,minWidth:100}}
+              value={l.employee||""}
+              onChange={e=>onAssign(v.id,l.lineId,e.target.value)}>
+              <option value="">Assign{isRozaLine?" Roza":""}...</option>
+              {staff.map(e=>{
+                const q=staffQueues[e.name]||{total:0};
+                return<option key={e.id} value={e.name}>{e.name}{queueEnabled&&q.total>0?" ("+q.total+")":""}</option>;
+              })}
+            </select>}
+            {/* Preferred barber badge */}
+            {l.preferredEmployee&&l.status!=="Completed"&&!l.employee&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
+            {/* Assigned + status */}
+            {l.employee&&l.status==="In Progress"&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>{isRozaLine?"💆":"✂"} {l.employee}</span>}
+            {l.status==="Completed"&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✓ Done — {l.employee}</span>}
+            {/* Mark Done */}
+            {mode==="inprogress"&&l.status==="In Progress"&&l.employee&&<button
+              onClick={()=>onDone(v.id,l.lineId)}
+              style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#166534",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+              ✓ Done
+            </button>}
+          </div>
+        </div>;
+      })}
+    </div>
+
+    {/* Tips */}
+    {(v.tips||[]).length>0&&<div style={{background:"#FEF9EC",borderRadius:8,padding:"6px 10px",marginBottom:8}}>
+      {(v.tips||[]).map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#92400E"}}>
+        <span>💰 Tip — {t.employee}</span><b>{Number(t.amount).toLocaleString()} Birr</b>
+      </div>)}
+    </div>}
+
+    {/* Totals + actions */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <div>
+        <span style={{fontSize:13,fontWeight:700,color:"#1B2E4B"}}>{svcTotal.toLocaleString()} Birr</span>
+        {tipTotal>0&&<span style={{fontSize:11,color:"#92400E",marginLeft:8}}>+ {tipTotal.toLocaleString()} tips = <b>{total.toLocaleString()} total</b></span>}
+      </div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {/* Add tip button — available at payment stage or while in progress */}
+        {mode!=="waiting"&&<button onClick={onTip}
+          style={{padding:"6px 12px",borderRadius:8,border:"1px solid #FDE68A",background:"#FEF9EC",color:"#92400E",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+          💰 Add Tip
+        </button>}
+        {/* Payment buttons */}
+        {mode==="payment"&&["Cash","Card","Transfer"].map(m=><button key={m}
+          onClick={()=>onPay(v.id,m)}
+          style={{padding:"7px 14px",borderRadius:10,border:"none",background:m==="Cash"?"#1B2E4B":m==="Card"?"#1B4FA8":"#0369A1",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+          {m==="Cash"?"💵":m==="Card"?"💳":"📱"} {m}
+        </button>)}
+      </div>
+    </div>
+  </div>;
+}
+
+
 class ErrorBoundary extends React.Component{
   constructor(props){super(props);this.state={hasError:false,error:null};}
   static getDerivedStateFromError(e){return{hasError:true,error:e};}
@@ -914,7 +1652,10 @@ export default function App(){
   const[loginTab,setLoginTab]=useState("login"); // "login" | "bookings"
   const loginAttempts=React.useRef({});  // {username: {count, lockedUntil}}
   const[staff,setStaff]=useState(DEFAULT_STAFF);
-  const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
+  const[loading,setLoading]=useState(true);
+  const[queueEnabled,setQueueEnabled]=useState(true);
+  const[checkInModal,setCheckInModal]=useState(null);
+  const[ciHoldQueue,setCiHoldQueue]=useState(false);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
   const[pullY,setPullY]=useState(0);const[pulling,setPulling]=useState(false);const[refreshing,setRefreshing]=useState(false);
   const pullRef=React.useRef({startY:0,pulling:false});
   const[offlineQueue,setOfflineQueue]=useState([]);
@@ -927,10 +1668,6 @@ export default function App(){
   const[emps,setEmps]=useState(DEFAULT_EMPLOYEES);const[custs,setCusts]=useState([]);
   const[visits,setVisits]=useState([]);const[exps,setExps]=useState([]);
   const[periods,setPeriods]=useState([]);const[bks,setBks]=useState([]);const[actLog,setActLog]=useState([]);
-  const[backupLog,setBackupLog]=useState([]);
-  const[queueEnabled,setQueueEnabled]=useState(true); // Queue on/off toggle (saved to DB)
-  const[lastBackup,setLastBackup]=useState(()=>localStorage.getItem("ambar_spa_last_backup")||null);
-  const autoBackupChecked=useRef(false);
   const[actId,setActId]=useState(null);
   const[svCat,setSvCat]=useState(DC[0]);const[svSub,setSvSub]=useState("All");const[svSvcId,setSvSvcId]=useState("");
   const[coQ,setCoQ]=useState("");
@@ -962,31 +1699,6 @@ export default function App(){
         if(data?.value)try{
           const saved=JSON.parse(data.value);
           if(saved&&saved.length>0)setInventory(saved);
-        }catch(e){}
-      });
-    // Load saved design settings (colors) — applies across all devices
-    supabase.from("settings").select("*").eq("key","design").single()
-      .then(({data})=>{
-        if(data?.value)try{
-          const saved=JSON.parse(data.value);
-          if(saved&&typeof saved==="object"){
-            setDesign(p=>({...p,...saved}));
-            try{localStorage.setItem("ambar_design",JSON.stringify({...JSON.parse(localStorage.getItem("ambar_design")||"{}"), ...saved}));}catch(e){}
-          }
-        }catch(e){}
-      });
-    // Load queue toggle setting
-    supabase.from("settings").select("*").eq("key","queueEnabled").single()
-      .then(({data})=>{if(data?.value!=null)setQueueEnabled(data.value==="true"||data.value===true);});
-    // Load svcProducts from DB (cross-device product-service links)
-    supabase.from("settings").select("*").eq("key","svcProducts").single()
-      .then(({data})=>{
-        if(data?.value)try{
-          const saved=JSON.parse(data.value);
-          if(saved&&Array.isArray(saved)){
-            setSvcProducts(saved);
-            try{localStorage.setItem("ambar_svc_products",JSON.stringify(saved));}catch(e){}
-          }
         }catch(e){}
       });
     // Load saved Amharic text overrides
@@ -1053,12 +1765,7 @@ export default function App(){
   const[svcProducts,setSvcProducts]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("ambar_svc_products")||"[]");}catch{return[];}
   });
-  function saveSvcProducts(sp){
-    setSvcProducts(sp);
-    try{localStorage.setItem("ambar_svc_products",JSON.stringify(sp));}catch(e){}
-    // Also save to DB so it works across all devices
-    supabase.from("settings").upsert({key:"svcProducts",value:JSON.stringify(sp)}).then(()=>{});
-  }
+  function saveSvcProducts(sp){setSvcProducts(sp);try{localStorage.setItem("ambar_svc_products",JSON.stringify(sp));}catch(e){}}
   const[showSvcProd,setShowSvcProd]=useState(false);
   const[newSvcProd,setNewSvcProd]=useState({productId:"",serviceSubs:[],qty:1});
 
@@ -1093,24 +1800,13 @@ export default function App(){
   const[bkF,setBkF]=useState({customerName:"",customerPhone:"",serviceId:"",date:todayStr(),time:"10:00",people:1,notes:"",gender:"",wantBeautyQueue:false});
   const[bkWarn,setBkWarn]=useState("");const[bkSearch,setBkSearch]=useState("");
   const[showWalkIn,setShowWalkIn]=useState(false);
-  const[checkInModal,setCheckInModal]=useState(null); // {booking} when open
-  const[ciHoldQueue,setCiHoldQueue]=useState(false);
-  const[ciServices,setCiServices]=useState([]); // additional services selected at check-in
   const[wiSvcId,setWiSvcId]=useState("");const[wiName,setWiName]=useState("");const[wiPhone,setWiPhone]=useState("");const[wiNote,setWiNote]=useState("");
   const[nStaff,setNStaff]=useState({id:"",name:"",role:"reception",password:""});const[editStaff,setEditStaff]=useState(null);
   const[handoverNote,setHandoverNote]=useState("");const[handoverLog,setHandoverLog]=useState([]);
   const[dailyTarget,setDailyTarget]=useState(()=>{try{return Number(localStorage.getItem("ambar_target")||0);}catch{return 0;}});
   const dRef=useRef({});const eRef=useRef({});const undoRef=useRef({});
 
-  function push(msg,type="info"){
-    // Skip "Refreshing..." popup entirely
-    if(msg==="Refreshing...")return;
-    const id=++nid.current;
-    // Replace existing notification immediately (one at a time)
-    setNotifs([{id,msg,type}]);
-    chime(type);
-    setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),4000);
-  }
+  function push(msg,type="info"){const id=++nid.current;setNotifs(p=>[...p,{id,msg,type}]);chime(type);setTimeout(()=>setNotifs(p=>p.filter(n=>n.id!==id)),7000);}
   function dismiss(id){setNotifs(p=>p.filter(n=>n.id!==id));}
   // Pull to refresh
   function handleTouchStart(e){
@@ -1126,7 +1822,7 @@ export default function App(){
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
       setRefreshing(true);push("Refreshing...","info");
       await loadAll();
-      setRefreshing(false);
+      setRefreshing(false);push("Updated ✓","success");
     } else {
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
     }
@@ -1223,7 +1919,7 @@ export default function App(){
       const now=new Date();
       // Auto-close stale sessions at 10PM
       if(now.getHours()>=22){
-        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled","Ready for Payment","Spa Arrived"].includes(v.status));
+        const stale=visits.filter(v=>v.date===todayStr()&&!["Paid & Closed","Cancelled"].includes(v.status));
         for(const v of stale){
           const{error}=await supabase.from("visits").update({status:"Cancelled",note:(v.note?v.note+" ":"")+"[Auto-closed 10PM]"}).eq("id",v.id);
           if(error)console.error("Auto-close failed for",v.name,error.message);
@@ -1243,18 +1939,13 @@ export default function App(){
   async function loadAll(){
     setLoading(true);
     try{
-      // Load all data in parallel - single phase for reliability
       const[s1,s2,s3,s4,s5,s6,s7,s8,s9,s10]=await Promise.all([
-        supabase.from("services").select("*"),
-        supabase.from("employees").select("*"),
-        supabase.from("customers").select("*"),
-        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
-        supabase.from("expenses").select("*"),
-        supabase.from("closed_periods").select("*"),
+        supabase.from("services").select("*"),supabase.from("employees").select("*"),
+        supabase.from("customers").select("*"),supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue"),
+        supabase.from("expenses").select("*"),supabase.from("closed_periods").select("*"),
         supabase.from("bookings").select("*").order("date").order("time"),
-        supabase.from("staff").select("*"),
-        supabase.from("categories").select("*"),
-        supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(50),
+        supabase.from("staff").select("*"),supabase.from("categories").select("*"),
+        supabase.from("activity_log").select("*").order("ts",{ascending:false}).limit(100),
       ]);
       if(s9.data?.length)setCats(s9.data.map(c=>c.name));
       if(s1.data?.length)setSvcs(s1.data.map(dbSvc));
@@ -1266,28 +1957,11 @@ export default function App(){
       if(s7.data?.length)setBks(s7.data.map(dbBk));
       if(s8.data?.length)setStaff(s8.data.map(dbStaff));
       if(s10.data?.length)setActLog(s10.data);
+      // Refresh localStorage logs
       try{const sl=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");setSvcLog(sl);}catch(e){}
-      // Load service time log from DB (last 500 records)
-      try{
-        const{data:stl}=await supabase.from("service_time_log").select("*").order("date",{ascending:false}).order("id",{ascending:false}).limit(500);
-        if(stl&&stl.length>0){
-          const dbLog=stl.map(r=>({id:r.id,date:r.date,employee:r.employee,service:r.service,sub:r.sub,durationMins:r.actual_mins,expectedMins:r.expected_mins,customer:r.customer,queue:r.queue,section:r.section}));
-          setSvcLog(dbLog);
-          try{localStorage.setItem("ambar_svc_log",JSON.stringify(dbLog));}catch(e){}
-        }
-      }catch(e){}
       try{const il=JSON.parse(localStorage.getItem("ambar_inv_log")||"[]");setInvLog(il);}catch(e){}
-      // Load backup_log separately - table may not exist yet if SQL hasn't been run
-      try{
-        const{data:bl}=await supabase.from("backup_log").select("*").order("created_at",{ascending:false}).limit(60);
-        if(bl)setBackupLog(bl);
-      }catch(e){/* backup_log table not yet created - safe to ignore */}
-    }catch(e){
-      console.error("loadAll error:",e);
-    }finally{
-      setLoading(false);
-    }
-
+    }catch(e){console.error(e);}
+    setLoading(false);
   }
   useEffect(()=>{if(!user){setLoading(false);return;}loadAll();},[user]);
 
@@ -1306,10 +1980,8 @@ export default function App(){
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"visits"},p=>{
         setVisits(prev=>prev.map(x=>x.id===p.new.id?dbVis(p.new):x));
         if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push("✅ "+p.new.name+" paid","success");
-        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment"){
-          push("💳 "+p.new.name+" ready for payment","payment");
-          nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
-        }
+        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push("💳 "+p.new.name+" ready for payment","payment");
+              nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"visits"},p=>{setVisits(prev=>prev.filter(x=>x.id!==p.old.id));})
       .subscribe();
@@ -1330,9 +2002,9 @@ export default function App(){
     function startPoll(){
       if(pollInterval)return;
       pollInterval=setInterval(()=>{
-        supabase.from("visits").select("*").gte("date",new Date(Date.now()-30*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
+        supabase.from("visits").select("*").gte("date",new Date(Date.now()-60*24*60*60*1000).toISOString().slice(0,10)).order("queue").then(({data})=>{if(data)setVisits(data.map(dbVis));});
         supabase.from("bookings").select("*").order("date").order("time").then(({data})=>{if(data)setBks(data.map(dbBk));});
-      },30000); // poll every 30s as realtime fallback only
+      },10000);
     }
     function stopPoll(){clearInterval(pollInterval);pollInterval=null;}
     const onVisible=()=>document.hidden?stopPoll():startPoll();
@@ -1360,24 +2032,19 @@ export default function App(){
   useEffect(()=>{
     if(!user)return;
     async function seed(){
-      // Check if already seeded - only run inserts on fresh install
+      // Always upsert employees so new staff are added even if DB already seeded
+      await supabase.from("employees").upsert(
+        DEFAULT_EMPLOYEES.map(e=>({
+          id:e.id,name:e.name,section:e.section,role:e.role||'',
+          salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
+          other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
+          day_off:e.dayOff??null,on_leave:false
+        })),
+        {onConflict:'id',ignoreDuplicates:false}
+      );
+      // Seed categories & services only if empty
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
-      const{count:ec}=await supabase.from("employees").select("*",{count:"exact",head:true});
-      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
-      let seeded=false;
-      if(ec===0){
-        seeded=true;
-        await supabase.from("employees").insert(
-          DEFAULT_EMPLOYEES.map(e=>({
-            id:e.id,name:e.name,section:e.section,role:e.role||'',
-            salary:0,absent_days:0,loan:0,loan_note:'',broker_fee:0,
-            other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
-            day_off:e.dayOff??null,on_leave:false
-          }))
-        );
-      }
       if(cc===0){
-        seeded=true;
         await supabase.from("categories").insert(DC.map(n=>({name:n})));
         await supabase.from("services").insert(FULL_SERVICES.map(s=>({
           id:s.id,category:s.category,sub:s.sub,name:s.name,price:s.price,
@@ -1385,9 +2052,9 @@ export default function App(){
           bookable:s.bookable,duration_mins:s.durationMins
         })));
       }
-      if(sc===0){seeded=true;await supabase.from("staff").insert(DEFAULT_STAFF);}
-      // Only reload if we actually seeded fresh data — avoids double-load on normal startup
-      if(seeded)await loadAll();
+      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
+      if(sc===0)await supabase.from("staff").insert(DEFAULT_STAFF);
+      await loadAll();
     }
     seed();
   },[user]);
@@ -1395,35 +2062,22 @@ export default function App(){
   // Derived
   const act=useMemo(()=>visits.find(v=>v.id===actId)||null,[visits,actId]);
   const period=getPayPeriod(todayStr());
-  const todayV=useMemo(()=>visits.filter(v=>v.date===todayStr()),[visits]);
+  const todayV=visits.filter(v=>v.date===todayStr());
   const svSubs=useMemo(()=>["All",...new Set(svcs.filter(s=>s.category===svCat).map(s=>s.sub))],[svCat,svcs]);
   const svAvail=svcs.filter(s=>s.category===svCat&&(svSub==="All"||s.sub===svSub));
   // FIXED: checkout today only, no past days
   const coList=useMemo(()=>{
     const q=coQ.toLowerCase().trim();
     // Only show Ready for Payment and Paid & Closed
-    // Exclude pure barbershop visits — those are paid at Reception desk
     const tv=visits.filter(v=>v.date===todayStr()&&
-      ["Ready for Payment","Paid & Closed"].includes(v.status)&&
-      !isBarberVisit(v));
+      ["Ready for Payment","Paid & Closed"].includes(v.status)&&!isBarberVisit(v));
     if(!q)return tv;
     return tv.filter(v=>String(v.queue).includes(q)||
       v.name.toLowerCase().includes(q)||
       v.phone.includes(q));
   },[visits,coQ]);
-
-  // Checkout guard: if the selected visit is not ready, clear it
-  // This catches cases where actId was set from Supervisor tab
-  useEffect(()=>{
-    if(tab==="Checkout"&&actId){
-      const v=visits.find(x=>x.id===actId);
-      if(v&&!["Ready for Payment","Paid & Closed","Spa Arrived"].includes(v.status)){
-        setActId(null);
-      }
-    }
-  },[tab,actId,visits]);
-  const clV=useMemo(()=>visits.filter(v=>v.date===clDate),[visits,clDate]);
-  const clE=useMemo(()=>exps.filter(e=>e.date===clDate&&e.type==="Daily Operation"),[exps,clDate]);
+  const clV=visits.filter(v=>v.date===clDate);
+  const clE=exps.filter(e=>e.date===clDate&&e.type==="Daily Operation");
   const clCash=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod==="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
   const clTr=clV.filter(v=>v.status==="Paid & Closed"&&v.paymentMethod!=="Cash").reduce((s,v)=>s+Number(v.totalPaid||0),0);
   const clTips=clV.reduce((s,v)=>s+v.tips.reduce((a,t)=>a+Number(t.amount||0),0),0);
@@ -1487,6 +2141,7 @@ export default function App(){
   const todayBk=useMemo(()=>{
     const norm=d=>(d||"").trim().slice(0,10);
     const target=norm(bkDate);
+    console.log("bkDate:",bkDate,"target:",target,"total bks:",bks.length,"matching:",bks.filter(b=>norm(b.date)===target).length);
     let filtered=bks.filter(b=>norm(b.date)===target);
     if(bkSearch.trim()){
       const q=bkSearch.toLowerCase().trim();
@@ -1546,13 +2201,7 @@ export default function App(){
   function logout(){setUser(null);sessionStorage.removeItem("ambar_u");setTab("");}
   function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
-    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");
-    // Check if same phone already has an active visit today
-    const existingToday=visits.find(v=>v.phone===rPhone.trim()&&v.date===todayStr()&&!["Cancelled","Paid & Closed"].includes(v.status));
-    if(existingToday){
-      if(!window.confirm(rName.trim()+" ("+rPhone.trim()+") already has an active visit today (#"+existingToday.queue+" — "+existingToday.status+").\n\nAdd another visit anyway?"))return;
-    }
-    setSaving(true);
+    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");setSaving(true);
     const cnt=Math.max(1,Number(rPpl||1)),gid=Date.now(),gn=cnt>1?rName.trim()+" (Group of "+cnt+")":"";
     const cid=makeId(rName.trim(),rPhone.trim()),tc=visits.filter(v=>v.date===todayStr()).length;
     const fc=custs.find(c=>c.phone===rPhone.trim()),ntv=(fc?.totalVisits||0)+1;
@@ -1652,14 +2301,7 @@ export default function App(){
           logAct(user,"Service completed",line.name+" by "+emp+" — "+dur+" min (expected "+(line.durationMins||"?")+"min)");
           // Save structured service time record
           const svcRecord={id:Date.now(),date:todayStr(),employee:emp,service:line.name,sub:line.sub,durationMins:dur,expectedMins:Number(line.durationMins||0),customer:vis.name,queue:vis.queue};
-          try{const existing=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");const updated=[svcRecord,...existing].slice(0,1000);localStorage.setItem("ambar_svc_log",JSON.stringify(updated));setSvcLog(updated);}catch(e){}
-          // Also save to Supabase so it persists across devices
-          supabase.from("service_time_log").insert({
-            employee:emp,service:line.name,sub:line.sub||"",
-            actual_mins:dur,expected_mins:Number(line.durationMins||0),
-            customer:vis.name,date:todayStr(),queue:vis.queue,
-            section:line.employeeSection||""
-          }).then(()=>{});
+          try{const existing=JSON.parse(localStorage.getItem("ambar_svc_log")||"[]");localStorage.setItem("ambar_svc_log",JSON.stringify([svcRecord,...existing].slice(0,500)));}catch(e){}
         }
       }
       // Unlock: any "On Hold" services for this customer → set to Waiting
@@ -1724,15 +2366,8 @@ export default function App(){
   async function markReady(){
     if(!act)return;
     if(!(act.services||[]).length)return alert("Add at least one service before marking ready.");
-    // Block if any service is still In Progress or On Hold
-    const inProg=act.services.find(l=>["In Progress","On Hold"].includes(l.status));
-    if(inProg)return alert("Cannot mark ready — \""+inProg.name+"\" is still "+inProg.status+". Wait for all services to finish.");
-    // Block if any non-cancelled service is not Completed
-    const notDone=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));
-    if(notDone)return alert("Cannot mark ready — \""+notDone.name+"\" is still "+notDone.status+". Mark it Completed or Cancelled first.");
-    // Block if any non-cancelled service has no employee assigned
-    const noEmp=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);
-    if(noEmp)return alert("Assign an employee to \""+noEmp.name+"\" before marking ready.");
+    if((act.services||[]).some(l=>l.status==="Waiting"&&!l.employee))
+      return alert("Please assign an employee to all services before marking ready.");if(!act||!act.services.length)return alert("No services added.");const p=act.services.find(l=>!["Completed","Cancelled"].includes(l.status));if(p)return alert("Mark as Completed or Cancelled first: "+p.name);const m=act.services.find(l=>l.status!=="Cancelled"&&!l.employee);if(m)return alert("Assign an employee for: "+m.name);
     const{error}=await supabase.from("visits").update({status:"Ready for Payment"}).eq("id",act.id);
     if(error){push("Failed to mark ready — please retry: "+error.message,"error");return;}
     setVisits(prev=>prev.map(v=>v.id===act.id?{...v,status:"Ready for Payment"}:v));
@@ -1743,45 +2378,27 @@ export default function App(){
     if(error){push("Failed to reopen — please retry","error");return;}
     setVisits(prev=>prev.map(v=>v.id===act.id?{...v,status:"In Service"}:v));
   }
-  function addTip(){
-    if(!tipEmp)return alert("Select an employee.");
-    if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");
-    const maxTip=act?.totalService||0;
-    const existingTips=tips.reduce((s,t)=>s+Number(t.amount||0),0);
-    if(maxTip>0&&Number(tipAmt)+existingTips>maxTip*0.5&&!window.confirm("Tip of "+money(Number(tipAmt))+" is unusually large (more than 50% of the service total of "+money(maxTip)+"). Add anyway?"))return;
-    setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);
-    setTipEmp("");setTipAmt("");
-  }
+  function addTip(){if(!tipEmp)return alert("Select an employee.");if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
   async function processRefund(vid){
     const v=visits.find(x=>x.id===vid);if(!v)return;
     const amt=Number(refundAmt);if(!amt||amt<=0)return alert("Enter refund amount.");
     if(amt>v.totalPaid)return alert("Refund cannot exceed amount paid ("+money(v.totalPaid)+").");
-    const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
-    const isFullRefund=amt>=v.totalService;
-    confirm2("Issue refund of "+money(amt)+" for "+v.name+"?"+(isFullRefund&&tipTotal>0?"\n\nNote: This is a full refund. Tips of "+money(tipTotal)+" will also be cleared from employee commissions.":""),async()=>{
+    confirm2("Issue refund of "+money(amt)+" for "+v.name+"?",async()=>{
       const refundNote="[REFUND "+money(amt)+(refundReason?" — "+refundReason:"")+"]";
-      const updatedTips=isFullRefund?[]:v.tips; // clear tips on full refund
       const{error}=await supabase.from("visits").update({
         note:(v.note?v.note+" ":"")+refundNote,
         total_paid:v.totalPaid-amt,
-        tips:updatedTips,
         status:"Paid & Closed"
       }).eq("id",vid);
       if(error){push("Refund failed to save — please retry: "+error.message,"error");return;}
-      setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt,tips:updatedTips}:x));
-      logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":" ")+(isFullRefund&&tipTotal>0?" [tips cleared]":""));
-      push("Refund of "+money(amt)+" issued for "+v.name+(isFullRefund&&tipTotal>0?" — tips cleared":""),"success");
+      setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt}:x));
+      logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":""));
+      push("Refund of "+money(amt)+" issued for "+v.name,"success");
       setShowRefund(false);setRefundAmt("");setRefundReason("");
     },true);
   }
   async function confirmPay(grp=false){
     if(!act)return;
-    // Guard: prevent paying a visit that's already paid
-    if(act.status==="Paid & Closed")return push("This customer is already paid and closed","error");
-    // Guard: prevent paying before marked ready
-    if(act.status!=="Ready for Payment")return push("This customer is not ready for payment yet. Supervisor must mark them ready first.","error");
-    // Guard: must have at least one service
-    if(!(act.services||[]).filter(l=>l.status!=="Cancelled").length)return push("Cannot process payment — no services recorded for this customer","error");
     const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];
     for(const id of ids){
       const v=visits.find(x=>x.id===id);
@@ -1850,104 +2467,21 @@ export default function App(){
   async function checkIn(b){
     if(b.visitId&&visits.find(v=>v.id===b.visitId))
       return push("This booking is already checked in","warning");
-    // Open check-in modal to ask: hold queue? add services?
-    setCiHoldQueue(false);
-    setCiServices([]);
-    setCheckInModal(b);
-  }
-
-  async function confirmCheckIn(){
-    const b=checkInModal;
-    if(!b)return;
-    setSaving(true);
-    const cid=makeId(b.customerName,b.customerPhone);
-    const tc=visits.filter(v=>v.date===todayStr()).length;
-    // Spa customers ALWAYS start on reception — status "Spa Arrived"
-    // They are NOT sent to supervisor until reception gives them a queue
-    const bookedSvc=svcs.find(s=>s.id===b.serviceId||s.name===b.serviceName);
-    const isMorocco=bookedSvc&&(bookedSvc.name.toLowerCase().includes("morocco")||bookedSvc.sub==="Moroccan Bath");
-    const vr={
-      id:Date.now(),date:todayStr(),queue:tc+1,
-      customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,
-      group_id:null,group_name:"",
-      services:[],total_service:0,total_paid:0,payment_method:"",tips:[],
-      // Always starts as "Spa Arrived" — stays on reception, NOT sent to supervisor
-      status:"Spa Arrived",
-      note:"Spa Check-in: "+(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?b.serviceName:"TBD")
-        +(b.gender?" ("+b.gender+")":"")
-        +(ciHoldQueue&&isMorocco?" [Female hold — waiting for room]":""),
-      spa_booking_id:b.id,
-      spa_service_id:b.serviceId||null,
-      spa_service_name:b.serviceName||"",
-      spa_gender:b.gender||"",
-      is_morocco:isMorocco||false,
-    };
-    const{error:visErr}=await supabase.from("visits").insert(vr);
-    if(visErr){push("Check-in failed: "+visErr.message,"error");setSaving(false);return;}
-    const{error:bkErr}=await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);
-    if(bkErr)console.error("Booking status update failed:",bkErr.message);
-    setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
-    setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
-    logAct(user,"Spa Check-in",b.customerName+" — "+( b.serviceName||"TBD")+(ciHoldQueue&&isMorocco?" (female hold)":""));
-    setSaving(false);
-    setCheckInModal(null);
-    push(b.customerName+" checked in — waiting on Reception"+( isMorocco&&ciHoldQueue?" (room hold)":""),"success");
-  }
-
-  // Give queue: send ONE spa customer to supervisor with their service data
-  async function giveSpaQueue(v){
-    const isMorocco=v.is_morocco||(v.note||"").toLowerCase().includes("morocco");
-    const isMale=(v.spa_gender||"").toUpperCase()==="M";
-    // Build service lines from their booked service
-    const spaServiceName=v.spa_service_name||v.note?.replace("Spa Check-in: ","")?.split(" (")[0]||"";
-    const bookedSvc=svcs.find(s=>s.name===spaServiceName||s.id===v.spa_service_id);
-    const lines=[];
-    if(bookedSvc){
-      lines.push({
-        lineId:Date.now(),serviceId:bookedSvc.id,
-        name:bookedSvc.name,category:bookedSvc.category,sub:bookedSvc.sub,
-        price:Number(bookedSvc.price),qty:1,discount:0,free:false,
-        commission:Number(bookedSvc.commission||0),
-        employeeSection:bookedSvc.employeeSection,
-        employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0
-      });
-      // Morocco Bath always gets free included service (500 Birr equivalent)
-      if(isMorocco){
-        if(isMale){
-          // Male: Free Haircut — barber earns commission on the 300 Birr base price
-          lines.push({
-            lineId:Date.now()+1,
-            name:"Free Haircut (Morocco Special)",
-            category:"Barbershop",sub:"Barbershop",
-            price:0,qty:1,discount:0,free:true,commission:10,
-            employeeSection:"Barbershop",
-            employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,
-            moroccoFree:true,moroccoBasePrice:300
-          });
-        } else {
-          // Female: Free Hair Ironing — NO commission (it's a courtesy, no charge, no commission)
-          lines.push({
-            lineId:Date.now()+1,
-            name:"Free Hair Ironing (Morocco Special)",
-            category:"Beauty Salon",sub:"Hair Styling",
-            price:0,qty:1,discount:0,free:true,commission:0,
-            employeeSection:"Hair Styling",
-            employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,
-            moroccoFree:false,moroccoBasePrice:0
-          });
-        }
-      }
-    }
-    const totalService=lines.reduce((s,l)=>s+lineIncome(l),0);
-    const{error}=await supabase.from("visits").update({
-      services:lines,total_service:totalService,
-      status:"Waiting for Supervisor",
-      note:(v.note||"")+" [Queue given]"
-    }).eq("id",v.id);
-    if(error){push("Failed to give queue: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===v.id?{...x,services:lines,totalService:totalService,status:"Waiting for Supervisor",note:(x.note||"")+" [Queue given]"}:x));
-    logAct(user,"Spa Queue Given",v.name+" — "+(spaServiceName||"TBD"));
-    push(v.name+" sent to supervisor queue","success");
+    confirm2("Check in "+b.customerName+"?",async()=>{
+      setSaving(true);
+      const cid=makeId(b.customerName,b.customerPhone);
+      const tc=visits.filter(v=>v.date===todayStr()).length;
+      const vr={id:Date.now(),date:todayStr(),queue:tc+1,customer_id:cid,name:b.customerName,payer_name:b.customerName,phone:b.customerPhone,group_id:null,group_name:"",services:[],total_service:0,total_paid:0,payment_method:"",tips:[],status:"Waiting for Supervisor",note:(b.serviceName&&b.serviceName!=="TBD - To Be Confirmed"?"Booking: "+b.serviceName:"Spa Booking — service TBD")};
+      const{error:visErr}=await supabase.from("visits").insert(vr);
+      if(visErr){push("Check-in failed: "+visErr.message,"error");setSaving(false);return;}
+      const{error:bkErr}=await supabase.from("bookings").update({status:"Arrived",visit_id:vr.id}).eq("id",b.id);
+      if(bkErr)console.error("Booking status update failed:",bkErr.message);
+      setVisits(prev=>[...prev,dbVis({...vr,customer_id:vr.customer_id,payer_name:vr.payer_name,group_id:vr.group_id,group_name:vr.group_name,registered_at:null})]);
+      setBks(prev=>prev.map(bk=>bk.id===b.id?{...bk,visitId:vr.id,status:"Arrived"}:bk));
+      logAct(user,"Check-in",b.customerName);
+      setSaving(false);
+      push(b.customerName+" checked in — Queue #"+vr.queue,"success");
+    },false);
   }
   async function giveBeautyQueueFromVisit(v){
     // Give beauty salon queue to a spa customer who decided after service
@@ -2038,121 +2572,15 @@ export default function App(){
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
   async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};const{error}=await supabase.from("expenses").insert(row);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
-  async function delE(id){if(!window.confirm("Delete?"))return;const e=exps.find(x=>x.id===id);const{error}=await supabase.from("expenses").delete().eq("id",id);if(error){push("Failed to delete: "+error.message,"error");return;}setExps(p=>p.filter(e=>e.id!==id));logAct(user,"Deleted expense",(e?.name||"")+" — "+money(e?.total||0));}
+  async function delE(id){if(!window.confirm("Delete?"))return;const{error}=await supabase.from("expenses").delete().eq("id",id);if(error){push("Failed to delete: "+error.message,"error");return;}setExps(p=>p.filter(e=>e.id!==id));}
   async function addCat(){if(!newCat.trim())return alert("Enter a category name.");if(cats.includes(newCat.trim()))return alert("That category already exists.");const{error}=await supabase.from("categories").insert({name:newCat.trim()});if(error){push("Failed to save category: "+error.message,"error");return;}setCats(p=>[...p,newCat.trim()]);setNewCat("");}
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");if(Number(nSvc.price)<=0)return alert("Price must be greater than 0.");if(Number(nSvc.commission||0)<0)return alert("Commission cannot be negative.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};const{error}=await supabase.from("services").insert(r);if(error){push("Failed to save service: "+error.message,"error");return;}setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
   async function updSvc(id,f,v){const df=f==="employeeSection"?"employee_section":f==="durationMins"?"duration_mins":f;const val=["price","commission","durationMins"].includes(f)?Math.max(0,Number(v)||0):f==="bookable"?v:v;setSvcs(p=>p.map(s=>s.id===id?{...s,[f]:val}:s));clearTimeout(dRef.current[id+f]);dRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("services").update({[df]:val}).eq("id",id);if(error)push("Failed to save service change — please retry","error");},800);}
-  async function delSvc(id){if(!window.confirm("Remove this service?"))return;const s=svcs.find(x=>x.id===id);const{error}=await supabase.from("services").delete().eq("id",id);if(error){push("Failed to delete service: "+error.message,"error");return;}setSvcs(p=>p.filter(s=>s.id!==id));logAct(user,"Deleted service",s?.name||"");}
+  async function delSvc(id){if(!window.confirm("Remove this service?"))return;const{error}=await supabase.from("services").delete().eq("id",id);if(error){push("Failed to delete service: "+error.message,"error");return;}setSvcs(p=>p.filter(s=>s.id!==id));}
   async function addEmp(){if(!nEmp.name.trim())return alert("Enter employee name.");if(Number(nEmp.salary)<0)return alert("Salary cannot be negative.");const r={id:Date.now(),name:nEmp.name.trim(),section:nEmp.section,role:nEmp.role||"",salary:Number(nEmp.salary),absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:"",active:true,hire_date:nEmp.hireDate,day_off:null,on_leave:false};const{error}=await supabase.from("employees").insert(r);if(error){push("Failed to add employee: "+error.message,"error");return;}setEmps(p=>[...p,{...r,absentDays:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:"",hireDate:r.hire_date,dayOff:null,onLeave:false}]);setNEmp({name:"",section:EMP_SECTIONS[0],role:"",salary:"",hireDate:todayStr()});}
   async function updEmp(id,f,v){const m={absentDays:"absent_days",loanNote:"loan_note",brokerFee:"broker_fee",otherDeduction:"other_deduction",otherNote:"other_note",hireDate:"hire_date",dayOff:"day_off",onLeave:"on_leave",role:"role"};const df=m[f]||f;const val=["name","section","hireDate","loanNote","otherNote","role"].includes(f)?v:f==="dayOff"?(v===""||v===null?null:Number(v)):f==="onLeave"?v:Math.max(0,Number(v)||0);setEmps(p=>p.map(e=>e.id===id?{...e,[f]:val}:e));clearTimeout(eRef.current[id+f]);eRef.current[id+f]=setTimeout(async()=>{const{error}=await supabase.from("employees").update({[df]:val}).eq("id",id);if(error)push("Failed to save employee change — please retry","error");},800);}
-  async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("employees").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));const emp=emps.find(e=>e.id===id);logAct(user,"Employee "+(active?"reactivated":"deactivated"),emp?.name||"");}
+  async function setEmpAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("employees").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setEmps(p=>p.map(e=>e.id===id?{...e,active}:e));}
 // ── Commission Excel Export — organized, professional, easy to read ──
-  // ── Build organized backup payload (all business data) ──
-  function buildBackupPayload(backupType){
-    const record_counts={
-      visits:visits.length,bookings:bks.length,customers:custs.length,
-      employees:emps.length,expenses:exps.length,services:svcs.length,
-      categories:cats.length,closed_periods:periods.length,
-      staff:staff.length,activity_log:actLog.length,
-    };
-    const total_records=Object.values(record_counts).reduce((a,b)=>a+b,0);
-    return{
-      _meta:{
-        business:"Ambar Spa & Beauty",
-        format_version:"1.0",
-        generated_at:new Date().toISOString(),
-        generated_by:user?.name||"unknown",
-        backup_type:backupType,
-        record_counts,
-        total_records,
-      },
-      visits,bookings:bks,customers:custs,employees:emps,expenses:exps,
-      services:svcs,categories:cats,closed_periods:periods,
-      staff,activity_log:actLog,
-    };
-  }
-
-  // ── Full data backup — download to this device ──────────
-  async function downloadBackup(){
-    const payload=buildBackupPayload("manual download — "+(user?.name||"unknown"));
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;a.download=`ambar-spa-backup-${todayStr()}.json`;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    const ts=new Date().toISOString();
-    localStorage.setItem("ambar_spa_last_backup",ts);
-    setLastBackup(ts);
-    logAct(user,"Backup Downloaded",`Full export — ${payload._meta.total_records} total records`);
-    push("Backup downloaded","success");
-  }
-
-  // ── Cloud backup — saved to Supabase Storage, logged in backup_log ──
-  async function cloudBackup(backupType){
-    try{
-      const payload=buildBackupPayload(backupType);
-      const json=JSON.stringify(payload,null,2);
-      const blob=new Blob([json],{type:"application/json"});
-      const stamp=new Date().toISOString().replace(/[:.]/g,"-");
-      const filename=`backup-${stamp}.json`;
-      const{error}=await supabase.storage.from("backups").upload(filename,blob,{contentType:"application/json"});
-      if(error){console.error(error);push("Cloud backup failed: "+error.message,"error");return null;}
-      const{record_counts,total_records}=payload._meta;
-      const{data}=await supabase.from("backup_log").insert({
-        file_path:filename,triggered_by:backupType,record_counts,total_records,
-      }).select().single();
-      if(data)setBackupLog(p=>[data,...p]);
-      const ts=new Date().toISOString();
-      localStorage.setItem("ambar_spa_last_backup",ts);
-      setLastBackup(ts);
-      logAct(user,"Cloud Backup Created",`${backupType} — ${total_records} total records`);
-      push("Cloud backup saved — "+total_records+" records","success");
-      return data;
-    }catch(e){console.error(e);push("Cloud backup failed","error");return null;}
-  }
-
-  // ── Download a past cloud backup ─────────────────────────
-  async function downloadCloudBackup(filePath){
-    const{data,error}=await supabase.storage.from("backups").download(filePath);
-    if(error){push("Download failed: "+error.message,"error");return;}
-    const url=URL.createObjectURL(data);
-    const a=document.createElement("a");
-    a.href=url;a.download=filePath;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  // ── Delete an old cloud backup ────────────────────────────
-  async function deleteCloudBackup(entry){
-    if(!window.confirm("Delete this backup permanently?"))return;
-    await supabase.storage.from("backups").remove([entry.file_path]);
-    await supabase.from("backup_log").delete().eq("id",entry.id);
-    setBackupLog(p=>p.filter(b=>b.id!==entry.id));
-    push("Backup deleted","success");
-  }
-
-  // ── Automatic end-of-day backup (once per day, only if new data) ──
-  useEffect(()=>{
-    if(!user||autoBackupChecked.current)return;
-    if(loading)return;
-    const now=new Date();
-    if(now.getHours()<22)return; // only after 10 PM local time (after the auto-close job)
-    const todayD=todayStr();
-    const hasToday=backupLog.some(b=>(b.created_at||"").slice(0,10)===todayD);
-    if(hasToday){autoBackupChecked.current=true;return;}
-    const currentTotal=visits.length+bks.length+custs.length+emps.length+exps.length+
-      svcs.length+cats.length+periods.length+staff.length;
-    if(currentTotal===0)return;
-    const lastTotal=backupLog[0]?.total_records??-1;
-    if(currentTotal!==lastTotal){
-      autoBackupChecked.current=true;
-      cloudBackup("automatic (end of day)");
-    }else{
-      autoBackupChecked.current=true;
-    }
-  },[loading,backupLog,user,visits,bks,custs,emps,exps,svcs,cats,periods,staff]);
-
   async function downloadCommissionExcel(){
     const XLSX=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
     const wb=XLSX.utils.book_new();
@@ -2295,9 +2723,6 @@ export default function App(){
 
   async function closePeriod(){
     if(!window.confirm("Close pay period "+period.label+"?"))return;
-    // Prevent closing the same period twice
-    const alreadyClosed=periods.find(p=>p.period===period.label);
-    if(alreadyClosed){push("Pay period "+period.label+" has already been closed on "+new Date(alreadyClosed.closedAt).toLocaleDateString()+". Cannot close it again.","error");return;}
     const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));
     const{error:cpErr}=await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});
     if(cpErr){push("Failed to close period: "+cpErr.message,"error");return;}
@@ -2341,11 +2766,8 @@ export default function App(){
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
-  // Show loading screen when:
-  // 1. User is set but data hasn't loaded yet (loading=true), OR
-  // 2. User is set but tab hasn't been initialized yet (tab='')
-  // Both prevent the black-screen flash after login
-  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  // Prevent black screen: show loading while data loads or tab not yet set
+  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:40,marginBottom:12,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:16,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:12,color:"#94A3B8",marginTop:6}}>Loading...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
   if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
     {/* Header */}
@@ -2397,7 +2819,7 @@ export default function App(){
     </div>}
   </div>);
 
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes abaToastDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}"}</style></div></div>);
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div
     style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827",touchAction:"pan-y"}}
     onTouchStart={handleTouchStart}
@@ -2448,53 +2870,6 @@ export default function App(){
         })()}
       </div>
     </div>}
-    {/* ── Spa Check-in Modal ── */}
-    {checkInModal&&(()=>{
-      const bk=checkInModal;
-      const isMorocco=bk.serviceName&&(bk.serviceName.toLowerCase().includes("morocco")||svcs.find(s=>s.id===bk.serviceId)?.sub==="Moroccan Bath");
-      const isFemale=(bk.gender||"").toUpperCase()==="F"||bk.gender==="Female";
-      const isMale=(bk.gender||"").toUpperCase()==="M"||bk.gender==="Male";
-      return<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-        <div style={{background:"#fff",borderRadius:20,padding:24,maxWidth:460,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",maxHeight:"85vh",overflowY:"auto"}}>
-          {/* Header */}
-          <div style={{textAlign:"center",marginBottom:16}}>
-            <div style={{fontSize:32,marginBottom:6}}>{isMorocco?"🧖":"🚶"}</div>
-            <h3 style={{margin:"0 0 4px",fontSize:17,fontWeight:700,color:"#1B2E4B"}}>Spa Check-In</h3>
-            <b style={{fontSize:15,color:"#1B2E4B"}}>{bk.customerName}</b>
-            {bk.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700,marginLeft:8}}>{bk.gender}</span>}
-            <p style={{margin:"6px 0 0",fontSize:13,color:"#64748B"}}>{bk.serviceName||"Service TBD"} · {bk.time}</p>
-          </div>
-
-          {/* Booked service info */}
-          <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:12,padding:"10px 14px",marginBottom:12}}>
-            <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#0369A1"}}>BOOKED SERVICE</p>
-            <b style={{fontSize:13,color:"#0C4A6E"}}>{bk.serviceName||"To Be Confirmed"}</b>
-            {isMorocco&&<div style={{marginTop:6,background:"#FFFBEB",border:"0.5px solid #FCD34D",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#92400E"}}>
-              🎁 Morocco Bath includes a free {isMale?"Haircut (300 Birr)":"Hair Ironing (500 Birr)"} — automatically added when queue is given to supervisor
-            </div>}
-          </div>
-
-          {/* Hold queue — only for Morocco female */}
-          {isMorocco&&isFemale&&<label style={{display:"flex",gap:10,alignItems:"flex-start",background:ciHoldQueue?"#FEF9EC":"#F8FAFC",border:`1.5px solid ${ciHoldQueue?"#E0B85A":"#E2E8F0"}`,borderRadius:12,padding:"10px 14px",cursor:"pointer",marginBottom:12,transition:"all 0.15s"}}>
-            <input type="checkbox" checked={ciHoldQueue} onChange={e=>setCiHoldQueue(e.target.checked)} style={{marginTop:2,width:16,height:16,accentColor:"#E0B85A",flexShrink:0}}/>
-            <div>
-              <b style={{fontSize:12,color:ciHoldQueue?"#92400E":"#1B2E4B"}}>⏸ Hold — Waiting for female-only room</b>
-              <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>Keep her on reception until the room is ready. Use "Give Queue" when room is available.</p>
-            </div>
-          </label>}
-
-          <p style={{margin:"0 0 6px",fontSize:12,color:"#64748B",fontStyle:"italic"}}>Customer stays on Reception. Use "Give Queue" button when ready to send to supervisor.</p>
-
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
-            <button onClick={()=>{setCheckInModal(null);setCiHoldQueue(false);}} style={{padding:"12px",borderRadius:12,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontWeight:700,cursor:"pointer",fontSize:13}}>Cancel</button>
-            <button onClick={confirmCheckIn} disabled={saving} style={{padding:"12px",borderRadius:12,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>
-              {saving?"Saving...":ciHoldQueue?"⏸ Check In (Hold Room)":"✓ Check In"}
-            </button>
-          </div>
-        </div>
-      </div>;
-    })()}
-
     {moroccoModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
         <div style={{fontSize:36,marginBottom:12}}>🧖</div>
@@ -2537,8 +2912,8 @@ export default function App(){
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
-        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk==="Checkout"){if(act&&act.status!=="Ready for Payment"&&act.status!=="Paid & Closed")setActId(null);}else if(tk!=="Supervisor")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
-        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk==="Checkout"){if(act&&act.status!=="Ready for Payment"&&act.status!=="Paid & Closed")setActId(null);}else if(tk!=="Supervisor")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
+        <>{dailyTabs.length>0&&<><p style={S.navL}>DAILY WORKFLOW</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(2,1fr)":"repeat("+dailyTabs.length+",1fr)",gap:6,marginBottom:8}}>{dailyTabs.map(tk=><button key={tk} style={tab===tk?S.tabA:S.tab} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}
+        {mgrTabs.length>0&&<><p style={{...S.navL,color:"#6b7280",marginTop:8}}>MANAGEMENT</p><div style={{display:"grid",gridTemplateColumns:sc.mob?"repeat(3,1fr)":"repeat("+Math.min(mgrTabs.length,7)+",1fr)",gap:6,marginBottom:14}}>{mgrTabs.map(tk=><button key={tk} style={tab===tk?{...S.tabA,background:"#243A5E",color:"#fff"}:{...S.tab,background:"#F8FAFC",color:"#475569",border:"0.5px solid #E2E8F0"}} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}</div></>}</>
       )}
 
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
@@ -2555,7 +2930,6 @@ export default function App(){
           <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
         </section>
         <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
-          <QueueSummary visits={visits} emps={emps} sc={sc}/>
           {todayV.length===0&&saving&&[1,2,3].map(i=><div key={i} style={{height:42,background:"#F1F5F9",borderRadius:10,marginBottom:6,animation:"pulse 1.5s ease-in-out infinite"}}/>)}
           {todayV.length===0&&!saving&&<EMP>No customers registered yet today.</EMP>}
           {todayV.map((v,idx)=>{
@@ -2563,21 +2937,14 @@ export default function App(){
             const isInProgress=v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress");
             const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
             const isWaiting=v.status==="Waiting for Supervisor";
-            const isSpaArrived=v.status==="Spa Arrived";
-            const isSpaHold=(v.note||"").includes("[Female hold") || (v.note||"").includes("[room hold") || (v.note||"").includes("Female hold");
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
-            const svcs_=(v.services||[]);
-            const allServicesDone=svcs_.length>0&&svcs_.every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment"&&!isDone;
-            const hasWaiting=svcs_.some(l=>l.status==="Waiting"||l.status==="On Hold");
-            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#E2E8F0":v.status==="Ready for Payment"?"#166534":allServicesDone?"#5A8C72":isInProgress?"#1B4FA8":"#E0B85A"),background:isDone?"#F8FAFC":v.status==="Ready for Payment"?"#F0FDF4":allServicesDone?"#F0FDF4":isInProgress?"#EBF2FD":"#FFFDF7"}}>
+            return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#E2E8F0":isInProgress?"#1B4FA8":"#5A8C72"),background:isDone?"#F8FAFC":isInProgress?"#EBF2FD":"#F0FDF4"}}>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
                   <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
                   {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🔄 In Progress</span>}
-                  {allServicesDone&&<span style={{background:"#166534",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✅ All Done — Awaiting Ready</span>}
-                  {isSpaArrived&&<span style={{background:"#E0F2FE",color:"#0369A1",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🧖 Spa Arrived{isSpaHold?" — Holding Room":""}</span>}
-                  {isWithSupervisor&&!allServicesDone&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
-                  {!isDone&&!isInProgress&&!allServicesDone&&!isSpaArrived&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
+                  {isWithSupervisor&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
+                  {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
                   {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>💳 Ready</span>}
                   {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
                 </div>
@@ -2590,88 +2957,18 @@ export default function App(){
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 {v.status==="Waiting for Supervisor"&&v.services.length===0&&<button style={S.btnD} onClick={()=>cancelV(v.id)}>{t("cancel")}</button>}
-              {/* Spa Arrived: Give Queue button */}
-              {isSpaArrived&&!isSpaHold&&<button style={{...S.btnP,width:"auto",padding:"5px 14px",fontSize:11,marginBottom:0}} onClick={()=>giveSpaQueue(v)}>▶ Give Queue</button>}
-              {/* Morocco female hold: release when room ready */}
-              {isSpaArrived&&isSpaHold&&<button style={{...S.btnS,width:"auto",padding:"5px 12px",fontSize:11,color:"#0369A1",borderColor:"#BAE6FD",fontWeight:600,marginBottom:0}} onClick={async()=>{
-                const newNote=(v.note||"").replace(" [Female hold — waiting for room]","").replace(" [room hold]","");
-                const{error}=await supabase.from("visits").update({note:newNote}).eq("id",v.id);
-                if(error){push("Failed: "+error.message,"error");return;}
-                setVisits(prev=>prev.map(x=>x.id===v.id?{...x,note:newNote}:x));
-                push("Room ready — "+v.name+" can now receive queue","success");
-              }}>🚪 Room Ready — Give Queue</button>}
-              {/* After all spa services done: option to add beauty services */}
-              {allServicesDone&&<button style={{...S.btnS,width:"auto",padding:"5px 12px",fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:600,marginBottom:0}} onClick={()=>giveBeautyQueueFromVisit(v)}>💇 Add Beauty Services</button>}
               </div>
             </div>;
           })}
         </section>
-
-        {/* ── Barbershop Payments ── Reception handles all barbershop payments */}
-        {(()=>{
-          const barberReady=todayV.filter(v=>
-            isBarberVisit(v)&&
-            v.status==="Ready for Payment"
-          );
-          const barberInProgress=todayV.filter(v=>
-            isBarberVisit(v)&&
-            !["Paid & Closed","Cancelled","Ready for Payment"].includes(v.status)
-          );
-          if(!barberReady.length&&!barberInProgress.length)return null;
-          return<section style={{...S.card,borderTop:"3px solid #1B2E4B"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-              <div>
-                <h2 style={{...S.ct,marginBottom:0}}>💈 Barbershop Payments</h2>
-                <p style={{...S.hlp,margin:0}}>All barbershop payments are handled here at Reception</p>
-              </div>
-              {barberReady.length>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>💳 {barberReady.length} ready to pay</span>}
-            </div>
-
-            {/* Ready for payment */}
-            {barberReady.map(v=><div key={v.id} style={{background:"#F0FDF4",border:"1.5px solid #86EFAC",borderRadius:14,padding:"12px 14px",marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                    <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
-                    <span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>💳 Ready to Pay</span>
-                  </div>
-                  {(v.services||[]).filter(l=>l.status!=="Cancelled").map((l,i)=><div key={i} style={{fontSize:12,color:"#374151",marginBottom:2}}>
-                    ✂ {l.name} {l.employee?<span style={{color:"#64748B"}}>— {l.employee}</span>:null} <b style={{color:"#1B2E4B"}}>{Number(l.price*l.qty).toLocaleString()} Birr</b>
-                  </div>)}
-                  <b style={{fontSize:15,color:"#166534",marginTop:4,display:"block"}}>Total: {(v.totalService||0).toLocaleString()} Birr</b>
-                </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {["Cash","Card","Transfer"].map(method=><button key={method} onClick={async()=>{
-                    if(!window.confirm("Collect "+method+" payment of "+(v.totalService||0).toLocaleString()+" Birr from "+v.name+"?"))return;
-                    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:v.totalService,payment_method:method}).eq("id",v.id);
-                    if(error){push("Payment failed: "+error.message,"error");return;}
-                    setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Paid & Closed",totalPaid:v.totalService,paymentMethod:method}:x));
-                    logAct(user,"Barbershop Payment",v.name+" — "+(v.totalService||0).toLocaleString()+" Birr via "+method);
-                    push(v.name+" — payment collected via "+method,"success");
-                  }} style={{padding:"8px 14px",borderRadius:10,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>{method}</button>)}
-                </div>
-              </div>
-            </div>)}
-
-            {/* In progress - just info */}
-            {barberInProgress.length>0&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:"10px 14px"}}>
-              <p style={{margin:"0 0 6px",fontSize:12,fontWeight:700,color:"#374151"}}>Currently being served ({barberInProgress.length}):</p>
-              {barberInProgress.map(v=><div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:"#475569",marginBottom:4}}>
-                <span>#{v.queue} {v.name}</span>
-                <span style={{...SB(v.status),...{borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:600}}}>{v.status}</span>
-              </div>)}
-            </div>}
-          </section>;
-        })()}
       </main>}
 
       {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:sc.mob&&actId?"1fr":gc,gap:14}}>
         {/* On mobile: hide queue list when customer is selected */}
         {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
-          <QueueSummary visits={visits} emps={emps} sc={sc}/>
           <h3 style={S.sh}>⏳ Waiting</h3>
-          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!(v.note||"").includes("[Queue held")).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
-            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!(v.note||"").includes("[Queue held")).map((v,i,arr)=>{
+          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
+            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
               return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>{setActId(v.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
                 <span style={{color:"inherit"}}>
@@ -2682,26 +2979,6 @@ export default function App(){
                 <span style={SB("Waiting for Supervisor")}>New</span>
               </button>;
             })}
-          {/* Customers where ALL services are done but not yet marked Ready */}
-          {(()=>{
-            const allDone=visits.filter(v=>
-              v.date===todayStr()&&
-              !["Paid & Closed","Cancelled","Ready for Payment"].includes(v.status)&&
-              (v.services||[]).length>0&&
-              (v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))
-            );
-            if(!allDone.length)return null;
-            return<><HR/><h3 style={{...S.sh,color:"#166534"}}>✅ All Services Done — Mark Ready</h3>
-              <p style={{...S.hlp,color:"#166534",marginBottom:8}}>These customers have finished all services. Select them and click "Mark Ready for Payment".</p>
-              {allDone.map(v=><button key={v.id} style={actId===v.id?S.liA:{...S.liB,background:"#F0FDF4",border:"1px solid #86EFAC"}} onClick={()=>{setActId(v.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
-                <span style={{color:"inherit"}}>
-                  <b style={{color:"inherit"}}>#{v.queue} — {v.name}</b>
-                  <span style={{fontSize:11,marginLeft:8,color:actId===v.id?"rgba(255,255,255,0.7)":"#166534"}}>{(v.services||[]).filter(l=>l.status==="Completed").length} service{(v.services||[]).filter(l=>l.status==="Completed").length!==1?"s":""} completed</span>
-                </span>
-                <span style={{...SB("Ready for Payment"),background:"#DCFCE7",color:"#166534"}}>Mark Ready ▶</span>
-              </button>)}
-            </>;
-          })()}
           <HR/><h3 style={S.sh}>🔄 Active Services</h3>
           {svcQ.length===0&&<p style={S.hlp}>No active queues.</p>}
           {svcs.map(svc=>{const rows=svcQ.filter(r=>r.line.serviceId===svc.id);if(!rows.length)return null;
@@ -2796,15 +3073,7 @@ export default function App(){
               <button style={{...S.btnP,background:"#dc2626",color:"#fff"}} onClick={()=>processRefund(act.id)}>Confirm Refund</button>
             </div>}
           </div>
-           :!act.services?<EMP>Loading...</EMP>
-           :act.status!=="Ready for Payment"?<div style={{textAlign:"center",padding:"40px 20px"}}>
-              <div style={{fontSize:40,marginBottom:12}}>⏳</div>
-              <h3 style={{margin:"0 0 8px",color:"#1B2E4B"}}>#{act.queue} — {act.name}</h3>
-              <p style={{color:"#64748B",fontSize:14,margin:"0 0 4px"}}>Status: <b style={{color:"#92400E"}}>{act.status}</b></p>
-              <p style={{color:"#64748B",fontSize:13,margin:0}}>This customer is not ready for payment yet.<br/>Supervisor must mark them "Ready for Payment" first.</p>
-              <button style={{...S.btnS,marginTop:16}} onClick={()=>setActId(null)}>← Back to list</button>
-            </div>
-           :<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
+           :!act.services?<EMP>Loading...</EMP>:<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
             <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             <HR/><h3 style={{margin:"0 0 4px",fontWeight:800}}>Tips</h3><p style={S.hlp}>Tips go directly to employees, not counted as revenue.</p>
             <div style={S.r2}><select style={S.inp} value={tipEmp} onChange={e=>setTipEmp(e.target.value)}><option value="">Select employee</option>{emps.filter(e=>e.active).map(e=><option key={e.id}>{e.name}</option>)}</select><input style={S.inp} type="number" value={tipAmt} onChange={e=>setTipAmt(e.target.value)} placeholder="Amount (Birr)"/></div>
@@ -2996,14 +3265,7 @@ export default function App(){
                           </button>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:500}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
                         {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,marginRight:4}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
-                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>{
-                          // Check if the linked visit has services recorded
-                          const linkedVisit=b.visitId?visits.find(v=>v.id===b.visitId):null;
-                          if(linkedVisit&&(linkedVisit.services||[]).filter(l=>l.status!=="Cancelled").length===0){
-                            if(!window.confirm("⚠ "+b.customerName+"'s visit has no services recorded yet.\n\nAre you sure you want to mark this booking as Done? The supervisor should have added at least one service first."))return;
-                          }
-                          updBk(b.id,"Completed");
-                        }}>{t("markDone")}</button></>
+                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>
                         }
                         {["Pending","Confirmed","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:10}} onClick={()=>printBookingSlip(b)}>🖨 Slip</button>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
@@ -3699,50 +3961,6 @@ export default function App(){
 
       {tab==="Staff"&&<section style={S.card}><h2 style={S.ct}>{t("staffMgmt")}</h2>
         <p style={S.hlp}>Reception: Reception + Checkout + Bookings. Supervisor: Supervisor + Bookings. Manager: All.</p><HR/>
-
-        {/* Data Backup & Security */}
-        <div style={{background:"#1B2E4B",borderRadius:14,padding:16,marginBottom:16}}>
-          <h3 style={{margin:"0 0 4px",fontWeight:800,fontSize:15,color:"#fff"}}>💾 Data Backup & Security</h3>
-          <p style={{margin:"0 0 12px",fontSize:12,color:"rgba(255,255,255,0.65)"}}>
-            Back up all customers, visits, bookings, employees, expenses, and staff accounts.
-            The system also saves an automatic cloud backup at the end of each day if new data was added.
-          </p>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-            <button onClick={()=>cloudBackup("manual cloud backup — "+(user?.name||""))}
-              style={{...S.btnS,background:"#2D7D46",color:"#fff",borderColor:"#2D7D46"}}>
-              ☁ Backup to Cloud Now
-            </button>
-            <button onClick={downloadBackup}
-              style={{...S.btnS,background:"rgba(255,255,255,0.1)",color:"#fff",borderColor:"rgba(255,255,255,0.3)"}}>
-              💾 Download Backup File
-            </button>
-            <span style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>
-              {(()=>{
-                const daysSince=lastBackup?Math.floor((Date.now()-new Date(lastBackup))/86400000):null;
-                return daysSince===null?"⚠ No backup yet — back up now to protect your data.":
-                  daysSince===0?"✓ Backed up today":
-                  `⚠ Last backup: ${daysSince} day${daysSince===1?"":"s"} ago`;
-              })()}
-              {backupLog[0]&&` · Latest cloud backup: ${new Date(backupLog[0].created_at).toLocaleString()} (${backupLog[0].total_records} records)`}
-            </span>
-          </div>
-        </div>
-
-        {/* Cloud Backup History */}
-        {backupLog.length>0&&<div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16,marginBottom:16}}>
-          <h3 style={{margin:"0 0 10px",fontWeight:800,fontSize:14}}>Cloud Backup History</h3>
-          {backupLog.slice(0,10).map(b=><div key={b.id} style={S.li}>
-            <div>
-              <b style={{fontSize:12}}>{new Date(b.created_at).toLocaleString()}</b>
-              <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>{b.total_records} total records · {b.triggered_by}</p>
-            </div>
-            <div style={{display:"flex",gap:6,flexShrink:0}}>
-              <button onClick={()=>downloadCloudBackup(b.file_path)} style={{...S.btnS,marginBottom:0,fontSize:11,padding:"5px 10px"}}>⬇ Download</button>
-              <button onClick={()=>deleteCloudBackup(b)} style={{...S.btnS,marginBottom:0,fontSize:11,padding:"5px 10px",color:"#DC2626",borderColor:"#DC262644"}}>🗑</button>
-            </div>
-          </div>)}
-        </div>}
-        <HR/>
         <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16,marginBottom:16}}>
           <h3 style={{margin:"0 0 14px",fontWeight:800,fontSize:15}}>{editStaff?"Edit: "+editStaff.id:"Add / Update Staff Account"}</h3>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
@@ -4003,7 +4221,6 @@ export default function App(){
         </section>;
       })()}
 
-
       {tab==="Barbershop"&&<BarberTab visits={visits} emps={emps} svcs={svcs} user={user} supabase={supabase} sc={sc} S={S} SB={SB} money={money} todayStr={todayStr} logAct={logAct} push={push} setVisits={setVisits} queueEnabled={queueEnabled} setQueueEnabled={setQueueEnabled} saving={saving} setSaving={setSaving}/>}
 
       {tab==="Service Duration"&&<SvcDuration svcLog={svcLog} emps={emps} sc={sc} S={S} CLOSE_HOUR={CLOSE_HOUR}/>}
@@ -4035,762 +4252,96 @@ export default function App(){
   </div>);
 }
 
-function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
-  const[sdRange,setSdRange]=React.useState(true);
-  const[sdFrom,setSdFrom]=React.useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10);});
-  const[sdTo,setSdTo]=React.useState(()=>new Date().toISOString().slice(0,10));
-  const[sdEmp,setSdEmp]=React.useState("All");
-  const[sdSub,setSdSub]=React.useState("All");
-  const[sdSort,setSdSort]=React.useState("employee");
-  const[expandEmp,setExpandEmp]=React.useState(null);
-  function today(){return new Date().toISOString().slice(0,10);}
-
-  const empNames=["All",...new Set(svcLog.map(r=>r.employee).filter(Boolean))].sort();
-  const subNames=["All",...new Set(svcLog.map(r=>r.sub).filter(Boolean))].sort();
-
-  const filtered=svcLog.filter(r=>{
-    const d=r.date||"";
-    if(sdRange){if(d<sdFrom||d>sdTo)return false;}
-    else{if(d!==sdFrom)return false;}
-    if(sdEmp!=="All"&&r.employee!==sdEmp)return false;
-    if(sdSub!=="All"&&r.sub!==sdSub)return false;
-    return true;
-  });
-
-  const lastSafeTime=(avgMins)=>{
-    if(!avgMins||avgMins<=0)return null;
-    const closeMin=CLOSE_HOUR*60;
-    const latest=closeMin-avgMins-15;
-    if(latest<0||latest<8*60)return null;
-    return String(Math.floor(latest/60)).padStart(2,"0")+":"+String(latest%60).padStart(2,"0");
-  };
-
-  // Per-employee aggregation
-  const empStats=empNames.filter(n=>n!=="All").map(name=>{
-    const logs=filtered.filter(r=>r.employee===name);
-    if(!logs.length)return null;
-    const byService={};
-    logs.forEach(r=>{
-      const k=r.service||"Unknown";
-      if(!byService[k])byService[k]={name:k,sub:r.sub||"",count:0,totalActual:0,totalExpected:0};
-      byService[k].count++;
-      byService[k].totalActual+=Number(r.durationMins||0);
-      byService[k].totalExpected+=Number(r.expectedMins||0);
-    });
-    const services=Object.values(byService).map(s=>({
-      ...s,
-      avgActual:Math.round(s.totalActual/s.count),
-      avgExpected:Math.round(s.totalExpected/s.count),
-      diff:Math.round(s.totalActual/s.count)-Math.round(s.totalExpected/s.count),
-    })).sort((a,b)=>b.count-a.count);
-    const totalActual=logs.reduce((s,r)=>s+Number(r.durationMins||0),0);
-    const avgTime=Math.round(totalActual/logs.length);
-    const slowCount=logs.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
-    const fastCount=logs.filter(r=>Number(r.durationMins||0)<Number(r.expectedMins||0)-5).length;
-    const overMin=logs.reduce((s,r)=>s+Math.max(0,Number(r.durationMins||0)-Number(r.expectedMins||0)),0);
-    const speedScore=Math.max(0,Math.round(100-(overMin/(logs.length*10)*100)));
-    const emp=emps.find(e=>e.name===name);
-    return{name,section:emp?.section||"",totalServices:logs.length,avgTime,slowCount,fastCount,speedScore,services,logs};
-  }).filter(Boolean);
-
-  const totalLogs=filtered.length;
-  const overallAvg=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.durationMins||0),0)/totalLogs):0;
-  const overallExp=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.expectedMins||0),0)/totalLogs):0;
-  const overCount=filtered.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
-
-  const diffColor=(diff)=>diff>10?"#B91C1C":diff<-5?"#1B4FA8":"#166534";
-  const diffBg=(diff)=>diff>10?"#FEF2F2":diff<-5?"#EBF2FD":"#F0FDF4";
-
-  return<section style={S.card}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:16}}>
-      <div>
-        <h2 style={{...S.ct,marginBottom:2}}>⏱ Service Duration</h2>
-        <p style={{...S.hlp,margin:0}}>How long each employee takes per service — identifies slow patterns and helps plan last booking times.</p>
-      </div>
-      <div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 14px",textAlign:"center"}}>
-        <b style={{fontSize:20,color:"#fff",display:"block"}}>{svcLog.length}</b>
-        <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>total records</p>
-      </div>
-    </div>
-
-    {/* ── Filters ── */}
-    <div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16}}>
-      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(5,1fr)",gap:8,alignItems:"flex-end"}}>
-        <div><p style={S.lbl}>Employee</p>
-          <select style={S.inp} value={sdEmp} onChange={e=>setSdEmp(e.target.value)}>
-            {empNames.map(n=><option key={n}>{n}</option>)}
-          </select>
-        </div>
-        <div><p style={S.lbl}>Service Type</p>
-          <select style={S.inp} value={sdSub} onChange={e=>setSdSub(e.target.value)}>
-            {subNames.map(n=><option key={n}>{n}</option>)}
-          </select>
-        </div>
-        <div><p style={S.lbl}>{sdRange?"From":"Date"}</p>
-          <input type="date" style={S.inp} value={sdFrom} onChange={e=>setSdFrom(e.target.value)}/>
-        </div>
-        {sdRange&&<div><p style={S.lbl}>To</p>
-          <input type="date" style={S.inp} value={sdTo} onChange={e=>setSdTo(e.target.value)}/>
-        </div>}
-        <div><p style={S.lbl}>Mode</p>
-          <button style={{...S.btnS,marginBottom:0}} onClick={()=>{setSdRange(r=>!r);if(!sdRange)setSdTo(today());}}>
-            {sdRange?"📅 Date Range ✓":"📅 Single Day"}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    {/* ── Summary ── */}
-    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:16}}>
-      {[
-        {label:"SERVICES LOGGED",value:totalLogs,sub:"in selected period",bg:"#1B2E4B",tx:"#fff",sub_tx:"#5A8C72"},
-        {label:"AVG ACTUAL TIME",value:overallAvg+" min",sub:"expected: "+overallExp+" min",bg:"#EBF2FD",tx:"#1B4FA8",sub_tx:"#1B4FA8"},
-        {label:"ON TIME",value:totalLogs>0?Math.round(((totalLogs-overCount)/totalLogs)*100)+"%":"—",sub:overCount+" slow, "+(totalLogs-overCount)+" on time",bg:overCount>totalLogs/2?"#FEF2F2":"#F0FDF4",tx:overCount>totalLogs/2?"#B91C1C":"#166534",sub_tx:"#64748B"},
-        {label:"LAST SAFE BOOKING",value:lastSafeTime(overallAvg)||"N/A",sub:"avg "+overallAvg+"m + 15m buffer",bg:"#FEF9EC",tx:"#92400E",sub_tx:"#92400E"},
-      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:12,padding:"12px 14px"}}>
-        <p style={{margin:0,fontSize:9,color:c.sub_tx,fontWeight:500,letterSpacing:0.8}}>{c.label}</p>
-        <b style={{fontSize:sc.mob?18:22,color:c.tx,display:"block",margin:"2px 0"}}>{c.value}</b>
-        <p style={{margin:0,fontSize:10,color:c.sub_tx}}>{c.sub}</p>
-      </div>)}
-    </div>
-
-    {totalLogs===0&&<div style={{textAlign:"center",padding:60,color:"#94A3B8"}}>
-      <div style={{fontSize:48,marginBottom:12}}>⏱</div>
-      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:8}}>No records yet for this period</b>
-      <p style={{fontSize:13,margin:0}}>Times are automatically recorded when a supervisor marks a service Completed.</p>
-    </div>}
-
-    {/* ── Per-Employee Cards ── */}
-    {empStats.length>0&&<>
-      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-        <h3 style={{...S.sh,margin:0}}>📊 By Employee</h3>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-          <span style={{fontSize:11,color:"#64748B"}}>Sort:</span>
-          {[["employee","A–Z"],["service","By Services"],["speed","Slowest First"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setSdSort(v)} style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(sdSort===v?"#1B2E4B":"#E2E8F0"),background:sdSort===v?"#1B2E4B":"#fff",color:sdSort===v?"#fff":"#475569",fontSize:11,cursor:"pointer"}}>{l}</button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
-        {[...empStats].sort((a,b)=>{
-          if(sdSort==="speed")return a.speedScore-b.speedScore;
-          if(sdSort==="service")return b.totalServices-a.totalServices;
-          return a.name.localeCompare(b.name);
-        }).map(emp=>{
-          const sc_color=emp.speedScore>=90?"#166534":emp.speedScore>=70?"#92400E":"#B91C1C";
-          const sc_bg=emp.speedScore>=90?"#F0FDF4":emp.speedScore>=70?"#FEF9EC":"#FEF2F2";
-          const isExp=expandEmp===emp.name;
-          return<div key={emp.name} style={{background:"#fff",border:"0.5px solid #E2E8F0",borderRadius:14,overflow:"hidden"}}>
-            {/* Header */}
-            <div style={{padding:"12px 14px",background:isExp?"#F8FAFC":"#fff",cursor:"pointer"}} onClick={()=>setExpandEmp(isExp?null:emp.name)}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
-                    <b style={{fontSize:14,color:"#111827"}}>{emp.name}</b>
-                    <span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:700}}>{emp.section}</span>
-                  </div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <span style={{fontSize:11,color:"#64748B"}}>{emp.totalServices} services · avg <b style={{color:"#111827"}}>{emp.avgTime} min</b></span>
-                    {emp.slowCount>0&&<span style={{background:"#FEF2F2",color:"#B91C1C",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>🐢 {emp.slowCount} slow</span>}
-                    {emp.fastCount>0&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>⚡ {emp.fastCount} fast</span>}
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
-                  <div style={{background:sc_bg,borderRadius:10,padding:"6px 10px",textAlign:"center"}}>
-                    <b style={{fontSize:16,color:sc_color,display:"block"}}>{emp.speedScore}%</b>
-                    <p style={{margin:0,fontSize:9,color:sc_color}}>on-time</p>
-                  </div>
-                  <span style={{fontSize:16,color:"#94A3B8"}}>{isExp?"▲":"▼"}</span>
-                </div>
+function SLines({visit,emps,mode,onUpd,onRem,onMove}){
+  if(!visit)return null;
+  const isSv=mode==="supervisor";const locked=["Ready for Payment","Paid & Closed"].includes(visit.status||"");
+  return <div style={{marginBottom:14}}>
+    <h3 style={{margin:"14px 0 8px",fontWeight:800}}>Services</h3>
+    {!(visit&&visit.services&&visit.services.length)&&<p style={{color:"#1f2937",fontSize:13}}>No services added yet.</p>}
+    {(visit.services||[]).map(line=>{
+      if(!line||!line.lineId)return null;
+      const elig=emps.filter(e=>e.section===line.employeeSection&&isEmpAvailableToday(e));
+      const done=["Completed","Cancelled"].includes(line.status||"");
+      return <div key={line.lineId} style={{background:done?"#f9fafb":"#f8fafc",border:"1px solid "+(done?"#e5e7eb":"#e5e7eb"),borderRadius:12,padding:10,marginBottom:7}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:7,flexWrap:"wrap",gap:6}}>
+          <div><b style={{fontSize:14}}>{line.name}</b>
+            <p style={{color:"#5c3d11",fontSize:11,margin:"2px 0"}}>{isSv?money(line.price)+" × "+line.qty+" = "+money(lineGross(line)):"Gross: "+money(lineGross(line))+" | Income: "+money(lineIncome(line))}</p>
+            {line.commission>0&&<p style={{color:"#2D7D46",fontSize:11,margin:"2px 0"}}>
+          Commission {line.commission}%
+          {line.sub==="Braids"&&line.name&&line.name.includes("ከኛ")&&
+            <span style={{color:"#64748B"}}> (after 500 Birr/qty deduction)</span>}
+          {line.sub==="Braids"&&line.name&&line.name.includes("ከነሱ")&&
+            <span style={{color:"#64748B"}}> (after 300 Birr/qty deduction)</span>}
+          {" = "}{money(lineComm(line))}
+        </p>}
+          </div>
+          <div style={{display:"flex",gap:4}}>
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"down")}>↓</button>}
+                {!locked&&<button style={{padding:"4px 10px",borderRadius:8,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:12}} onClick={()=>onRem(line.lineId)}>Remove</button>}
               </div>
-              {/* Capacity line */}
-              {emp.avgTime>0&&<div style={{marginTop:8,background:"#FEF9EC",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#92400E"}}>
-                ⏰ Last safe booking: <b>{lastSafeTime(emp.avgTime)||"Cannot take new customers at this time"}</b>
-                <span style={{color:"#B45309",marginLeft:6,fontSize:10}}>(avg {emp.avgTime}m + 15m buffer)</span>
-              </div>}
-            </div>
-
-            {/* Expanded: per-service breakdown */}
-            {isExp&&<div style={{padding:"0 14px 14px"}}>
-              <div style={{borderTop:"0.5px solid #E2E8F0",marginBottom:10,marginTop:4}}/>
-              {/* Service table */}
-              <div style={{overflowX:"auto"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:300}}>
-                  <span>Service</span><span style={{textAlign:"center"}}>×</span><span style={{textAlign:"center"}}>Avg</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
-                </div>
-                {emp.services.map((s,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",minWidth:300}}>
-                  <div>
-                    <span style={{color:"#111827",fontWeight:500}}>{s.name}</span>
-                    {s.sub&&<span style={{color:"#94A3B8",fontSize:10,marginLeft:4,display:"block"}}>{s.sub}</span>}
-                  </div>
-                  <span style={{textAlign:"center",color:"#475569"}}>{s.count}</span>
-                  <span style={{textAlign:"center",fontWeight:700,color:"#1B2E4B"}}>{s.avgActual}m</span>
-                  <span style={{textAlign:"center",color:"#64748B"}}>{s.avgExpected}m</span>
-                  <span style={{textAlign:"center",background:diffBg(s.diff),color:diffColor(s.diff),borderRadius:5,padding:"1px 5px",fontWeight:700,fontSize:11}}>{s.diff>0?"+":""}{s.diff}m</span>
-                </div>)}
-              </div>
-              {/* Recent records for this employee */}
-              <div style={{marginTop:12}}>
-                <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>Recent records:</p>
-                {emp.logs.slice(0,8).map((r,i)=>{
-                  const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
-                  return<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11}}>
-                    <span style={{color:"#374151",flex:1}}>{r.service}</span>
-                    <span style={{color:"#64748B",marginRight:10}}>{r.customer} · {r.date}</span>
-                    <span style={{background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 7px",fontWeight:700,fontSize:11,flexShrink:0}}>{r.durationMins}m {diff>0?"(+"+diff+"m)":diff<0?"("+diff+"m)":"(on time)"}</span>
-                  </div>;
-                })}
-              </div>
-            </div>}
-          </div>;
-        })}
-      </div>
-
-      {/* ── Full log table ── */}
-      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-        <h3 style={{...S.sh,margin:0}}>📋 Full Log — Every Service</h3>
-        <span style={{fontSize:11,color:"#64748B"}}>{filtered.length} records</span>
-      </div>
-      <div style={{overflowX:"auto",maxHeight:500,overflowY:"auto"}}>
-        <div style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"6px 10px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:540,position:"sticky",top:0}}>
-          <span>Employee</span><span>Service</span><span>Customer</span><span style={{textAlign:"center"}}>#</span><span style={{textAlign:"center"}}>Actual</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
         </div>
-        {[...filtered].sort((a,b)=>{
-          if(sdSort==="speed"){const da=Number(a.durationMins||0)-Number(a.expectedMins||0);const db=Number(b.durationMins||0)-Number(b.expectedMins||0);return db-da;}
-          if(sdSort==="service")return(a.service||"").localeCompare(b.service||"");
-          if(sdSort==="date")return(b.date||"").localeCompare(a.date||"");
-          return(a.employee||"").localeCompare(b.employee||"");
-        }).map((r,i)=>{
-          const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
-          return<div key={i} style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"5px 10px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",border:diff>10?"1px solid #FECACA":"none",minWidth:540}}>
-            <span style={{fontWeight:500,color:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.employee}</span>
-            <span style={{color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.service}</span>
-            <span style={{color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.customer}</span>
-            <span style={{textAlign:"center",color:"#64748B"}}>#{r.queue}</span>
-            <span style={{textAlign:"center",fontWeight:700,color:"#111827"}}>{r.durationMins}m</span>
-            <span style={{textAlign:"center",color:"#64748B"}}>{r.expectedMins}m</span>
-            <span style={{textAlign:"center",background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 6px",fontWeight:700}}>{diff>0?"+":""}{diff}m</span>
-          </div>;
-        })}
-        {filtered.length===0&&<div style={{textAlign:"center",padding:30,color:"#94A3B8",fontSize:13}}>No records match this filter.</div>}
-      </div>
-    </>}
-  </section>;
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Qty</p><input style={{width:55,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" min="1" value={line.qty} onChange={e=>onUpd(line.lineId,"qty",Math.max(1,Number(e.target.value)||1))} disabled={locked}/></div>
+          {!isSv&&<>
+            <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Discount</p><input style={{width:80,padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} type="number" value={line.discount} onChange={e=>onUpd(line.lineId,"discount",e.target.value)} disabled={locked}/></div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><p style={{fontSize:10,fontWeight:700,color:"#6b4c11",margin:0}}>Free</p><input type="checkbox" checked={line.free} onChange={e=>onUpd(line.lineId,"free",e.target.checked)} disabled={locked} style={{width:16,height:16}}/></div>
+          </>}
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Preferred</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.preferredEmployee} onChange={e=>onUpd(line.lineId,"preferredEmployee",e.target.value)} disabled={locked}><option value="">None</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Who Did It?</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:"#fff",fontSize:12}} value={line.employee} onChange={e=>onUpd(line.lineId,"employee",e.target.value)} disabled={locked}><option value="">Select</option>{elig.map(e=><option key={e.id}>{e.name}</option>)}</select></div>
+          <div><p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 2px"}}>Status</p><select style={{padding:"6px 8px",borderRadius:8,border:"1px solid #c7b06a",background:done?"#f0fdf4":"#fff",fontSize:12}} value={line.status} onChange={e=>{if(e.target.value==="In Progress")markSvcStart(line.lineId);onUpd(line.lineId,"status",e.target.value);}} disabled={locked}><option>Waiting</option><option>On Hold</option><option>In Progress</option><option>Completed</option><option>Cancelled</option></select></div>
+          <SvcTimer lineId={line.lineId} status={line.status}/>
+        </div>
+      </div>;
+    })}
+    <div style={{display:"flex",justifyContent:"space-between",background:"#111827",color:"#e0b85a",padding:"11px 16px",borderRadius:12,marginTop:8}}><span style={{fontWeight:500,color:"#94A3B8",fontSize:12}}>Total Income</span><b style={{fontSize:15,fontWeight:500,color:"#5A8C72"}}>{money(visit.totalService)}</b></div>
+  </div>;
 }
 
-function QueueSummary({visits,emps,sc}){
-  const[open,setOpen]=React.useState(false);
-  const today=visits.filter(v=>v.date===new Date().toISOString().slice(0,10));
-  const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
+// Live wait timer for reception queue
+function WaitTimer({vid}){
+  const[mins,setMins]=useState(()=>waitMins(vid)||0);
+  useEffect(()=>{markArrival(vid);const t=setInterval(()=>setMins(waitMins(vid)||0),15000);return()=>clearInterval(t);},[vid]);
+  if(mins===null||mins===0)return null;
+  const col=mins>30?"#991b1b":mins>15?"#92400e":"#166534";
+  const bg=mins>30?"#fee2e2":mins>15?"#fef3c7":"#dcfce7";
+  return <p style={{fontSize:11,fontWeight:700,color:col,background:bg,borderRadius:6,padding:"1px 7px",margin:"2px 0",display:"inline-block"}}>⏱ {mins} min waiting</p>;
+}
 
-  // Count by section: who is waiting / in progress per section
-  const sections={};
-  active.forEach(v=>{
-    (v.services||[]).forEach(l=>{
-      if(["Completed","Cancelled"].includes(l.status))return;
-      const sec=l.employeeSection||"Other";
-      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
-      if(l.status==="In Progress")sections[sec].inProgress++;
-      else sections[sec].waiting++;
-    });
-    // Customers with no services yet
-    if(!(v.services||[]).length){
-      const sec="Unassigned";
-      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
-      sections[sec].waiting++;
+// Live service timer component
+function SvcTimer({lineId,status}){
+  const[mins,setMins]=useState(()=>svcMins(lineId)||0);
+  const[frozenMins,setFrozenMins]=useState(null);
+  useEffect(()=>{
+    if(status!=="In Progress"){
+      if((status==="Completed"||status==="Cancelled")&&frozenMins===null){const m=svcMins(lineId);if(m)setFrozenMins(m);}
+      return;
     }
-  });
-
-  const totalWaiting=active.filter(v=>v.status==="Waiting for Supervisor"||v.status==="With Supervisor").length;
-  const totalInProgress=active.filter(v=>v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress")).length;
-  const totalReady=active.filter(v=>v.status==="Ready for Payment").length;
-  const totalAllDone=active.filter(v=>(v.services||[]).length>0&&(v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment").length;
-  const entries=Object.entries(sections).sort((a,b)=>(b[1].inProgress+b[1].waiting)-(a[1].inProgress+a[1].waiting));
-
-  if(!active.length)return null;
-
-  return<div style={{position:"relative",marginBottom:10}}>
-    <button onClick={()=>setOpen(o=>!o)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#fff"}}>
-      <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{fontSize:11,fontWeight:500,color:"#5A8C72",letterSpacing:0.5}}>QUEUE STATUS</span>
-        <span style={{display:"flex",gap:6,alignItems:"center"}}>
-          {totalWaiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>⏳ {totalWaiting} waiting</span>}
-          {totalInProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🔄 {totalInProgress} in progress</span>}
-          {totalAllDone>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✅ {totalAllDone} done</span>}
-          {totalReady>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>💳 {totalReady} ready</span>}
-        </span>
-      </div>
-      <span style={{color:"#5A8C72",fontSize:14,flexShrink:0}}>{open?"▲":"▼"}</span>
-    </button>
-
-    {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",padding:12,marginTop:4}}>
-      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>BY SERVICE SECTION</p>
-      {entries.length===0&&<p style={{fontSize:12,color:"#94A3B8",margin:0}}>No active services</p>}
-      {entries.map(([sec,counts])=><div key={sec} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4}}>
-        <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{sec}</span>
-        <div style={{display:"flex",gap:6}}>
-          {counts.waiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.waiting} waiting</span>}
-          {counts.inProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.inProgress} in progress</span>}
-        </div>
-      </div>)}
-      <div style={{borderTop:"0.5px solid #E2E8F0",marginTop:8,paddingTop:8}}>
-        <p style={{margin:"0 0 4px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOTAL ACTIVE TODAY</p>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B2E4B"}}>{active.length}</b> customers</span>
-          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#92400E"}}>{totalWaiting}</b> waiting</span>
-          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B4FA8"}}>{totalInProgress}</b> in progress</span>
-          {totalAllDone>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalAllDone}</b> all done</span>}
-          {totalReady>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalReady}</b> ready for payment</span>}
-        </div>
-      </div>
-    </div>}
-  </div>;
+    const t=setInterval(()=>setMins(svcMins(lineId)||0),15000);
+    return()=>clearInterval(t);
+  },[lineId,status]);
+  if(status==="Waiting"||status==="On Hold")return null;
+  if((status==="Completed"||status==="Cancelled")){const m=frozenMins||svcMins(lineId);if(!m)return null;return <div style={{fontSize:10,fontWeight:700,color:"#166534",background:"#dcfce7",borderRadius:6,padding:"2px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>Done in {m} min</div>;}
+  if(status==="In Progress"&&mins>0)return <div style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#dbeafe",borderRadius:6,padding:"3px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>⏱ {mins} min</div>;
+  return null;
 }
 
-function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving}){
-  const[bName,setBName]=React.useState("");
-  const[bPhone,setBPhone]=React.useState("");
-  const[bNote,setBNote]=React.useState("");
-  const[bSvcIds,setBSvcIds]=React.useState([]); // multiple services
-  const[bBarber,setBBarber]=React.useState("");
-  const[bRoza,setBRoza]=React.useState("");    // separate Roza preference
-  const[showReg,setShowReg]=React.useState(false);
-  const[tipModal,setTipModal]=React.useState(null); // {visitId}
-  const[tipAmt,setTipAmt]=React.useState("");
-  const[tipEmpName,setTipEmpName]=React.useState("");
+function PS({emps,empC,period}){return <div style={{fontFamily:"Arial,sans-serif",padding:32}}>
+  <div style={{textAlign:"center",marginBottom:20}}><h1 style={{margin:0}}>Ambar Spa & Beauty</h1><h2 style={{margin:"4px 0 0",fontWeight:400}}>Payroll — {period.label}</h2><p style={{fontSize:11,color:"#666"}}>Printed: {new Date().toLocaleString()}</p></div>
+  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{background:"#e0b85a"}}>{["Employee","Section","Base","Commission","Absent Ded.","Loan","Broker","Other","NET PAY"].map(h=><th key={h} style={{border:"1px solid #999",padding:"7px 9px",textAlign:"left"}}>{h}</th>)}</tr></thead>
+  <tbody>{emps.filter(e=>e.active).map((emp,i)=>{const ex=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const net=Number(emp.salary||0)+Number(ex?.commissionTotal||0)-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return <tr key={emp.id} style={{background:i%2===0?"#fff":"#F8FAFC"}}>
+    <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{emp.name}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{emp.section}</td>
+    <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(emp.salary||0).toLocaleString()}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(ex?.commissionTotal||0).toLocaleString()}</td>
+    <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Math.round(ad).toLocaleString()}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(emp.loan||0).toLocaleString()}{emp.loanNote?" ("+emp.loanNote+")":""}</td>
+    <td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(emp.brokerFee||0).toLocaleString()}</td><td style={{border:"1px solid #ddd",padding:"6px 9px"}}>{Number(emp.otherDeduction||0).toLocaleString()}{emp.otherNote?" ("+emp.otherNote+")":""}</td>
+    <td style={{border:"1px solid #ddd",padding:"6px 9px",fontWeight:700,background:"#fff9e6"}}>{Math.max(0,Math.round(net)).toLocaleString()} Birr</td>
+  </tr>;})} </tbody></table>
+  <div style={{marginTop:40,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:40}}>{["Prepared by","Reviewed by","Approved by"].map(l=><div key={l} style={{borderTop:"1px solid #000",paddingTop:6,fontSize:11}}>{l}</div>)}</div>
+</div>;}
 
-  const barberEmps=emps.filter(e=>e.active&&e.section==="Barbershop");
-  const rozaEmps=emps.filter(e=>e.active&&(e.section==="Hair Wash & Color"||e.name==="Roza"||e.name==="ሮዛ"));
-  const allBarberStaff=[...barberEmps,...rozaEmps];
-  const barberSvcs=svcs.filter(s=>s.category==="Barbershop"&&(s.employeeSection==="Barbershop"||!s.employeeSection));
-  const rozaSvcs=svcs.filter(s=>s.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(s.sub));
-  const allAreaSvcs=[...barberSvcs,...rozaSvcs];
-  function lineIncome(l){return l.free?0:Math.max(0,Number(l.price||0)*Number(l.qty||1)-Number(l.discount||0));}
-
-  // Today's barbershop visits
-  const today=visits.filter(v=>{
-    if(v.date!==todayStr())return false;
-    if(["Paid & Closed","Cancelled"].includes(v.status)&&v.status!=="Paid & Closed")return false;
-    const lines=v.services||[];
-    if(lines.length===0)return false;
-    return lines.some(l=>["Barbershop","Hair Wash & Color"].includes(l.employeeSection)||l.category==="Barbershop");
-  }).sort((a,b)=>a.queue-b.queue);
-
-  const waiting=today.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status));
-  const inProgress=today.filter(v=>v.status==="In Service");
-  const readyToPay=today.filter(v=>v.status==="Ready for Payment");
-  const paid=today.filter(v=>v.status==="Paid & Closed");
-
-  // Per-staff queue counts (waiting by preference, in-progress by assignment)
-  const staffQueues={};
-  allBarberStaff.forEach(e=>{staffQueues[e.name]={waiting:0,inProgress:0,total:0};});
-  waiting.forEach(v=>{
-    const pref=(v.services||[]).map(l=>l.preferredEmployee||l.employee).find(Boolean);
-    if(pref&&staffQueues[pref]){staffQueues[pref].waiting++;staffQueues[pref].total++;}
-  });
-  inProgress.forEach(v=>{
-    (v.services||[]).filter(l=>l.status==="In Progress").forEach(l=>{
-      const emp=l.employee;
-      if(emp&&staffQueues[emp]){staffQueues[emp].inProgress++;staffQueues[emp].total++;}
-    });
-  });
-
-  const totalRevToday=paid.reduce((s,v)=>s+(v.totalPaid||0),0);
-
-  async function addWalkIn(){
-    if(!bName.trim())return alert("Enter customer name.");
-    if(!bSvcIds.length)return alert("Select at least one service.");
-    const lines=bSvcIds.map((sid,i)=>{
-      const svc=allAreaSvcs.find(s=>s.id===Number(sid));
-      if(!svc)return null;
-      const prefEmp=svc.employeeSection==="Hair Wash & Color"?(bRoza||""):(bBarber&&bBarber!=="random"?bBarber:"");
-      return{lineId:Date.now()+i,serviceId:svc.id,name:svc.name,
-        category:"Barbershop",sub:svc.sub||"Barbershop",
-        price:Number(svc.price),qty:1,discount:0,free:false,
-        commission:Number(svc.commission||svc.cm||0),
-        employeeSection:svc.employeeSection||"Barbershop",
-        employee:"",preferredEmployee:prefEmp,status:"Waiting",wigDeduction:0};
-    }).filter(Boolean);
-    const qNum=queueEnabled?visits.filter(v=>v.date===todayStr()).length+1:0;
-    const cid=bName.trim().toLowerCase().replace(/\s+/g,"_")+"_"+(bPhone.trim()||"walkin")+Date.now();
-    const prefNote=[bBarber&&bBarber!=="random"?"Barber: "+bBarber:"",bRoza?"Roza: "+bRoza:""].filter(Boolean).join(" · ");
-    const vr={id:Date.now(),date:todayStr(),queue:qNum,
-      customer_id:cid,name:bName.trim(),payer_name:bName.trim(),
-      phone:bPhone.trim(),group_id:null,group_name:"",
-      services:lines,total_service:lines.reduce((s,l)=>s+lineIncome(l),0),
-      total_paid:0,payment_method:"",tips:[],
-      status:"Waiting for Supervisor",
-      note:[bNote.trim(),prefNote].filter(Boolean).join(" — ")
-    };
-    setSaving(true);
-    const{error}=await supabase.from("visits").insert(vr);
-    setSaving(false);
-    if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>[...prev,{...vr,totalService:vr.total_service,totalPaid:0,
-      customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null}]);
-    logAct(user,"Barbershop Walk-in",bName.trim()+" — "+lines.map(l=>l.name).join(", "));
-    setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");setShowReg(false);
-    push(bName.trim()+" added"+(queueEnabled?" — Queue #"+qNum:""),"success");
-  }
-
-  async function assignStaff(visitId,lineId,empName){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const upd=(v.services||[]).map(l=>l.lineId===lineId
-      ?{...l,employee:empName,preferredEmployee:l.preferredEmployee||empName,status:empName?"In Progress":"Waiting"}
-      :l);
-    const hasInProgress=upd.some(l=>l.status==="In Progress");
-    const{error}=await supabase.from("visits").update({services:upd,status:hasInProgress?"In Service":"Waiting for Supervisor"}).eq("id",visitId);
-    if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:hasInProgress?"In Service":"Waiting for Supervisor"}:x));
-  }
-
-  async function markDone(visitId,lineId){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const upd=(v.services||[]).map(l=>l.lineId===lineId?{...l,status:"Completed"}:l);
-    const allDone=upd.filter(l=>l.status!=="Cancelled").every(l=>l.status==="Completed");
-    const newStatus=allDone?"Ready for Payment":"In Service";
-    const{error}=await supabase.from("visits").update({services:upd,status:newStatus}).eq("id",visitId);
-    if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:newStatus}:x));
-    if(allDone)push(v.name+" — ready to pay","success");
-  }
-
-  async function addTipToVisit(visitId){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const amt=Number(tipAmt);
-    if(!amt||amt<=0)return alert("Enter tip amount.");
-    if(!tipEmpName)return alert("Select who gets the tip.");
-    const newTips=[...(v.tips||[]),{id:Date.now(),employee:tipEmpName,amount:amt}];
-    const{error}=await supabase.from("visits").update({tips:newTips}).eq("id",visitId);
-    if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,tips:newTips}:x));
-    setTipModal(null);setTipAmt("");setTipEmpName("");
-    push("Tip of "+amt.toLocaleString()+" Birr added for "+tipEmpName,"success");
-  }
-
-  async function collectPayment(visitId,method){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
-    const total=(v.totalService||0)+tipTotal;
-    if(!window.confirm("Collect "+method+" payment of "+total.toLocaleString()+" Birr from "+v.name+"?"+(tipTotal>0?"\n(includes "+tipTotal.toLocaleString()+" Birr in tips)":"")))return;
-    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:total,payment_method:method}).eq("id",visitId);
-    if(error){push("Payment failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,status:"Paid & Closed",totalPaid:total,paymentMethod:method}:x));
-    logAct(user,"Barbershop Payment",v.name+" — "+total.toLocaleString()+" Birr via "+method);
-    push(v.name+" — "+total.toLocaleString()+" Birr collected via "+method,"success");
-  }
-
-  async function toggleQueue(val){
-    setQueueEnabled(val);
-    await supabase.from("settings").upsert({key:"queueEnabled",value:String(val)});
-    push("Queue numbers "+(val?"enabled":"disabled"),"success");
-  }
-
-  const loadColor=(n)=>n===0?"#166534":n===1?"#92400E":n===2?"#B45309":"#DC2626";
-  const loadBg=(n)=>n===0?"rgba(22,101,52,0.12)":n===1?"rgba(146,64,14,0.12)":n===2?"rgba(180,83,9,0.12)":"rgba(220,38,38,0.12)";
-  const loadLabel=(n)=>n===0?"Free":n===1?"1 in queue":n+" in queue";
-
-  return<section style={{...S.card,maxWidth:"100%"}}>
-    {/* ── Header ── */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:14}}>
-      <div>
-        <h2 style={{...S.ct,marginBottom:2}}>💈 Barbershop</h2>
-        <p style={{...S.hlp,margin:0}}>Manage walk-ins, assign staff, and collect payments</p>
-      </div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <label style={{display:"flex",alignItems:"center",gap:8,background:queueEnabled?"#F0FDF4":"#FEF2F2",border:`1.5px solid ${queueEnabled?"#86EFAC":"#FECACA"}`,borderRadius:10,padding:"6px 12px",cursor:"pointer"}}>
-          <div style={{position:"relative",width:36,height:20,flexShrink:0}}>
-            <input type="checkbox" checked={queueEnabled} onChange={e=>toggleQueue(e.target.checked)} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
-            <div style={{position:"absolute",inset:0,background:queueEnabled?"#166534":"#DC2626",borderRadius:10,transition:"background 0.2s"}}/>
-            <div style={{position:"absolute",top:2,left:queueEnabled?18:2,width:16,height:16,background:"#fff",borderRadius:8,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.25)"}}/>
-          </div>
-          <span style={{fontSize:12,fontWeight:700,color:queueEnabled?"#166534":"#DC2626"}}>{queueEnabled?"Queue ON":"Queue OFF"}</span>
-        </label>
-        <button onClick={()=>setShowReg(r=>!r)} style={{...S.btnP,width:"auto",padding:"8px 18px",margin:0}}>+ Walk-in</button>
-      </div>
-    </div>
-
-    {/* ── Stats ── */}
-    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
-      {[
-        {label:"WAITING",value:waiting.length,bg:"#FEF3C7",tx:"#92400E"},
-        {label:"IN CHAIR",value:inProgress.length,bg:"#DBEAFE",tx:"#1B4FA8"},
-        {label:"READY TO PAY",value:readyToPay.length,bg:"#DCFCE7",tx:"#166534"},
-        {label:"PAID TODAY",value:totalRevToday.toLocaleString()+" Birr",bg:"#F0FDF4",tx:"#166534"},
-      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
-        <b style={{fontSize:c.value!==undefined&&typeof c.value==="string"?13:22,color:c.tx,display:"block"}}>{c.value}</b>
-        <p style={{margin:0,fontSize:9,color:c.tx,fontWeight:600,letterSpacing:0.8}}>{c.label}</p>
-      </div>)}
-    </div>
-
-    {/* ── Staff load panel ── */}
-    {queueEnabled&&allBarberStaff.length>0&&(waiting.length>0||inProgress.length>0)&&<div style={{background:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
-      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#5A8C72",letterSpacing:1}}>STAFF QUEUE</p>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        {allBarberStaff.map(e=>{
-          const q=staffQueues[e.name]||{waiting:0,inProgress:0,total:0};
-          return<div key={e.id} style={{background:loadBg(q.total),border:`1px solid ${loadColor(q.total)}33`,borderRadius:10,padding:"8px 12px",flex:1,minWidth:120}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
-                <b style={{fontSize:12,color:"#fff"}}>{e.name}</b>
-                <p style={{margin:"1px 0 0",fontSize:9,color:"#94A3B8"}}>{e.section==="Hair Wash & Color"?"💆 Wash/Color/Treatment":"✂ Barber"}</p>
-              </div>
-              <span style={{background:loadColor(q.total),color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{loadLabel(q.total)}</span>
-            </div>
-            {(q.inProgress>0||q.waiting>0)&&<div style={{marginTop:4,display:"flex",gap:4}}>
-              {q.inProgress>0&&<span style={{background:"rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:4,padding:"0 6px",fontSize:10}}>{q.inProgress} in chair</span>}
-              {q.waiting>0&&<span style={{background:"rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:4,padding:"0 6px",fontSize:10}}>{q.waiting} waiting</span>}
-            </div>}
-          </div>;
-        })}
-      </div>
-    </div>}
-
-    {/* ── Add walk-in form ── */}
-    {showReg&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:14}}>
-      <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Walk-in Customer</h3>
-      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
-        <div><p style={S.lbl}>Name *</p><input style={S.inp} placeholder="Customer name" value={bName} onChange={e=>setBName(e.target.value)}/></div>
-        <div><p style={S.lbl}>Phone</p><input style={S.inp} placeholder="Phone (optional)" value={bPhone} onChange={e=>setBPhone(e.target.value)}/></div>
-      </div>
-
-      {/* Services — split by type */}
-      <div style={{marginBottom:12}}>
-        <p style={{...S.lbl,marginBottom:6}}>Services *</p>
-        {/* Barbershop services */}
-        {barberSvcs.length>0&&<div style={{marginBottom:8}}>
-          <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#1B2E4B"}}>✂ Haircut / Beard</p>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {barberSvcs.map(s=>{
-              const sel=bSvcIds.includes(String(s.id));
-              return<button key={s.id} type="button" onClick={()=>setBSvcIds(p=>sel?p.filter(x=>x!==String(s.id)):[...p,String(s.id)])}
-                style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#1B2E4B":"#E2E8F0"}`,background:sel?"#1B2E4B":"#fff",color:sel?"#fff":"#374151",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
-                {s.name} — {Number(s.price).toLocaleString()} Birr
-              </button>;
-            })}
-          </div>
-        </div>}
-        {/* Roza services */}
-        {rozaSvcs.length>0&&<div>
-          <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#5A8C72"}}>💆 Wash / Color / Treatment (Roza)</p>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {rozaSvcs.map(s=>{
-              const sel=bSvcIds.includes(String(s.id));
-              return<button key={s.id} type="button" onClick={()=>setBSvcIds(p=>sel?p.filter(x=>x!==String(s.id)):[...p,String(s.id)])}
-                style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#5A8C72":"#E2E8F0"}`,background:sel?"#5A8C72":"#fff",color:sel?"#fff":"#374151",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
-                {s.name} — {Number(s.price).toLocaleString()} Birr
-              </button>;
-            })}
-          </div>
-        </div>}
-      </div>
-
-      {/* Staff preference — only show relevant section if service selected */}
-      {bSvcIds.some(id=>barberSvcs.find(s=>s.id===Number(id)))&&barberEmps.length>0&&<div style={{marginBottom:10}}>
-        <p style={S.lbl}>Preferred Barber</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {[{val:"",label:"Any barber"},{val:"random",label:"🎲 Random"},...barberEmps.map(e=>({val:e.name,label:"✂ "+e.name}))].map(opt=><button key={opt.val} type="button"
-            onClick={()=>setBBarber(opt.val)}
-            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bBarber===opt.val?"#1B2E4B":"#E2E8F0"}`,background:bBarber===opt.val?"#1B2E4B":"#fff",color:bBarber===opt.val?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:bBarber===opt.val?700:400}}>
-            {opt.label}
-            {queueEnabled&&opt.val&&opt.val!=="random"&&staffQueues[opt.val]!==undefined&&<span style={{marginLeft:4,fontSize:10,opacity:0.7}}>({loadLabel(staffQueues[opt.val]?.total||0)})</span>}
-          </button>)}
-        </div>
-      </div>}
-
-      {bSvcIds.some(id=>rozaSvcs.find(s=>s.id===Number(id)))&&rozaEmps.length>0&&<div style={{marginBottom:10}}>
-        <p style={S.lbl}>Roza / Hair Technician</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {[{val:"",label:"Any"},...rozaEmps.map(e=>({val:e.name,label:"💆 "+e.name}))].map(opt=><button key={opt.val} type="button"
-            onClick={()=>setBRoza(opt.val)}
-            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bRoza===opt.val?"#5A8C72":"#E2E8F0"}`,background:bRoza===opt.val?"#5A8C72":"#fff",color:bRoza===opt.val?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:bRoza===opt.val?700:400}}>
-            {opt.label}
-          </button>)}
-        </div>
-      </div>}
-
-      <div><p style={S.lbl}>Note</p><input style={S.inp} placeholder="Any note (optional)" value={bNote} onChange={e=>setBNote(e.target.value)}/></div>
-
-      {bSvcIds.length>0&&<div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 12px",margin:"10px 0",fontSize:12,color:"#fff"}}>
-        <b>Total: {allAreaSvcs.filter(s=>bSvcIds.includes(String(s.id))).reduce((s,sv)=>s+Number(sv.price),0).toLocaleString()} Birr</b>
-        <span style={{color:"#94A3B8",marginLeft:8}}>{bSvcIds.length} service{bSvcIds.length!==1?"s":""} selected</span>
-      </div>}
-
-      <div style={{display:"flex",gap:8,marginTop:8}}>
-        <button onClick={addWalkIn} disabled={saving||!bName.trim()||!bSvcIds.length} style={{...S.btnP,width:"auto",padding:"9px 20px",margin:0}}>{saving?"Adding...":"✓ Add to Queue"}</button>
-        <button onClick={()=>{setShowReg(false);setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");}} style={{...S.btnS,width:"auto",padding:"9px 16px",margin:0}}>Cancel</button>
-      </div>
-    </div>}
-
-    {/* ── Tip modal ── */}
-    {tipModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:360,width:"100%"}}>
-        <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700}}>💰 Add Tip</h3>
-        <p style={S.lbl}>Who gets the tip?</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setTipEmpName(e.name)}
-            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${tipEmpName===e.name?"#1B2E4B":"#E2E8F0"}`,background:tipEmpName===e.name?"#1B2E4B":"#fff",color:tipEmpName===e.name?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:tipEmpName===e.name?700:400}}>
-            {e.name}
-          </button>)}
-        </div>
-        <p style={S.lbl}>Tip Amount (Birr)</p>
-        <input style={{...S.inp,marginBottom:16}} type="number" min="1" placeholder="e.g. 50" value={tipAmt} onChange={e=>setTipAmt(e.target.value)}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <button onClick={()=>{setTipModal(null);setTipAmt("");setTipEmpName("");}} style={{padding:"10px",borderRadius:10,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:700}}>Cancel</button>
-          <button onClick={()=>addTipToVisit(tipModal)} style={{padding:"10px",borderRadius:10,border:"none",background:"#166534",color:"#fff",cursor:"pointer",fontWeight:700}}>Add Tip</button>
-        </div>
-      </div>
-    </div>}
-
-    {/* ── No customers ── */}
-    {today.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:"#94A3B8"}}>
-      <div style={{fontSize:48,marginBottom:10}}>💈</div>
-      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:6}}>No customers today</b>
-      <p style={{fontSize:13,margin:0}}>Click "+ Walk-in" to add a customer</p>
-    </div>}
-
-    {/* ── Waiting ── */}
-    {waiting.length>0&&<>
-      <div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 8px"}}>
-        <div style={{width:8,height:8,borderRadius:4,background:"#F59E0B"}}/>
-        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#92400E"}}>⏳ Waiting ({waiting.length})</h3>
-      </div>
-      {waiting.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="waiting" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
-    </>}
-
-    {/* ── In Chair ── */}
-    {inProgress.length>0&&<>
-      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
-        <div style={{width:8,height:8,borderRadius:4,background:"#3B82F6"}}/>
-        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#1B4FA8"}}>✂ In Chair ({inProgress.length})</h3>
-      </div>
-      {inProgress.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="inprogress" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
-    </>}
-
-    {/* ── Ready to Pay ── */}
-    {readyToPay.length>0&&<>
-      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
-        <div style={{width:8,height:8,borderRadius:4,background:"#16A34A"}}/>
-        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>💳 Ready to Pay ({readyToPay.length})</h3>
-      </div>
-      {readyToPay.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="payment" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
-    </>}
-
-    {/* ── Paid today ── */}
-    {paid.length>0&&<details style={{marginTop:14}}>
-      <summary style={{cursor:"pointer",fontSize:12,fontWeight:700,color:"#64748B",padding:"6px 0",userSelect:"none"}}>
-        ✓ Paid Today ({paid.length}) — {totalRevToday.toLocaleString()} Birr total
-      </summary>
-      {paid.map(v=>{
-        const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
-        return<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 12px",background:"#F0FDF4",borderRadius:10,marginTop:4,fontSize:12,flexWrap:"wrap",gap:6}}>
-          <div>
-            <span style={{fontWeight:600,color:"#111827"}}>{queueEnabled&&v.queue>0?"#"+v.queue+" — ":""}{v.name}</span>
-            <p style={{margin:"2px 0 0",color:"#64748B",fontSize:11}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
-            {tipTotal>0&&<p style={{margin:"2px 0 0",color:"#92400E",fontSize:11}}>💰 Tips: {tipTotal.toLocaleString()} Birr</p>}
-          </div>
-          <div style={{textAlign:"right"}}>
-            <b style={{color:"#166534",display:"block"}}>{(v.totalPaid||0).toLocaleString()} Birr</b>
-            <span style={{fontSize:10,color:"#64748B"}}>via {v.paymentMethod}</span>
-          </div>
-        </div>;
-      })}
-    </details>}
-  </section>;
-}
-
-function BarberCard({v,allBarberStaff,barberEmps,rozaEmps,barberSvcs,rozaSvcs,mode,onAssign,onDone,onPay,onTip,queueEnabled,money,lineIncome,staffQueues={}}){
-  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
-  const svcTotal=lines.reduce((s,l)=>s+lineIncome(l),0);
-  const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
-  const total=svcTotal+tipTotal;
-  const cardBg=mode==="payment"?"#F0FDF4":mode==="inprogress"?"#EBF2FD":"#FFFDF7";
-  const borderColor=mode==="payment"?"#86EFAC":mode==="inprogress"?"#BFDBFE":"#FDE68A";
-
-  // Determine which staff pool each service belongs to
-  function staffForLine(l){
-    const isRoza=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
-    return isRoza?rozaEmps:barberEmps;
-  }
-
-  return<div style={{background:cardBg,border:`1.5px solid ${borderColor}`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
-    {/* Customer header */}
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-      {queueEnabled&&v.queue>0&&<span style={{background:"#1B2E4B",color:"#E0B85A",borderRadius:8,padding:"2px 10px",fontSize:13,fontWeight:900}}>#{v.queue}</span>}
-      <b style={{fontSize:15,color:"#111827",flex:1}}>{v.name}</b>
-      {v.phone&&<span style={{fontSize:11,color:"#64748B"}}>{v.phone}</span>}
-    </div>
-    {v.note&&<p style={{margin:"0 0 8px",fontSize:11,color:"#64748B",fontStyle:"italic"}}>📝 {v.note}</p>}
-
-    {/* Service lines */}
-    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
-      {lines.map((l,i)=>{
-        const staff=staffForLine(l);
-        const isRozaLine=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
-        const accentColor=isRozaLine?"#5A8C72":"#1B2E4B";
-        return<div key={i} style={{background:"rgba(255,255,255,0.8)",borderRadius:10,padding:"8px 10px",border:`0.5px solid ${isRozaLine?"#5A8C7230":"#1B2E4B20"}`}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <span style={{fontSize:11,fontWeight:600,color:accentColor,flexShrink:0}}>{isRozaLine?"💆":"✂"}</span>
-            <span style={{flex:1,fontSize:13,fontWeight:500,color:"#111827"}}>{l.name}</span>
-            <b style={{fontSize:12,color:"#1B2E4B",flexShrink:0}}>{Number(l.price||0).toLocaleString()} Birr</b>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
-            {/* Assign dropdown — only show when not completed */}
-            {l.status!=="Completed"&&mode!=="payment"&&<select
-              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${accentColor}44`,background:"#fff",color:"#111827",fontSize:12,flex:1,minWidth:100}}
-              value={l.employee||""}
-              onChange={e=>onAssign(v.id,l.lineId,e.target.value)}>
-              <option value="">Assign{isRozaLine?" Roza":""}...</option>
-              {staff.map(e=>{
-                const q=staffQueues[e.name]||{total:0};
-                return<option key={e.id} value={e.name}>{e.name}{queueEnabled&&q.total>0?" ("+q.total+")":""}</option>;
-              })}
-            </select>}
-            {/* Preferred barber badge */}
-            {l.preferredEmployee&&l.status!=="Completed"&&!l.employee&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
-            {/* Assigned + status */}
-            {l.employee&&l.status==="In Progress"&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>{isRozaLine?"💆":"✂"} {l.employee}</span>}
-            {l.status==="Completed"&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✓ Done — {l.employee}</span>}
-            {/* Mark Done */}
-            {mode==="inprogress"&&l.status==="In Progress"&&l.employee&&<button
-              onClick={()=>onDone(v.id,l.lineId)}
-              style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#166534",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
-              ✓ Done
-            </button>}
-          </div>
-        </div>;
-      })}
-    </div>
-
-    {/* Tips */}
-    {(v.tips||[]).length>0&&<div style={{background:"#FEF9EC",borderRadius:8,padding:"6px 10px",marginBottom:8}}>
-      {(v.tips||[]).map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#92400E"}}>
-        <span>💰 Tip — {t.employee}</span><b>{Number(t.amount).toLocaleString()} Birr</b>
-      </div>)}
-    </div>}
-
-    {/* Totals + actions */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <div>
-        <span style={{fontSize:13,fontWeight:700,color:"#1B2E4B"}}>{svcTotal.toLocaleString()} Birr</span>
-        {tipTotal>0&&<span style={{fontSize:11,color:"#92400E",marginLeft:8}}>+ {tipTotal.toLocaleString()} tips = <b>{total.toLocaleString()} total</b></span>}
-      </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        {/* Add tip button — available at payment stage or while in progress */}
-        {mode!=="waiting"&&<button onClick={onTip}
-          style={{padding:"6px 12px",borderRadius:8,border:"1px solid #FDE68A",background:"#FEF9EC",color:"#92400E",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-          💰 Add Tip
-        </button>}
-        {/* Payment buttons */}
-        {mode==="payment"&&["Cash","Card","Transfer"].map(m=><button key={m}
-          onClick={()=>onPay(v.id,m)}
-          style={{padding:"7px 14px",borderRadius:10,border:"none",background:m==="Cash"?"#1B2E4B":m==="Card"?"#1B4FA8":"#0369A1",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-          {m==="Cash"?"💵":m==="Card"?"💳":"📱"} {m}
-        </button>)}
-      </div>
-    </div>
-  </div>;
-}
+function L({children}){return <p style={{margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#374151"}}>{children}</p>;}
+function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0"}}/>;}
+function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
+function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
+function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#334155",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:11,marginTop:3}}/>}</div>;}
+function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
