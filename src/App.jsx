@@ -367,7 +367,7 @@ const TABA={Reception:["reception","manager"],Supervisor:["supervisor","manager"
 const dbSvc=r=>({id:r.id,category:r.category,sub:r.sub||"",name:r.name,price:Number(r.price),commission:Number(r.commission),employeeSection:r.employee_section,bookable:!!r.bookable,durationMins:r.duration_mins||60});
 const dbEmp=r=>({id:r.id,name:r.name,section:r.section,role:r.role||"",salary:Number(r.salary),absentDays:Number(r.absent_days),loan:Number(r.loan),loanNote:r.loan_note||"",brokerFee:Number(r.broker_fee),otherDeduction:Number(r.other_deduction),otherNote:r.other_note||"",active:r.active,hireDate:r.hire_date,dayOff:r.day_off??null,onLeave:!!r.on_leave});
 const dbCust=r=>({id:r.id,name:r.name,phone:r.phone,totalVisits:Number(r.total_visits)});
-const dbVis=r=>({id:r.id,date:(r.date||'').slice(0,10),queue:r.queue,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||r.created_at||null});
+const dbVis=r=>({id:r.id,date:(r.date||'').slice(0,10),queue:r.queue,barberQueue:r.barber_queue||0,customerId:r.customer_id,name:r.name,payerName:r.payer_name,phone:r.phone,groupId:r.group_id,groupName:r.group_name||"",services:r.services||[],totalService:Number(r.total_service),totalPaid:Number(r.total_paid),paymentMethod:r.payment_method||"",tips:r.tips||[],status:r.status,note:r.note||"",registeredAt:r.registered_at||r.created_at||null});
 const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||"",qty:Number(r.qty),unit:Number(r.unit),total:Number(r.total)});
 const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null,gender:r.gender||"",beautyQueueNum:r.beauty_queue_num||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
@@ -1133,7 +1133,7 @@ function QueueSummary({visits,emps,sc}){
   </div>;
 }
 
-function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving}){
+function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving,barberQueueNum,setBarberQueueNum}){
   const[bName,setBName]=React.useState("");
   const[bPhone,setBPhone]=React.useState("");
   const[bNote,setBNote]=React.useState("");
@@ -1197,10 +1197,14 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         employeeSection:svc.employeeSection||"Barbershop",
         employee:"",preferredEmployee:prefEmp,status:"Waiting",wigDeduction:0};
     }).filter(Boolean);
-    const qNum=queueEnabled?visits.filter(v=>v.date===todayStr()).length+1:0;
+    // Barbershop uses its OWN queue number (B-1, B-2...) separate from main salon queue
+    const bqNum=queueEnabled?barberQueueNum:0;
+    const nextBqNum=bqNum+1;
     const cid=bName.trim().toLowerCase().replace(/\s+/g,"_")+"_"+(bPhone.trim()||"walkin")+Date.now();
     const prefNote=[bBarber&&bBarber!=="random"?"Barber: "+bBarber:"",bRoza?"Roza: "+bRoza:""].filter(Boolean).join(" · ");
-    const vr={id:Date.now(),date:todayStr(),queue:qNum,
+    const vr={id:Date.now(),date:todayStr(),
+      // barber_queue stores the B-number; main queue stays 0 so it doesn't mess up reception order
+      queue:0,barber_queue:bqNum,
       customer_id:cid,name:bName.trim(),payer_name:bName.trim(),
       phone:bPhone.trim(),group_id:null,group_name:"",
       services:lines,total_service:lines.reduce((s,l)=>s+lineIncome(l),0),
@@ -1212,11 +1216,16 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     const{error}=await supabase.from("visits").insert(vr);
     setSaving(false);
     if(error){push("Failed: "+error.message,"error");return;}
+    // Increment barbershop queue counter and save to DB
+    if(queueEnabled){
+      setBarberQueueNum(nextBqNum);
+      supabase.from("settings").upsert({key:"barberQueueNum",value:String(nextBqNum)}).then(()=>{});
+    }
     setVisits(prev=>[...prev,{...vr,totalService:vr.total_service,totalPaid:0,
-      customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null}]);
+      customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null,barberQueue:bqNum}]);
     logAct(user,"Barbershop Walk-in",bName.trim()+" — "+lines.map(l=>l.name).join(", "));
     setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");setShowReg(false);
-    push(bName.trim()+" added"+(queueEnabled?" — Queue #"+qNum:""),"success");
+    push(bName.trim()+" added"+(queueEnabled?" — B-"+bqNum:""),"success");
   }
 
   async function assignStaff(visitId,lineId,empName){
@@ -1254,16 +1263,19 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     push("Tip of "+amt.toLocaleString()+" Birr added for "+tipEmpName,"success");
   }
 
-  async function collectPayment(visitId,method){
+  async function collectPayment(visitId,method,cardTips,cardTotal){
     const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
-    const total=(v.totalService||0)+tipTotal;
-    if(!window.confirm("Collect "+method+" payment of "+total.toLocaleString()+" Birr from "+v.name+"?"+(tipTotal>0?"\n(includes "+tipTotal.toLocaleString()+" Birr in tips)":"")))return;
-    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:total,payment_method:method}).eq("id",visitId);
+    // Use tips/total from BarberCard if provided (they may have added tips locally)
+    const finalTips=cardTips||v.tips||[];
+    const finalTotal=cardTotal||(v.totalService||0)+finalTips.reduce((s,t)=>s+Number(t.amount||0),0);
+    const{error}=await supabase.from("visits").update({
+      status:"Paid & Closed",total_paid:finalTotal,
+      payment_method:method,tips:finalTips
+    }).eq("id",visitId);
     if(error){push("Payment failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,status:"Paid & Closed",totalPaid:total,paymentMethod:method}:x));
-    logAct(user,"Barbershop Payment",v.name+" — "+total.toLocaleString()+" Birr via "+method);
-    push(v.name+" — "+total.toLocaleString()+" Birr collected via "+method,"success");
+    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,status:"Paid & Closed",totalPaid:finalTotal,paymentMethod:method,tips:finalTips}:x));
+    logAct(user,"Barbershop Payment",v.name+" — "+finalTotal.toLocaleString()+" Birr via "+method+(finalTips.length?" + tips":""));
+    push(v.name+" — "+finalTotal.toLocaleString()+" Birr collected via "+method,"success");
   }
 
   async function toggleQueue(val){
@@ -1471,7 +1483,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
         return<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 12px",background:"#F0FDF4",borderRadius:10,marginTop:4,fontSize:12,flexWrap:"wrap",gap:6}}>
           <div>
-            <span style={{fontWeight:600,color:"#111827"}}>{queueEnabled&&v.queue>0?"#"+v.queue+" — ":""}{v.name}</span>
+            <span style={{fontWeight:600,color:"#111827"}}>{queueEnabled&&(v.barberQueue||v.barber_queue)>0?"B-"+(v.barberQueue||v.barber_queue)+" — ":""}{v.name}</span>
             <p style={{margin:"2px 0 0",color:"#64748B",fontSize:11}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
             {tipTotal>0&&<p style={{margin:"2px 0 0",color:"#92400E",fontSize:11}}>💰 Tips: {tipTotal.toLocaleString()} Birr</p>}
           </div>
@@ -1487,96 +1499,172 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
 
 
 
-function BarberCard({v,allBarberStaff,barberEmps,rozaEmps,barberSvcs,rozaSvcs,mode,onAssign,onDone,onPay,onTip,queueEnabled,money,lineIncome,staffQueues={}}){
+function BarberCard({v,allBarberStaff,barberEmps,rozaEmps,mode,onAssign,onDone,onPay,queueEnabled,lineIncome,staffQueues={}}){
+  const[bPayM,setBPayM]=React.useState("Cash");
+  const[bCash,setBCash]=React.useState("");
+  const[bTipEmp,setBTipEmp]=React.useState("");
+  const[bTipAmt,setBTipAmt]=React.useState("");
+  const[showTip,setShowTip]=React.useState(false);
+  const[localTips,setLocalTips]=React.useState(v.tips||[]);
+  React.useEffect(()=>setLocalTips(v.tips||[]),[v.tips]);
+
   const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
   const svcTotal=lines.reduce((s,l)=>s+lineIncome(l),0);
-  const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
+  const tipTotal=localTips.reduce((s,t)=>s+Number(t.amount||0),0);
   const total=svcTotal+tipTotal;
+  const cashGiven=Number(bCash||0);
+  const change=cashGiven>0?Math.max(0,cashGiven-total):0;
+
+  function staffForLine(l){
+    const isRoza=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
+    return isRoza?(rozaEmps.length?rozaEmps:allBarberStaff):barberEmps;
+  }
+
   const cardBg=mode==="payment"?"#F0FDF4":mode==="inprogress"?"#EBF2FD":"#FFFDF7";
   const borderColor=mode==="payment"?"#86EFAC":mode==="inprogress"?"#BFDBFE":"#FDE68A";
 
-  // Determine which staff pool each service belongs to
-  function staffForLine(l){
-    const isRoza=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
-    return isRoza?rozaEmps:barberEmps;
-  }
-
-  return<div style={{background:cardBg,border:`1.5px solid ${borderColor}`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
-    {/* Customer header */}
+  return<div style={{background:cardBg,border:`1.5px solid ${borderColor}`,borderRadius:14,padding:"12px 14px",marginBottom:10}}>
+    {/* Header */}
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-      {queueEnabled&&v.queue>0&&<span style={{background:"#1B2E4B",color:"#E0B85A",borderRadius:8,padding:"2px 10px",fontSize:13,fontWeight:900}}>#{v.queue}</span>}
+      {queueEnabled&&(v.barberQueue||v.barber_queue)>0&&<span style={{background:"#1B2E4B",color:"#E0B85A",borderRadius:8,padding:"2px 10px",fontSize:13,fontWeight:900}}>B-{v.barberQueue||v.barber_queue}</span>}
       <b style={{fontSize:15,color:"#111827",flex:1}}>{v.name}</b>
       {v.phone&&<span style={{fontSize:11,color:"#64748B"}}>{v.phone}</span>}
+      <span style={{...{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:600,background:mode==="payment"?"#DCFCE7":mode==="inprogress"?"#DBEAFE":"#FEF3C7",color:mode==="payment"?"#166534":mode==="inprogress"?"#1B4FA8":"#92400E"}}}>{mode==="payment"?"Ready to Pay":mode==="inprogress"?"In Chair":"Waiting"}</span>
     </div>
     {v.note&&<p style={{margin:"0 0 8px",fontSize:11,color:"#64748B",fontStyle:"italic"}}>📝 {v.note}</p>}
 
     {/* Service lines */}
-    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
       {lines.map((l,i)=>{
         const staff=staffForLine(l);
         const isRozaLine=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
-        const accentColor=isRozaLine?"#5A8C72":"#1B2E4B";
-        return<div key={i} style={{background:"rgba(255,255,255,0.8)",borderRadius:10,padding:"8px 10px",border:`0.5px solid ${isRozaLine?"#5A8C7230":"#1B2E4B20"}`}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <span style={{fontSize:11,fontWeight:600,color:accentColor,flexShrink:0}}>{isRozaLine?"💆":"✂"}</span>
-            <span style={{flex:1,fontSize:13,fontWeight:500,color:"#111827"}}>{l.name}</span>
-            <b style={{fontSize:12,color:"#1B2E4B",flexShrink:0}}>{Number(l.price||0).toLocaleString()} Birr</b>
+        const accent=isRozaLine?"#5A8C72":"#1B2E4B";
+        return<div key={i} style={{background:"rgba(255,255,255,0.85)",borderRadius:10,padding:"8px 10px",border:`0.5px solid ${accent}22`}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+            <span style={{fontSize:12}}>{isRozaLine?"💆":"✂"}</span>
+            <span style={{flex:1,fontSize:13,fontWeight:500,color:"#111827"}}>{l.name}{l.qty>1?` ×${l.qty}`:""}</span>
+            <b style={{fontSize:13,color:"#1B2E4B",flexShrink:0}}>{lineIncome(l).toLocaleString()} Birr</b>
           </div>
+          {/* Assignment + status row */}
           <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
-            {/* Assign dropdown — only show when not completed */}
             {l.status!=="Completed"&&mode!=="payment"&&<select
-              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${accentColor}44`,background:"#fff",color:"#111827",fontSize:12,flex:1,minWidth:100}}
+              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${accent}44`,background:"#fff",color:"#111827",fontSize:12,flex:1,minWidth:120}}
               value={l.employee||""}
               onChange={e=>onAssign(v.id,l.lineId,e.target.value)}>
-              <option value="">Assign{isRozaLine?" Roza":""}...</option>
-              {staff.map(e=>{
-                const q=staffQueues[e.name]||{total:0};
-                return<option key={e.id} value={e.name}>{e.name}{queueEnabled&&q.total>0?" ("+q.total+")":""}</option>;
-              })}
+              <option value="">{isRozaLine?"Assign Roza...":"Assign barber..."}</option>
+              {staff.map(e=>{const q=staffQueues[e.name]||{total:0};return<option key={e.id} value={e.name}>{e.name}{queueEnabled&&q.total>0?` (${q.total})`:""};</option>;})}
             </select>}
-            {/* Preferred barber badge */}
-            {l.preferredEmployee&&l.status!=="Completed"&&!l.employee&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
-            {/* Assigned + status */}
+            {l.preferredEmployee&&!l.employee&&l.status!=="Completed"&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
             {l.employee&&l.status==="In Progress"&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>{isRozaLine?"💆":"✂"} {l.employee}</span>}
-            {l.status==="Completed"&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✓ Done — {l.employee}</span>}
-            {/* Mark Done */}
-            {mode==="inprogress"&&l.status==="In Progress"&&l.employee&&<button
-              onClick={()=>onDone(v.id,l.lineId)}
-              style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#166534",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
-              ✓ Done
-            </button>}
+            {l.status==="Completed"&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✓ {l.employee||"Done"}</span>}
+            {mode==="inprogress"&&l.status==="In Progress"&&l.employee&&<button onClick={()=>onDone(v.id,l.lineId)}
+              style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#166534",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>✓ Done</button>}
           </div>
         </div>;
       })}
     </div>
 
     {/* Tips */}
-    {(v.tips||[]).length>0&&<div style={{background:"#FEF9EC",borderRadius:8,padding:"6px 10px",marginBottom:8}}>
-      {(v.tips||[]).map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#92400E"}}>
+    {localTips.length>0&&<div style={{background:"#FEF9EC",borderRadius:8,padding:"6px 10px",marginBottom:8}}>
+      {localTips.map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#92400E"}}>
         <span>💰 Tip — {t.employee}</span><b>{Number(t.amount).toLocaleString()} Birr</b>
       </div>)}
     </div>}
 
-    {/* Totals + actions */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <div>
-        <span style={{fontSize:13,fontWeight:700,color:"#1B2E4B"}}>{svcTotal.toLocaleString()} Birr</span>
-        {tipTotal>0&&<span style={{fontSize:11,color:"#92400E",marginLeft:8}}>+ {tipTotal.toLocaleString()} tips = <b>{total.toLocaleString()} total</b></span>}
-      </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        {/* Add tip button — available at payment stage or while in progress */}
-        {mode!=="waiting"&&<button onClick={onTip}
-          style={{padding:"6px 12px",borderRadius:8,border:"1px solid #FDE68A",background:"#FEF9EC",color:"#92400E",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-          💰 Add Tip
-        </button>}
-        {/* Payment buttons */}
-        {mode==="payment"&&["Cash","Card","Transfer"].map(m=><button key={m}
-          onClick={()=>onPay(v.id,m)}
-          style={{padding:"7px 14px",borderRadius:10,border:"none",background:m==="Cash"?"#1B2E4B":m==="Card"?"#1B4FA8":"#0369A1",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-          {m==="Cash"?"💵":m==="Card"?"💳":"📱"} {m}
+    {/* Subtotal */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"0.5px solid #E2E8F0",marginBottom:mode==="payment"?10:0}}>
+      <span style={{fontSize:12,color:"#64748B"}}>Services: {svcTotal.toLocaleString()} Birr{tipTotal>0?` + Tips: ${tipTotal.toLocaleString()} Birr`:""}</span>
+      <b style={{fontSize:15,color:"#1B2E4B"}}>{total.toLocaleString()} Birr</b>
+    </div>
+
+    {/* ── Payment panel (only for ready-to-pay) ── */}
+    {mode==="payment"&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:"12px 14px",marginTop:4}}>
+      {/* Payment method */}
+      <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>Payment Method</p>
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        {["Cash","Card","Transfer"].map(m=><button key={m} onClick={()=>setBPayM(m)}
+          style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${bPayM===m?"#1B2E4B":"#E2E8F0"}`,background:bPayM===m?"#1B2E4B":"#fff",color:bPayM===m?"#fff":"#374151",fontSize:12,fontWeight:bPayM===m?700:400,cursor:"pointer"}}>
+          {m==="Cash"?"💵 Cash":m==="Card"?"💳 Card":"📱 Transfer"}
         </button>)}
       </div>
-    </div>
+
+      {/* Cash change calculator */}
+      {bPayM==="Cash"&&<div style={{marginBottom:10}}>
+        <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#374151"}}>Cash Given</p>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <input type="number" placeholder="Amount given..." value={bCash}
+            onChange={e=>setBCash(e.target.value)}
+            style={{padding:"6px 10px",borderRadius:8,border:"1px solid #E2E8F0",background:"#fff",color:"#111827",fontSize:13,width:140}}/>
+          {cashGiven>=total&&<div style={{background:"#DCFCE7",color:"#166534",borderRadius:8,padding:"6px 12px",fontSize:13,fontWeight:700}}>
+            Change: {change.toLocaleString()} Birr
+          </div>}
+          {cashGiven>0&&cashGiven<total&&<div style={{background:"#FEE2E2",color:"#B91C1C",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600}}>
+            Short by: {(total-cashGiven).toLocaleString()} Birr
+          </div>}
+        </div>
+        {/* Quick amount buttons */}
+        <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
+          {[Math.ceil(total/100)*100, Math.ceil(total/500)*500, Math.ceil(total/1000)*1000].filter((v,i,a)=>a.indexOf(v)===i&&v>=total).slice(0,3).map(amt=><button key={amt} onClick={()=>setBCash(String(amt))}
+            style={{padding:"3px 10px",borderRadius:16,border:"0.5px solid #E2E8F0",background:"#fff",color:"#374151",fontSize:11,cursor:"pointer"}}>{amt.toLocaleString()}</button>)}
+        </div>
+      </div>}
+
+      {/* Add tip */}
+      {!showTip&&<button onClick={()=>setShowTip(true)}
+        style={{fontSize:11,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"0.5px solid #FDE68A",borderRadius:8,padding:"5px 12px",cursor:"pointer",marginBottom:8}}>
+        + Add Tip
+      </button>}
+      {showTip&&<div style={{background:"#FFFBEB",border:"0.5px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+        <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#92400E"}}>Add Tip</p>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setBTipEmp(e.name)}
+            style={{padding:"4px 10px",borderRadius:16,border:`1.5px solid ${bTipEmp===e.name?"#92400E":"#FDE68A"}`,background:bTipEmp===e.name?"#92400E":"#fff",color:bTipEmp===e.name?"#fff":"#92400E",fontSize:11,cursor:"pointer",fontWeight:bTipEmp===e.name?700:400}}>{e.name}</button>)}
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+          <input type="number" placeholder="Tip amount..." value={bTipAmt}
+            onChange={e=>setBTipAmt(e.target.value)}
+            style={{padding:"5px 8px",borderRadius:8,border:"1px solid #FDE68A",color:"#111827",fontSize:12,width:110}}/>
+          <button onClick={()=>{
+            if(!bTipEmp)return alert("Select who gets the tip.");
+            if(!bTipAmt||Number(bTipAmt)<=0)return alert("Enter tip amount.");
+            const newTip={id:Date.now(),employee:bTipEmp,amount:Number(bTipAmt)};
+            setLocalTips(p=>[...p,newTip]);
+            setBTipEmp("");setBTipAmt("");setShowTip(false);
+          }} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"#92400E",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
+          <button onClick={()=>{setShowTip(false);setBTipEmp("");setBTipAmt("");}}
+            style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid #E2E8F0",background:"#fff",color:"#64748B",fontSize:11,cursor:"pointer"}}>Cancel</button>
+        </div>
+      </div>}
+
+      {/* Confirm payment */}
+      <button onClick={()=>{
+        if(bPayM==="Cash"&&bCash&&Number(bCash)<total)return alert("Cash given ("+Number(bCash).toLocaleString()+" Birr) is less than the total ("+total.toLocaleString()+" Birr).");
+        onPay(v.id,bPayM,localTips,total);
+      }}
+        style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"#166534",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",marginTop:4}}>
+        ✓ Confirm Payment — {total.toLocaleString()} Birr {bPayM==="Cash"&&change>0?`(Change: ${change.toLocaleString()})`:""} 
+      </button>
+    </div>}
+
+    {/* Add tip button for in-progress */}
+    {mode==="inprogress"&&<div style={{marginTop:6}}>
+      {!showTip&&<button onClick={()=>setShowTip(true)}
+        style={{fontSize:11,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"0.5px solid #FDE68A",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>+ Add Tip</button>}
+      {showTip&&<div style={{background:"#FFFBEB",border:"0.5px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginTop:6}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setBTipEmp(e.name)}
+            style={{padding:"4px 10px",borderRadius:16,border:`1.5px solid ${bTipEmp===e.name?"#92400E":"#FDE68A"}`,background:bTipEmp===e.name?"#92400E":"#fff",color:bTipEmp===e.name?"#fff":"#92400E",fontSize:11,cursor:"pointer"}}>{e.name}</button>)}
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          <input type="number" placeholder="Tip..." value={bTipAmt} onChange={e=>setBTipAmt(e.target.value)}
+            style={{padding:"5px 8px",borderRadius:8,border:"1px solid #FDE68A",color:"#111827",fontSize:12,width:90}}/>
+          <button onClick={()=>{if(!bTipEmp||!bTipAmt||Number(bTipAmt)<=0)return;setLocalTips(p=>[...p,{id:Date.now(),employee:bTipEmp,amount:Number(bTipAmt)}]);setBTipEmp("");setBTipAmt("");setShowTip(false);}}
+            style={{padding:"5px 10px",borderRadius:8,border:"none",background:"#92400E",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
+          <button onClick={()=>{setShowTip(false);setBTipEmp("");setBTipAmt("");}}
+            style={{padding:"5px 8px",borderRadius:8,border:"0.5px solid #E2E8F0",background:"#fff",color:"#64748B",fontSize:11,cursor:"pointer"}}>✕</button>
+        </div>
+      </div>}
+    </div>}
   </div>;
 }
 
@@ -1654,6 +1742,7 @@ export default function App(){
   const[staff,setStaff]=useState(DEFAULT_STAFF);
   const[loading,setLoading]=useState(true);
   const[queueEnabled,setQueueEnabled]=useState(true);
+  const[barberQueueNum,setBarberQueueNum]=useState(1); // Barbershop has its OWN queue counter
   const[checkInModal,setCheckInModal]=useState(null);
   const[ciHoldQueue,setCiHoldQueue]=useState(false);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
   const[pullY,setPullY]=useState(0);const[pulling,setPulling]=useState(false);const[refreshing,setRefreshing]=useState(false);
@@ -1701,6 +1790,24 @@ export default function App(){
           if(saved&&saved.length>0)setInventory(saved);
         }catch(e){}
       });
+    // Load queue toggle
+    supabase.from("settings").select("*").eq("key","queueEnabled").single()
+      .then(({data})=>{if(data?.value!=null)setQueueEnabled(data.value==="true"||data.value===true);}).catch(()=>{});
+    // Load barbershop queue counter (resets daily)
+    const bqToday=new Date().toISOString().slice(0,10);
+    Promise.all([
+      supabase.from("settings").select("*").eq("key","barberQueueDate").single(),
+      supabase.from("settings").select("*").eq("key","barberQueueNum").single(),
+    ]).then(([dateRes,numRes])=>{
+      const savedDate=dateRes?.data?.value;
+      const savedNum=Number(numRes?.data?.value||1);
+      if(savedDate===bqToday){setBarberQueueNum(savedNum);}
+      else{
+        supabase.from("settings").upsert({key:"barberQueueDate",value:bqToday}).then(()=>{});
+        supabase.from("settings").upsert({key:"barberQueueNum",value:"1"}).then(()=>{});
+        setBarberQueueNum(1);
+      }
+    }).catch(()=>{setBarberQueueNum(1);});
     // Load saved Amharic text overrides
     supabase.from("settings").select("*").eq("key","amTexts").single()
       .then(({data})=>{
@@ -4221,7 +4328,7 @@ export default function App(){
         </section>;
       })()}
 
-      {tab==="Barbershop"&&<BarberTab visits={visits} emps={emps} svcs={svcs} user={user} supabase={supabase} sc={sc} S={S} SB={SB} money={money} todayStr={todayStr} logAct={logAct} push={push} setVisits={setVisits} queueEnabled={queueEnabled} setQueueEnabled={setQueueEnabled} saving={saving} setSaving={setSaving}/>}
+      {tab==="Barbershop"&&<BarberTab visits={visits} emps={emps} svcs={svcs} user={user} supabase={supabase} sc={sc} S={S} SB={SB} money={money} todayStr={todayStr} logAct={logAct} push={push} setVisits={setVisits} queueEnabled={queueEnabled} setQueueEnabled={setQueueEnabled} saving={saving} setSaving={setSaving} barberQueueNum={barberQueueNum} setBarberQueueNum={setBarberQueueNum}/>}
 
       {tab==="Service Duration"&&<SvcDuration svcLog={svcLog} emps={emps} sc={sc} S={S} CLOSE_HOUR={CLOSE_HOUR}/>}
 
