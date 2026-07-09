@@ -11,7 +11,7 @@ const DEFAULT_STAFF=[
   {id:"inventory1",  name:"Inventory",   role:"inventory",  password:"5678",active:true},
 ];
 const BARBER_SECTIONS=["Barbershop","Hair Wash & Color"];
-function isBarberVisit(v){const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");return lines.length>0&&lines.every(l=>BARBER_SECTIONS.includes(l.employeeSection)||l.category==="Barbershop");}
+function isBarberVisit(v){if(v.barberQueue||v.barber_queue)return true;const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");return lines.length>0&&lines.every(l=>BARBER_SECTIONS.includes(l.employeeSection)||l.category==="Barbershop");}
 const DC=["Barbershop","Beauty Salon","Spa"];
 const FS=[
   // ── Barbershop ──────────────────────────────────────────
@@ -820,7 +820,7 @@ const DEFAULT_INVENTORY=[
 function QueueSummary({visits,emps,sc}){
   const[open,setOpen]=React.useState(false);
   const today=visits.filter(v=>v.date===new Date().toISOString().slice(0,10));
-  const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
+  const active=today.filter(v=>!["Paid & Closed","Barber: Paid","Cancelled"].includes(v.status));
   const sections={};
   active.forEach(v=>{
     (v.services||[]).forEach(l=>{
@@ -831,7 +831,7 @@ function QueueSummary({visits,emps,sc}){
     });
     if(!(v.services||[]).length){if(!sections["Unassigned"])sections["Unassigned"]={waiting:0,inProgress:0};sections["Unassigned"].waiting++;}
   });
-  const totalW=active.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)).length;
+  const totalW=active.filter(v=>["Waiting for Supervisor","With Supervisor","Barber: Waiting"].includes(v.status)).length;
   const totalIP=active.filter(v=>v.status==="In Service").length;
   const totalR=active.filter(v=>v.status==="Ready for Payment").length;
   const totalD=active.filter(v=>(v.services||[]).length>0&&(v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment").length;
@@ -945,11 +945,11 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     const ls=v.services||[];if(!ls.length)return false;
     return ls.some(l=>["Barbershop","Hair Wash & Color"].includes(l.employeeSection)||l.category==="Barbershop");
   }).sort((a,b)=>(a.barberQueue||0)-(b.barberQueue||0));
-  const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
-  const waiting=today.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status));
+  const active=today.filter(v=>!["Paid & Closed","Barber: Paid","Cancelled"].includes(v.status));
+  const waiting=today.filter(v=>["Barber: Waiting","Waiting for Supervisor","With Supervisor"].includes(v.status));
   const inProgress=today.filter(v=>v.status==="In Service");
-  const readyToPay=today.filter(v=>v.status==="Ready for Payment");
-  const paid=today.filter(v=>v.status==="Paid & Closed");
+  const readyToPay=today.filter(v=>["Barber: Ready","Ready for Payment"].includes(v.status));
+  const paid=today.filter(v=>["Paid & Closed","Barber: Paid"].includes(v.status));
   const sel=today.find(v=>v.id===selId)||null;
   const sq={};allStaff.forEach(e=>{sq[e.name]={w:0,p:0,n:0};});
   waiting.forEach(v=>{const pref=(v.services||[]).map(l=>l.preferredEmployee||l.employee).find(Boolean);if(pref&&sq[pref]){sq[pref].w++;sq[pref].n++;}});
@@ -973,7 +973,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     const vr={id:Date.now(),date:todayStr(),queue:0,barber_queue:bqNum,customer_id:cid,
       name:bName.trim(),payer_name:bName.trim(),phone:bPhone.trim(),group_id:null,group_name:"",
       services:lines,total_service:lines.reduce((s,l)=>s+li(l),0),total_paid:0,payment_method:"",tips:[],
-      status:"Waiting for Supervisor",note:[bNote.trim(),pn].filter(Boolean).join(" — ")};
+      status:"Barber: Waiting",note:[bNote.trim(),pn].filter(Boolean).join(" — ")};
     setSaving(true);const{error}=await supabase.from("visits").insert(vr);setSaving(false);
     if(error){push("Failed: "+error.message,"error");return;}
     if(queueEnabled){const nx=bqNum+1;setBarberQueueNum(nx);supabase.from("settings").upsert({key:"barberQueueNum",value:String(nx)}).then(()=>{});}
@@ -986,17 +986,17 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     const v=visits.find(x=>x.id===vid);if(!v)return;
     const upd=(v.services||[]).map(l=>l.lineId===lid?{...l,employee:emp,preferredEmployee:l.preferredEmployee||emp,status:emp?"In Progress":"Waiting"}:l);
     const has=upd.some(l=>l.status==="In Progress");
-    const{error}=await supabase.from("visits").update({services:upd,status:has?"In Service":"Waiting for Supervisor"}).eq("id",vid);
+    const{error}=await supabase.from("visits").update({services:upd,status:has?"In Service":"Barber: Waiting"}).eq("id",vid);
     if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:has?"In Service":"Waiting for Supervisor"}:x));
+    setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:has?"In Service":"Barber: Waiting"}:x));
   }
   async function done(vid,lid){
     const v=visits.find(x=>x.id===vid);if(!v)return;
     const upd=(v.services||[]).map(l=>l.lineId===lid?{...l,status:"Completed"}:l);
     const all=upd.filter(l=>l.status!=="Cancelled").every(l=>l.status==="Completed");
-    const{error}=await supabase.from("visits").update({services:upd,status:all?"Ready for Payment":"In Service"}).eq("id",vid);
+    const{error}=await supabase.from("visits").update({services:upd,status:all?"Barber: Ready":"In Service"}).eq("id",vid);
     if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:all?"Ready for Payment":"In Service"}:x));
+    setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:all?"Barber: Ready":"In Service"}:x));
     if(all)push(v.name+" — ready to pay 💳","success");
   }
   async function pay(vid,method,tips,total){
@@ -1168,7 +1168,7 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
   const isR=l=>l.employeeSection==="Hair Wash & Color";
   const sfLine=l=>isR(l)?(rozaEmps.length?rozaEmps:allStaff):barberEmps;
   function addTip(){if(!tipEmp){setTipErr("Select who gets the tip");return;}if(!tipAmt||Number(tipAmt)<=0){setTipErr("Enter a valid amount");return;}setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");setShowTip(false);setTipErr("");}
-  const isWait=["Waiting for Supervisor","With Supervisor"].includes(v.status);
+  const isWait=["Barber: Waiting","Waiting for Supervisor","With Supervisor"].includes(v.status);
   const isIP=v.status==="In Service";const isRdy=v.status==="Ready for Payment";const isDone=v.status==="Paid & Closed";
   const banner=isDone?{bg:"#F0FDF4",bd:"#86EFAC",ic:"✅",tx:"Paid & Closed",co:"#166534"}:isRdy?{bg:"#FFF7ED",bd:"#FCD34D",ic:"💳",tx:"Ready for Payment",co:"#B45309"}:isIP?{bg:"#EFF6FF",bd:"#93C5FD",ic:"✂",tx:"In Chair",co:"#1B4FA8"}:{bg:"#FFFBEB",bd:"#FDE68A",ic:"⏳",tx:"Waiting",co:"#92400E"};
   const bqv=v.barberQueue||v.barber_queue||0;
@@ -1759,7 +1759,7 @@ export default function App(){
   // Derived
   const act=useMemo(()=>visits.find(v=>v.id===actId)||null,[visits,actId]);
   const period=getPayPeriod(todayStr());
-  const todayV=visits.filter(v=>v.date===todayStr());
+  const todayV=visits.filter(v=>v.date===todayStr()&&!isBarberVisit(v));
   const svSubs=useMemo(()=>["All",...new Set(svcs.filter(s=>s.category===svCat).map(s=>s.sub))],[svCat,svcs]);
   const svAvail=svcs.filter(s=>s.category===svCat&&(svSub==="All"||s.sub===svSub));
   // FIXED: checkout today only, no past days
@@ -2664,8 +2664,8 @@ export default function App(){
         {/* On mobile: hide queue list when customer is selected */}
         {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
           <QueueSummary visits={visits} emps={emps} sc={sc}/>          <h3 style={S.sh}>⏳ Waiting</h3>
-          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
-            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
+          {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!isBarberVisit(v)).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
+            :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!isBarberVisit(v)).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
               return <button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>{setActId(v.id);setShowHist(false);if(sc.mob)setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),50);}}>
                 <span style={{color:"inherit"}}>
@@ -4037,4 +4037,4 @@ function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#334155",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:11,marginTop:3}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"},"Spa Arrived":{bg:"#E0F2FE",co:"#0369A1"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
+function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"},"Spa Arrived":{bg:"#E0F2FE",co:"#0369A1"},"Barber: Waiting":{bg:"#FEF9EC",co:"#92400E"},"Barber: Ready":{bg:"#F0FDF4",co:"#166534"},"Barber: Paid":{bg:"#F0FDF4",co:"#166534"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
