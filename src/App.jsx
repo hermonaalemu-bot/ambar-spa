@@ -2501,13 +2501,7 @@ export default function App(){
     </div>
   </div>);
   
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0F1E33",fontFamily:"'Inter',system-ui,sans-serif"}}>
-    <div style={{textAlign:"center"}}>
-      <div style={{width:48,height:48,background:"linear-gradient(135deg,#C9962A,#E0B85A)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 16px",animation:"spin 3s linear infinite"}}>✦</div>
-      <p style={{color:"rgba(255,255,255,0.4)",fontSize:12,letterSpacing:"2px",fontWeight:300}}>LOADING...</p>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-    </div>
-  </div>);
+
   
   return(<div
     style={{minHeight:"100vh",background:"#F0EDE8",fontFamily:"'Inter',system-ui,sans-serif",color:"#111827",touchAction:"pan-y"}}
