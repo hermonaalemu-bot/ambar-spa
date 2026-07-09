@@ -1026,9 +1026,9 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
   }
   return<div>
     {/* Header */}
-    <div style={{background:"#1B2E4B",borderRadius:14,padding:"14px 18px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff"}}>💈 Barbershop</h2>
-        <p style={{margin:"2px 0 0",fontSize:11,color:"#94A3B8"}}>Walk-ins · Assignments · Payments</p></div>
+    <div style={{background:"linear-gradient(135deg,#0F1E33,#1B2E4B)",borderRadius:14,padding:"14px 18px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,border:"1px solid rgba(224,184,90,0.15)"}}>
+      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff",fontFamily:"'Playfair Display',Georgia,serif"}}>💈 Barbershop</h2>
+        <p style={{margin:"2px 0 0",fontSize:11,color:"rgba(255,255,255,0.45)"}}>Walk-ins · Assignments · Payments</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <label style={{display:"flex",alignItems:"center",gap:7,background:"rgba(255,255,255,0.07)",border:`1.5px solid ${queueEnabled?"#5A8C72":"#475569"}`,borderRadius:9,padding:"5px 12px",cursor:"pointer"}}>
           <div style={{position:"relative",width:36,height:20,flexShrink:0}}>
@@ -1045,10 +1045,17 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     </div>
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:12}}>
-      {[{l:"Waiting",v:waiting.length,bg:"#FEF9EC",tx:"#92400E",ic:"⏳"},{l:"In Chair",v:inProgress.length,bg:"#EFF6FF",tx:"#1B4FA8",ic:"✂"},{l:"Ready",v:readyToPay.length,bg:"#F0FDF4",tx:"#166534",ic:"💳"},{l:"Paid",v:rev.toLocaleString()+" Birr",bg:"#1B2E4B",tx:"#5A8C72",ic:"✓"}].map(c=><div key={c.l} style={{background:c.bg,borderRadius:10,padding:"9px 10px",display:"flex",alignItems:"center",gap:7}}>
-        <span style={{fontSize:18}}>{c.ic}</span>
-        <div><b style={{fontSize:c.l==="Paid"?11:18,color:c.tx,display:"block",lineHeight:1.1}}>{c.v}</b>
-          <p style={{margin:0,fontSize:9,color:c.tx,opacity:0.8,fontWeight:600}}>{c.l}</p></div>
+      {[
+        {l:"Waiting",v:waiting.length,bg:"#FEF9EC",tx:"#92400E",ic:"⏳"},
+        {l:"In Chair",v:inProgress.length,bg:"#EFF6FF",tx:"#1B4FA8",ic:"✂"},
+        {l:"Ready to Pay",v:readyToPay.length,bg:"#F0FDF4",tx:"#166534",ic:"💳"},
+        ...(user.role==="manager"?[{l:"Paid Today",v:rev.toLocaleString()+" Birr",bg:"#0F1E33",tx:"#E0B85A",ic:"✓"}]:[{l:"Paid",v:paid.length+" customers",bg:"#F0FDF4",tx:"#166534",ic:"✓"}])
+      ].map(c=><div key={c.l} style={{background:c.bg,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,border:"1px solid rgba(0,0,0,0.04)"}}>
+        <span style={{fontSize:20}}>{c.ic}</span>
+        <div>
+          <b style={{fontSize:c.l.startsWith("Paid Today")?12:c.l==="Paid"?12:20,color:c.tx,display:"block",lineHeight:1.1}}>{c.v}</b>
+          <p style={{margin:0,fontSize:9,color:c.tx,opacity:0.75,fontWeight:600,letterSpacing:0.5}}>{c.l.toUpperCase()}</p>
+        </div>
       </div>)}
     </div>
     {/* Staff load */}
@@ -1065,7 +1072,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
       </div>
     </div>}
     {/* Registration form */}
-    {showReg&&<div style={{background:"#fff",border:"1.5px solid #E2E8F0",borderRadius:12,padding:18,marginBottom:12,boxShadow:"0 4px 16px rgba(27,46,75,0.07)"}}>
+    {showReg&&<div style={{background:"#FEFCF9",border:"1px solid #E8E4DF",borderRadius:12,padding:18,marginBottom:12,boxShadow:"0 4px 20px rgba(15,30,51,0.08)"}}>
       <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Walk-in</h3>
       <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
         <div>
@@ -1123,15 +1130,15 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8}}>← Back</button>}
         {waiting.length>0&&<div style={{marginBottom:10}}>
           <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:0.5}}>⏳ WAITING ({waiting.length})</p>
-          {waiting.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#FFFBEB" colorBorder="#FDE68A" colorSel="#92400E" badge="orange"/>)}
+          {waiting.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#FFFBEB" colorBorder="rgba(245,158,11,0.3)" colorSel="#92400E" badge="orange"/>)}
         </div>}
         {inProgress.length>0&&<div style={{marginBottom:10}}>
           <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#1B4FA8",letterSpacing:0.5}}>✂ IN CHAIR ({inProgress.length})</p>
-          {inProgress.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#EFF6FF" colorBorder="#BFDBFE" colorSel="#1B4FA8" badge="blue"/>)}
+          {inProgress.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#EFF6FF" colorBorder="rgba(59,130,246,0.25)" colorSel="#1B4FA8" badge="blue"/>)}
         </div>}
         {readyToPay.length>0&&<div style={{marginBottom:10}}>
           <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#166534",letterSpacing:0.5}}>💳 READY TO PAY ({readyToPay.length})</p>
-          {readyToPay.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#F0FDF4" colorBorder="#86EFAC" colorSel="#166534" badge="green"/>)}
+          {readyToPay.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#F0FDF4" colorBorder="rgba(16,185,129,0.3)" colorSel="#166534" badge="green"/>)}
         </div>}
         {paid.length>0&&<details><summary style={{cursor:"pointer",fontSize:11,fontWeight:700,color:"#64748B",padding:"5px 0",listStyle:"none",display:"flex",justifyContent:"space-between"}}><span>✓ Paid ({paid.length})</span><span style={{color:"#5A8C72"}}>{rev.toLocaleString()} Birr</span></summary>
           {paid.map(v=>{const tt=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);return<div key={v.id} style={{padding:"6px 9px",background:"#F0FDF4",borderRadius:8,marginTop:3,fontSize:11}}>
@@ -1173,10 +1180,10 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
   const banner=isDone?{bg:"#F0FDF4",bd:"#86EFAC",ic:"✅",tx:"Paid & Closed",co:"#166534"}:isRdy?{bg:"#FFF7ED",bd:"#FCD34D",ic:"💳",tx:"Ready for Payment",co:"#B45309"}:isIP?{bg:"#EFF6FF",bd:"#93C5FD",ic:"✂",tx:"In Chair",co:"#1B4FA8"}:{bg:"#FFFBEB",bd:"#FDE68A",ic:"⏳",tx:"Waiting",co:"#92400E"};
   const bqv=v.barberQueue||v.barber_queue||0;
   return<div style={{background:"#fff",borderRadius:13,border:"1px solid #E2E8F0",overflow:"hidden",boxShadow:"0 2px 12px rgba(27,46,75,0.07)"}}>
-    <div style={{background:"#1B2E4B",padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+    <div style={{background:"#0F1E33",padding:"14px 17px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,backgroundImage:"repeating-linear-gradient(60deg,transparent 0px,transparent 10px,rgba(201,150,42,0.05) 10px,rgba(201,150,42,0.05) 11px),repeating-linear-gradient(-60deg,transparent 0px,transparent 10px,rgba(201,150,42,0.05) 10px,rgba(201,150,42,0.05) 11px)",position:"relative"}}>
       <div style={{display:"flex",alignItems:"center",gap:9}}>
         {queueEnabled&&bqv>0&&<span style={{background:"#E0B85A",color:"#1B2E4B",borderRadius:7,padding:"2px 9px",fontSize:13,fontWeight:900}}>B-{bqv}</span>}
-        <div><b style={{fontSize:15,color:"#fff",display:"block"}}>{v.name}</b>{v.phone&&<p style={{margin:0,fontSize:10,color:"#94A3B8"}}>{v.phone}</p>}</div>
+        <div><b style={{fontSize:17,color:"#fff",display:"block",fontFamily:"'Playfair Display',Georgia,serif",fontWeight:600,letterSpacing:"0.1px"}}>{v.name}</b>{v.phone&&<p style={{margin:0,fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:2}}>{v.phone}</p>}</div>
       </div>
       <span style={{background:banner.bg,color:banner.co,border:`1px solid ${banner.bd}`,borderRadius:18,padding:"3px 10px",fontSize:11,fontWeight:700}}>{banner.ic} {banner.tx}</span>
     </div>
@@ -1301,25 +1308,25 @@ export default function App(){
   function saveDes(d){setDesign(d);try{localStorage.setItem("ambar_design",JSON.stringify(d));}catch(e){}}
   const S={
     // Layout
-    wrap:  {maxWidth:1200,margin:"0 auto",padding:sc.mob?"8px":"14px 20px"},
-    card:  {background:design.cardBg||"#ffffff",color:"#1B2E4B",borderRadius:16,padding:sc.mob?14:20,border:"0.5px solid #E2E8F0",boxShadow:"0 2px 12px rgba(27,46,75,0.06)",marginBottom:16},
-    ct:    {margin:"0 0 14px",fontSize:sc.mob?15:17,fontWeight:500,color:design.txPrimary||"#1B2E4B"},
+    wrap:  {maxWidth:1280,margin:"0 auto",padding:sc.mob?"8px":"16px 24px"},
+    card:  {background:design.cardBg||"#ffffff",color:"#1B2E4B",borderRadius:14,padding:sc.mob?14:20,border:"1px solid #E8E4DF",boxShadow:"0 2px 16px rgba(15,30,51,0.07)",marginBottom:14},
+    ct:    {margin:"0 0 14px",fontSize:sc.mob?15:17,fontWeight:600,color:design.txPrimary||"#0F1E33",letterSpacing:"-0.2px"},
     sh:    {margin:"0 0 8px",fontSize:13,fontWeight:500,color:design.txPrimary||"#1B2E4B"},
     hlp:   {color:design.txSecondary||"#64748B",fontSize:11,margin:"2px 0"},
     lbl:   {margin:"0 0 4px",fontSize:12,fontWeight:500,color:design.txLabel||"#334155"},
     // Inputs
-    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:design.txInp||"#1B2E4B",fontSize:13},
+    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"1px solid #DDD8D0",background:"#fff",color:design.txInp||"#0F1E33",fontSize:13},
     ii:    {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12,width:"100%",boxSizing:"border-box"},
     ta:    {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",minHeight:60,fontSize:13},
     // Buttons
-    btnP:  {width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#1B2E4B",color:design.btnPText||"#ffffff",fontWeight:500,cursor:"pointer",fontSize:13,marginBottom:6},
-    btnS:  {width:"100%",padding:10,borderRadius:10,border:"0.5px solid #CBD5E0",background:design.btnSBg||"#F8FAFC",color:design.btnSText||"#1B2E4B",fontWeight:500,cursor:"pointer",marginBottom:6,fontSize:12},
+    btnP:  {width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#0F1E33",color:design.btnPText||"#ffffff",fontWeight:600,cursor:"pointer",fontSize:13,marginBottom:6,letterSpacing:"0.1px"},
+    btnS:  {width:"100%",padding:10,borderRadius:10,border:"1px solid #DDD8D0",background:design.btnSBg||"#F8F6F2",color:design.btnSText||"#1B2E4B",fontWeight:500,cursor:"pointer",marginBottom:6,fontSize:12},
     btnD:  {padding:"6px 12px",borderRadius:8,border:"0.5px solid #FECACA",background:"#FEF2F2",color:"#B91C1C",fontWeight:500,cursor:"pointer",fontSize:11},
-    btnG:  {width:"100%",padding:11,borderRadius:10,border:"none",background:"#5A8C72",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:13,marginBottom:6},
+    btnG:  {width:"100%",padding:11,borderRadius:10,border:"none",background:"#3D7A5E",color:"#ffffff",fontWeight:600,cursor:"pointer",fontSize:13,marginBottom:6,letterSpacing:"0.1px"},
     // List items
-    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6},
-    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#1B2E4B",border:"none",color:"#fff",borderRadius:12,padding:"10px 14px",marginBottom:6,width:"100%",WebkitTextFillColor:"#fff",cursor:"pointer",textAlign:"left"},
-    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"0.5px solid #E2E8F0",color:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:6,WebkitTextFillColor:"#1B2E4B",width:"100%",cursor:"pointer",textAlign:"left"},
+    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #E8E4DF",color:"#1B2E4B",borderRadius:10,padding:"10px 14px",marginBottom:5},
+    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#0F1E33",border:"none",color:"#fff",borderRadius:10,padding:"10px 14px",marginBottom:5,width:"100%",WebkitTextFillColor:"#fff",cursor:"pointer",textAlign:"left"},
+    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #E8E4DF",color:"#1B2E4B",borderRadius:10,padding:"10px 14px",marginBottom:5,WebkitTextFillColor:"#1B2E4B",width:"100%",cursor:"pointer",textAlign:"left"},
     // Tabs
     tab:   {padding:"8px 4px",borderRadius:9,border:"0.5px solid #E2E8F0",background:"#fff",color:"#475569",fontWeight:500,cursor:"pointer",fontSize:11},
     tabA:  {padding:"8px 4px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:11},
@@ -2465,59 +2472,45 @@ export default function App(){
 
   if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:40,marginBottom:12,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:16,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:12,color:"#94A3B8",marginTop:6}}>Loading...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
-  if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
-    {/* Header */}
-    <div style={{textAlign:"center",marginBottom:24}}>
-      <div style={{fontSize:40,marginBottom:8}}>✦</div>
-      <h1 style={{margin:0,fontSize:24,fontWeight:500,color:"#fff",letterSpacing:1}}>Ambar Spa & Beauty</h1>
-      <p style={{margin:"6px 0 0",color:"#5A8C72",fontSize:12,letterSpacing:2}}>SALON MANAGEMENT SYSTEM</p>
+  if(!user)return(<div style={{minHeight:"100vh",background:"#0F1E33",display:"flex",flexDirection:"column",fontFamily:"'Inter',system-ui,sans-serif",overflow:"hidden",position:"relative"}}>
+    <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap');`}</style>
+    {/* Background pattern */}
+    <div style={{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(60deg,transparent 0,transparent 40px,rgba(201,150,42,0.04) 40px,rgba(201,150,42,0.04) 41px),repeating-linear-gradient(-60deg,transparent 0,transparent 40px,rgba(201,150,42,0.04) 40px,rgba(201,150,42,0.04) 41px)",pointerEvents:"none"}}/>
+    {/* Top accent line */}
+    <div style={{height:2,background:"linear-gradient(90deg,transparent,#E0B85A,transparent)",position:"absolute",top:0,left:0,right:0}}/>
+    <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"40px 20px"}}>
+      <div style={{width:"100%",maxWidth:380}}>
+        {/* Brand */}
+        <div style={{textAlign:"center",marginBottom:40}}>
+          <div style={{width:52,height:52,background:"linear-gradient(135deg,#C9962A,#E0B85A)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,margin:"0 auto 16px",boxShadow:"0 8px 24px rgba(201,150,42,0.35)"}}>✦</div>
+          <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:28,fontWeight:600,color:"#fff",margin:"0 0 6px",letterSpacing:"-0.3px"}}>Ambar <span style={{color:"#E0B85A"}}>Spa & Beauty</span></h1>
+          <p style={{color:"rgba(255,255,255,0.35)",fontSize:13,margin:0,letterSpacing:"1px",fontWeight:300}}>MANAGEMENT SYSTEM</p>
+        </div>
+        {/* Login card */}
+        <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:16,padding:"28px 24px",backdropFilter:"blur(8px)"}}>
+          <p style={{margin:"0 0 20px",fontSize:13,color:"rgba(255,255,255,0.5)",textAlign:"center",fontWeight:400}}>Sign in to continue</p>
+          <p style={{margin:"0 0 5px",fontSize:11,fontWeight:500,color:"rgba(255,255,255,0.4)",letterSpacing:"0.5px"}}>USERNAME</p>
+          <input style={{width:"100%",boxSizing:"border-box",padding:"11px 14px",marginBottom:12,borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none"}} placeholder="Enter your username" value={lid.user} onChange={e=>setLid(l=>({...l,user:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&doLogin()}/>
+          <p style={{margin:"0 0 5px",fontSize:11,fontWeight:500,color:"rgba(255,255,255,0.4)",letterSpacing:"0.5px"}}>PASSWORD</p>
+          <input style={{width:"100%",boxSizing:"border-box",padding:"11px 14px",marginBottom:20,borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none"}} type="password" placeholder="Enter your password" value={lid.pw} onChange={e=>setLid(l=>({...l,pw:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&doLogin()}/>
+          {loginErr&&<div style={{background:"rgba(220,38,38,0.15)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#FCA5A5"}}>⚠ {loginErr}</div>}
+          <button onClick={doLogin} style={{width:"100%",padding:"13px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#3D7A5E,#5A8C72)",color:"#fff",fontWeight:600,fontSize:14,cursor:"pointer",letterSpacing:"0.2px",boxShadow:"0 4px 16px rgba(61,122,94,0.35)"}}>Sign In</button>
+        </div>
+        <p style={{textAlign:"center",marginTop:24,fontSize:11,color:"rgba(255,255,255,0.2)"}}>Ambar Spa & Beauty · Addis Ababa</p>
+      </div>
     </div>
-    {/* Tab switcher */}
-    <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:12,padding:4,marginBottom:20,width:"100%",maxWidth:420}}>
-      {["login","bookings"].map(tab=>(
-        <button key={tab} onClick={()=>setLoginTab(tab)}
-          style={{flex:1,padding:"10px",borderRadius:9,border:"none",background:loginTab===tab?"#fff":"transparent",color:loginTab===tab?"#1B2E4B":"#94A3B8",fontWeight:loginTab===tab?500:400,cursor:"pointer",fontSize:13,transition:"all 0.15s"}}>
-          {tab==="login"?"🔐 Staff Login":"📅 Today's Bookings"}
-        </button>
-      ))}
-    </div>
-    {/* Login form */}
-    {loginTab==="login"&&<div style={{background:"#fff",borderRadius:20,padding:32,width:"100%",maxWidth:420,boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}>
-      {lerr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,fontWeight:500}}>{lerr}</div>}
-      <p style={S.lbl}>Username</p>
-      <input style={S.inp} value={lid} onChange={e=>setLid(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="e.g. reception1" autoFocus/>
-      <p style={S.lbl}>Password</p>
-      <input style={S.inp} type="password" value={lpw} onChange={e=>setLpw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Password"/>
-      <button style={{...S.btnP,marginTop:8}} onClick={doLogin}>{t("login")}</button>
-    </div>}
-    {/* Public bookings view */}
-    {loginTab==="bookings"&&<div style={{background:"#fff",borderRadius:20,padding:20,width:"100%",maxWidth:680,boxShadow:"0 20px 60px rgba(0,0,0,0.4)",maxHeight:"70vh",overflowY:"auto"}}>
-      <h2 style={{margin:"0 0 4px",fontSize:16,fontWeight:500,color:"#1B2E4B"}}>📅 Today's Bookings</h2>
-      <p style={{margin:"0 0 16px",fontSize:12,color:"#64748B"}}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
-      {bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show"].includes(b.status)).length===0
-        ?<div style={{textAlign:"center",padding:40,color:"#94A3B8"}}>No bookings today</div>
-        :<div>
-          {bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show"].includes(b.status)).sort((a,b2)=>a.time.localeCompare(b2.time)).map(b=>(
-            <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",border:"0.5px solid #E2E8F0",borderRadius:12,marginBottom:8,background:b.status==="Confirmed"?"#F0FDF4":b.status==="Arrived"?"#EBF2FD":"#fff"}}>
-              <div>
-                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                  <b style={{color:"#1B2E4B",fontSize:14}}>{b.time}</b>
-                  <b style={{color:"#1B2E4B"}}>{b.customerName}</b>
-                  {b.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:500}}>{b.gender}</span>}
-                  {b.people>1&&<span style={{background:"#F1F5F9",color:"#475569",borderRadius:6,padding:"1px 6px",fontSize:10}}>{b.people} people</span>}
-                </div>
-                <p style={{margin:"3px 0 0",fontSize:12,color:"#64748B"}}>{b.serviceName||"TBD"} · {Math.floor(b.durationMins/60)}h{b.durationMins%60?b.durationMins%60+"m":""}</p>
-              </div>
-              <span style={SB(b.status)}>{b.status}</span>
-            </div>
-          ))}
-        </div>}
-    </div>}
   </div>);
-
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0F1E33",fontFamily:"'Inter',system-ui,sans-serif"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{width:48,height:48,background:"linear-gradient(135deg,#C9962A,#E0B85A)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 16px",animation:"spin 3s linear infinite"}}>✦</div>
+      <p style={{color:"rgba(255,255,255,0.4)",fontSize:12,letterSpacing:"2px",fontWeight:300}}>LOADING...</p>
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    </div>
+  </div>);
+  
   return(<div
-    style={{minHeight:"100vh",background:"#F1F5F9",fontFamily:"Segoe UI,Arial,sans-serif",color:"#111827",touchAction:"pan-y"}}
+    style={{minHeight:"100vh",background:"#F0EDE8",fontFamily:"'Inter',system-ui,sans-serif",color:"#111827",touchAction:"pan-y"}}
     onTouchStart={handleTouchStart}
     onTouchMove={handleTouchMove}
     onTouchEnd={handleTouchEnd}
@@ -2536,6 +2529,15 @@ export default function App(){
         {refreshing?"Refreshing...":pullY>60?"Release to refresh ↑":"Pull down to refresh"}
       </div>
     </div>}
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600&display=swap');
+      * { box-sizing: border-box; }
+      @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+      ::-webkit-scrollbar { width:4px; height:4px; }
+      ::-webkit-scrollbar-track { background:transparent; }
+      ::-webkit-scrollbar-thumb { background:rgba(27,46,75,0.2); border-radius:4px; }
+    `}</style>
     <Notifs items={notifs} dismiss={dismiss}/>
     {showGS&&<div style={{position:"fixed",inset:0,background:"rgba(27,46,75,0.7)",zIndex:9990,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"80px 16px 16px"}} onClick={e=>e.target===e.currentTarget&&setShowGS(false)}>
       <div style={{background:"#fff",borderRadius:16,padding:20,width:"100%",maxWidth:560,maxHeight:"70vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
@@ -2595,16 +2597,35 @@ export default function App(){
     {offline&&<div style={{background:"#b45309",color:"#fff",textAlign:"center",padding:8,fontSize:13,fontWeight:700}}>⚠ Offline — changes will not save</div>}
     {saving&&<div style={{background:"#5A8C72",color:"#fff",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
     <div style={{maxWidth:1400,margin:"0 auto",padding:sc.mob?"12px":"28px"}}>
-      <header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",background:"#1B2E4B",color:"white",marginBottom:14,flexWrap:"wrap",gap:8,borderRadius:16,padding:"14px 18px"}}>
-        <div><p style={{color:"#5A8C72",fontWeight:500,letterSpacing:2,margin:"0 0 2px",fontSize:9}}>AMBAR SPA & BEAUTY</p>
-          {!sc.mob&&<h1 style={{margin:0,fontSize:18,fontWeight:500,color:"#fff"}}>Salon Management System</h1>}
-          <p style={{color:"#d1d5db",fontSize:12,margin:"4px 0 0"}}>{user.name}<span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:500,marginLeft:6}}>{user.role}</span><button onClick={()=>setShowGS(s=>!s)} style={{background:"transparent",border:"0.5px solid #334155",color:"#94A3B8",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>🔍</button>
-          <button onClick={toggleLang} style={{background:"transparent",border:"0.5px solid #5A8C72",color:"#5A8C72",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6}}>{lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}</button>
-          {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#5A8C72",border:"none",color:"#fff",borderRadius:8,padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:6,fontWeight:500}}>🔔 Enable Alerts</button>}
-          {notifPerm==="granted"&&<span style={{color:"#5A8C72",fontSize:11,marginLeft:6}}>🔔 ✓</span>}
-          <button onClick={logout} style={{background:"transparent",border:"0.5px solid #64748B",color:"#94A3B8",borderRadius:8,padding:"2px 10px",cursor:"pointer",fontSize:11,marginLeft:4}}>{t("logout")}</button></p>
+      <header style={{background:"#0F1E33",position:"sticky",top:0,zIndex:200,boxShadow:"0 1px 0 rgba(255,255,255,0.06)"}}>
+        {/* Top bar */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 20px",height:52}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:30,height:30,background:"linear-gradient(135deg,#C9962A,#E0B85A)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>✦</div>
+            <div>
+              <span style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:15,fontWeight:600,color:"#fff",letterSpacing:"0.2px"}}>Ambar <span style={{color:"#E0B85A"}}>Spa & Beauty</span></span>
+              {!sc.mob&&<span style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginLeft:8}}>Management</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>setShowGS(s=>!s)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.6)",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12}}>🔍</button>
+            <button onClick={toggleLang} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"#5A8C72",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11}}>{lang==="en"?"🇪🇹":"🇬🇧"}</button>
+            {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#3D7A5E",border:"none",color:"#fff",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>🔔</button>}
+            {notifPerm==="granted"&&<span style={{color:"#5A8C72",fontSize:12}}>🔔</span>}
+            <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:20,padding:"4px 10px 4px 6px"}}>
+              <div style={{width:22,height:22,background:"#3D7A5E",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700}}>{(user.name||"?")[0].toUpperCase()}</div>
+              <span style={{fontSize:11,color:"rgba(255,255,255,0.7)"}}>{user.name}</span>
+              <span style={{background:"#3D7A5E",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>{user.role}</span>
+            </div>
+            <button onClick={logout} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.4)",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11}}>{t("logout")}</button>
+          </div>
         </div>
-        <div style={{background:"#5A8C72",color:"#fff",borderRadius:12,padding:"10px 18px",textAlign:"center",flexShrink:0}}><p style={{margin:0,fontSize:10,fontWeight:800}}>TODAY NEXT</p><h2 style={{margin:"2px 0 0",fontSize:24,fontWeight:500,color:"#fff"}}>#{todayV.length+1}</h2></div>
+        {/* Tab bar — horizontal underline style */}
+        {sc.mob?(<div style={{padding:"6px 12px 0"}}><button onClick={()=>setMobNav(v=>!v)} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",color:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer",width:"100%",textAlign:"left"}}>☰ {tab}</button>{mobNav&&<div style={{background:"#1B2E4B",borderRadius:10,padding:8,marginTop:4,border:"1px solid rgba(255,255,255,0.08)"}}>{allTabs.map(t2=><button key={t2} style={{background:tab===t2?"rgba(224,184,90,0.15)":"transparent",border:"none",color:tab===t2?"#E0B85A":"rgba(255,255,255,0.65)",borderRadius:7,padding:"8px 12px",display:"block",width:"100%",textAlign:"left",cursor:"pointer",fontSize:12,fontWeight:tab===t2?600:400}} onClick={()=>{setTab(t2);setMobNav(false);}}>{t2}</button>)}</div>}</div>):(
+        <div style={{display:"flex",alignItems:"flex-end",padding:"0 20px",gap:2,overflowX:"auto"}}>
+          {dailyTabs.length>0&&<>{dailyTabs.map(tk=><button key={tk} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}} style={{padding:"10px 16px",background:"transparent",border:"none",borderBottom:`2px solid ${tab===tk?"#E0B85A":"transparent"}`,color:tab===tk?"#E0B85A":"rgba(255,255,255,0.5)",fontWeight:tab===tk?600:400,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",transition:"all 0.15s",letterSpacing:"0.1px"}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().replace(/ /g,"").replace(/&/g,"")]||tk}</button>)}<div style={{width:1,background:"rgba(255,255,255,0.1)",height:20,alignSelf:"center",margin:"0 6px"}}/></>}
+          {mgrTabs.map(tk=><button key={tk} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}} style={{padding:"10px 14px",background:"transparent",border:"none",borderBottom:`2px solid ${tab===tk?"#5A8C72":"transparent"}`,color:tab===tk?"#5A8C72":"rgba(255,255,255,0.35)",fontWeight:tab===tk?600:400,cursor:"pointer",fontSize:11,whiteSpace:"nowrap",transition:"all 0.15s"}}>{tk}</button>)}
+        </div>)}
       </header>
 
       {sc.mob?(<div style={{marginBottom:10}}><button onClick={()=>setMobNav(v=>!v)} style={{...S.btnS,marginBottom:0}}>☰ {tab}</button>{mobNav&&<div style={{background:"#fff",borderRadius:14,padding:10,marginTop:6,border:"1px solid #e6c977"}}>{allTabs.map(t=><button key={t} style={{...tab===t?S.tabA:S.tab,display:"block",width:"100%",marginBottom:4,textAlign:"left"}} onClick={()=>{setTab(t);setMobNav(false);}}>{t}</button>)}</div>}</div>):(
@@ -2625,7 +2646,13 @@ export default function App(){
           <div style={S.r2}><input style={S.inp} type="number" value={deQty} onChange={e=>setDeQty(e.target.value)} placeholder="Qty"/><input style={S.inp} type="number" value={deUnit} onChange={e=>setDeUnit(e.target.value)} placeholder="Unit price"/></div>
           <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
         </section>
-        <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
+        <section style={S.card}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div>
+              <h2 style={{...S.ct,marginBottom:0,fontFamily:"'Playfair Display',Georgia,serif"}}>{t("todaysQueue")}</h2>
+              <p style={{...S.hlp,margin:"3px 0 0"}}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
+            </div>
+            {user.role==="manager"&&todayV.length>0&&<div style={{textAlign:"right"}}><p style={{margin:0,fontSize:9,fontWeight:700,color:"#5A8C72",letterSpacing:0.8}}>QUEUE</p><b style={{fontSize:18,color:"#0F1E33"}}>#{todayV.length+1}</b></div>}
+          </div>
           <QueueSummary visits={visits} emps={emps} sc={sc}/>
           {todayV.length===0&&saving&&[1,2,3].map(i=><div key={i} style={{height:42,background:"#F1F5F9",borderRadius:10,marginBottom:6,animation:"pulse 1.5s ease-in-out infinite"}}/>)}
           {todayV.length===0&&!saving&&<EMP>No customers registered yet today.</EMP>}
@@ -4034,7 +4061,7 @@ function PS({emps,empC,period}){return <div style={{fontFamily:"Arial,sans-serif
 
 function L({children}){return <p style={{margin:"0 0 4px",fontSize:13,fontWeight:700,color:"#374151"}}>{children}</p>;}
 function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0"}}/>;}
-function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
+function EMP({children}){return <div style={{padding:32,textAlign:"center",color:"#9CA3AF",fontSize:13,lineHeight:1.6,background:"#FAFAF9",borderRadius:10,border:"1px dashed #E8E4DF",margin:"4px 0"}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#334155",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:11,marginTop:3}}/>}</div>;}
 function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"},"Spa Arrived":{bg:"#E0F2FE",co:"#0369A1"},"Barber: Waiting":{bg:"#FEF9EC",co:"#92400E"},"Barber: Ready":{bg:"#F0FDF4",co:"#166534"},"Barber: Paid":{bg:"#F0FDF4",co:"#166534"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
