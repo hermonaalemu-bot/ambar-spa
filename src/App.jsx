@@ -15,14 +15,14 @@ function isBarberVisit(v){const lines=(v.services||[]).filter(l=>l.status!=="Can
 const DC=["Barbershop","Beauty Salon","Spa"];
 const FS=[
   // ── Barbershop ──────────────────────────────────────────
-  {id:101,cat:"Barbershop",sub:"Hair",  name:"Adult Haircut",  price:500, cm:10,es:"Barbershop",        bk:false,dm:30},
-  {id:102,cat:"Barbershop",sub:"Hair",  name:"Child Haircut",  price:300, cm:10,es:"Barbershop",        bk:false,dm:20},
-  {id:103,cat:"Barbershop",sub:"Beard", name:"Beard Trim",     price:200, cm:10,es:"Barbershop",        bk:false,dm:20},
-  {id:104,cat:"Barbershop",sub:"Wash",      name:"Hair Wash",         price:300, cm:10,es:"Hair Wash & Color",bk:false,dm:20},
-  {id:105,cat:"Barbershop",sub:"Color",     name:"Hair Color",         price:1500,cm:10,es:"Hair Wash & Color",bk:false,dm:60},
-  {id:106,cat:"Barbershop",sub:"Color",     name:"Hair Color & Wash",  price:1800,cm:10,es:"Hair Wash & Color",bk:false,dm:90},
-  {id:107,cat:"Barbershop",sub:"Treatment", name:"Hair Treatment",     price:800, cm:10,es:"Hair Wash & Color",bk:false,dm:45},
-  {id:108,cat:"Barbershop",sub:"Treatment", name:"Deep Conditioning",  price:600, cm:10,es:"Hair Wash & Color",bk:false,dm:40},
+  {id:101,cat:"Barbershop",sub:"Hair",  name:"Adult Haircut",  price:500, cm:10,es:"Barbershop",bk:false,dm:30},
+  {id:102,cat:"Barbershop",sub:"Hair",  name:"Child Haircut",  price:300, cm:10,es:"Barbershop",bk:false,dm:20},
+  {id:103,cat:"Barbershop",sub:"Beard", name:"Beard Trim",     price:200, cm:10,es:"Barbershop",bk:false,dm:20},
+  {id:104,cat:"Barbershop",sub:"Wash",      name:"Hair Wash",        price:300, cm:10,es:"Hair Wash & Color",bk:false,dm:20},
+  {id:105,cat:"Barbershop",sub:"Color",     name:"Hair Color",        price:1500,cm:10,es:"Hair Wash & Color",bk:false,dm:60},
+  {id:106,cat:"Barbershop",sub:"Color",     name:"Hair Color & Wash", price:1800,cm:10,es:"Hair Wash & Color",bk:false,dm:90},
+  {id:107,cat:"Barbershop",sub:"Treatment", name:"Hair Treatment",    price:800, cm:10,es:"Hair Wash & Color",bk:false,dm:45},
+  {id:108,cat:"Barbershop",sub:"Treatment", name:"Deep Conditioning", price:600, cm:10,es:"Hair Wash & Color",bk:false,dm:40},
   // ── Beauty Salon: Nails ──────────────────────────────────
   {id:201,cat:"Beauty Salon",sub:"Nails",  name:"ስፔሻል ፔዲኪዩር",price:1500,cm:0,es:"Wash & Pedicure",bk:false,dm:60},
   {id:202,cat:"Beauty Salon",sub:"Nails",  name:"ኖርማል ፔዲኪዩር",price:1000,cm:0,es:"Wash & Pedicure",bk:false,dm:45},
@@ -817,854 +817,457 @@ const DEFAULT_INVENTORY=[
   {id:100,name:"Envelopes",category:"Consumables",qty:1,unit:"pcs",minQty:5,price:0},
   {id:101,name:"Paper (A4)",category:"Consumables",qty:5,unit:"pcs",minQty:1,price:0},
 ];
-
-function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
-  const[sdRange,setSdRange]=React.useState(true);
-  const[sdFrom,setSdFrom]=React.useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10);});
-  const[sdTo,setSdTo]=React.useState(()=>new Date().toISOString().slice(0,10));
-  const[sdEmp,setSdEmp]=React.useState("All");
-  const[sdSub,setSdSub]=React.useState("All");
-  const[sdSort,setSdSort]=React.useState("employee");
-  const[expandEmp,setExpandEmp]=React.useState(null);
-  function today(){return new Date().toISOString().slice(0,10);}
-
-  const empNames=["All",...new Set(svcLog.map(r=>r.employee).filter(Boolean))].sort();
-  const subNames=["All",...new Set(svcLog.map(r=>r.sub).filter(Boolean))].sort();
-
-  const filtered=svcLog.filter(r=>{
-    const d=r.date||"";
-    if(sdRange){if(d<sdFrom||d>sdTo)return false;}
-    else{if(d!==sdFrom)return false;}
-    if(sdEmp!=="All"&&r.employee!==sdEmp)return false;
-    if(sdSub!=="All"&&r.sub!==sdSub)return false;
-    return true;
-  });
-
-  const lastSafeTime=(avgMins)=>{
-    if(!avgMins||avgMins<=0)return null;
-    const closeMin=CLOSE_HOUR*60;
-    const latest=closeMin-avgMins-15;
-    if(latest<0||latest<8*60)return null;
-    return String(Math.floor(latest/60)).padStart(2,"0")+":"+String(latest%60).padStart(2,"0");
-  };
-
-  // Per-employee aggregation
-  const empStats=empNames.filter(n=>n!=="All").map(name=>{
-    const logs=filtered.filter(r=>r.employee===name);
-    if(!logs.length)return null;
-    const byService={};
-    logs.forEach(r=>{
-      const k=r.service||"Unknown";
-      if(!byService[k])byService[k]={name:k,sub:r.sub||"",count:0,totalActual:0,totalExpected:0};
-      byService[k].count++;
-      byService[k].totalActual+=Number(r.durationMins||0);
-      byService[k].totalExpected+=Number(r.expectedMins||0);
-    });
-    const services=Object.values(byService).map(s=>({
-      ...s,
-      avgActual:Math.round(s.totalActual/s.count),
-      avgExpected:Math.round(s.totalExpected/s.count),
-      diff:Math.round(s.totalActual/s.count)-Math.round(s.totalExpected/s.count),
-    })).sort((a,b)=>b.count-a.count);
-    const totalActual=logs.reduce((s,r)=>s+Number(r.durationMins||0),0);
-    const avgTime=Math.round(totalActual/logs.length);
-    const slowCount=logs.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
-    const fastCount=logs.filter(r=>Number(r.durationMins||0)<Number(r.expectedMins||0)-5).length;
-    const overMin=logs.reduce((s,r)=>s+Math.max(0,Number(r.durationMins||0)-Number(r.expectedMins||0)),0);
-    const speedScore=Math.max(0,Math.round(100-(overMin/(logs.length*10)*100)));
-    const emp=emps.find(e=>e.name===name);
-    return{name,section:emp?.section||"",totalServices:logs.length,avgTime,slowCount,fastCount,speedScore,services,logs};
-  }).filter(Boolean);
-
-  const totalLogs=filtered.length;
-  const overallAvg=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.durationMins||0),0)/totalLogs):0;
-  const overallExp=totalLogs>0?Math.round(filtered.reduce((s,r)=>s+Number(r.expectedMins||0),0)/totalLogs):0;
-  const overCount=filtered.filter(r=>Number(r.durationMins||0)>Number(r.expectedMins||0)+10).length;
-
-  const diffColor=(diff)=>diff>10?"#B91C1C":diff<-5?"#1B4FA8":"#166534";
-  const diffBg=(diff)=>diff>10?"#FEF2F2":diff<-5?"#EBF2FD":"#F0FDF4";
-
-  return<section style={S.card}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:16}}>
-      <div>
-        <h2 style={{...S.ct,marginBottom:2}}>⏱ Service Duration</h2>
-        <p style={{...S.hlp,margin:0}}>How long each employee takes per service — identifies slow patterns and helps plan last booking times.</p>
-      </div>
-      <div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 14px",textAlign:"center"}}>
-        <b style={{fontSize:20,color:"#fff",display:"block"}}>{svcLog.length}</b>
-        <p style={{margin:0,fontSize:10,color:"#5A8C72"}}>total records</p>
-      </div>
-    </div>
-
-    {/* ── Filters ── */}
-    <div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16}}>
-      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(5,1fr)",gap:8,alignItems:"flex-end"}}>
-        <div><p style={S.lbl}>Employee</p>
-          <select style={S.inp} value={sdEmp} onChange={e=>setSdEmp(e.target.value)}>
-            {empNames.map(n=><option key={n}>{n}</option>)}
-          </select>
-        </div>
-        <div><p style={S.lbl}>Service Type</p>
-          <select style={S.inp} value={sdSub} onChange={e=>setSdSub(e.target.value)}>
-            {subNames.map(n=><option key={n}>{n}</option>)}
-          </select>
-        </div>
-        <div><p style={S.lbl}>{sdRange?"From":"Date"}</p>
-          <input type="date" style={S.inp} value={sdFrom} onChange={e=>setSdFrom(e.target.value)}/>
-        </div>
-        {sdRange&&<div><p style={S.lbl}>To</p>
-          <input type="date" style={S.inp} value={sdTo} onChange={e=>setSdTo(e.target.value)}/>
-        </div>}
-        <div><p style={S.lbl}>Mode</p>
-          <button style={{...S.btnS,marginBottom:0}} onClick={()=>{setSdRange(r=>!r);if(!sdRange)setSdTo(today());}}>
-            {sdRange?"📅 Date Range ✓":"📅 Single Day"}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    {/* ── Summary ── */}
-    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:16}}>
-      {[
-        {label:"SERVICES LOGGED",value:totalLogs,sub:"in selected period",bg:"#1B2E4B",tx:"#fff",sub_tx:"#5A8C72"},
-        {label:"AVG ACTUAL TIME",value:overallAvg+" min",sub:"expected: "+overallExp+" min",bg:"#EBF2FD",tx:"#1B4FA8",sub_tx:"#1B4FA8"},
-        {label:"ON TIME",value:totalLogs>0?Math.round(((totalLogs-overCount)/totalLogs)*100)+"%":"—",sub:overCount+" slow, "+(totalLogs-overCount)+" on time",bg:overCount>totalLogs/2?"#FEF2F2":"#F0FDF4",tx:overCount>totalLogs/2?"#B91C1C":"#166534",sub_tx:"#64748B"},
-        {label:"LAST SAFE BOOKING",value:lastSafeTime(overallAvg)||"N/A",sub:"avg "+overallAvg+"m + 15m buffer",bg:"#FEF9EC",tx:"#92400E",sub_tx:"#92400E"},
-      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:12,padding:"12px 14px"}}>
-        <p style={{margin:0,fontSize:9,color:c.sub_tx,fontWeight:500,letterSpacing:0.8}}>{c.label}</p>
-        <b style={{fontSize:sc.mob?18:22,color:c.tx,display:"block",margin:"2px 0"}}>{c.value}</b>
-        <p style={{margin:0,fontSize:10,color:c.sub_tx}}>{c.sub}</p>
-      </div>)}
-    </div>
-
-    {totalLogs===0&&<div style={{textAlign:"center",padding:60,color:"#94A3B8"}}>
-      <div style={{fontSize:48,marginBottom:12}}>⏱</div>
-      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:8}}>No records yet for this period</b>
-      <p style={{fontSize:13,margin:0}}>Times are automatically recorded when a supervisor marks a service Completed.</p>
-    </div>}
-
-    {/* ── Per-Employee Cards ── */}
-    {empStats.length>0&&<>
-      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-        <h3 style={{...S.sh,margin:0}}>📊 By Employee</h3>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-          <span style={{fontSize:11,color:"#64748B"}}>Sort:</span>
-          {[["employee","A–Z"],["service","By Services"],["speed","Slowest First"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setSdSort(v)} style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(sdSort===v?"#1B2E4B":"#E2E8F0"),background:sdSort===v?"#1B2E4B":"#fff",color:sdSort===v?"#fff":"#475569",fontSize:11,cursor:"pointer"}}>{l}</button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
-        {[...empStats].sort((a,b)=>{
-          if(sdSort==="speed")return a.speedScore-b.speedScore;
-          if(sdSort==="service")return b.totalServices-a.totalServices;
-          return a.name.localeCompare(b.name);
-        }).map(emp=>{
-          const sc_color=emp.speedScore>=90?"#166534":emp.speedScore>=70?"#92400E":"#B91C1C";
-          const sc_bg=emp.speedScore>=90?"#F0FDF4":emp.speedScore>=70?"#FEF9EC":"#FEF2F2";
-          const isExp=expandEmp===emp.name;
-          return<div key={emp.name} style={{background:"#fff",border:"0.5px solid #E2E8F0",borderRadius:14,overflow:"hidden"}}>
-            {/* Header */}
-            <div style={{padding:"12px 14px",background:isExp?"#F8FAFC":"#fff",cursor:"pointer"}} onClick={()=>setExpandEmp(isExp?null:emp.name)}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
-                    <b style={{fontSize:14,color:"#111827"}}>{emp.name}</b>
-                    <span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:700}}>{emp.section}</span>
-                  </div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <span style={{fontSize:11,color:"#64748B"}}>{emp.totalServices} services · avg <b style={{color:"#111827"}}>{emp.avgTime} min</b></span>
-                    {emp.slowCount>0&&<span style={{background:"#FEF2F2",color:"#B91C1C",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>🐢 {emp.slowCount} slow</span>}
-                    {emp.fastCount>0&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:600}}>⚡ {emp.fastCount} fast</span>}
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
-                  <div style={{background:sc_bg,borderRadius:10,padding:"6px 10px",textAlign:"center"}}>
-                    <b style={{fontSize:16,color:sc_color,display:"block"}}>{emp.speedScore}%</b>
-                    <p style={{margin:0,fontSize:9,color:sc_color}}>on-time</p>
-                  </div>
-                  <span style={{fontSize:16,color:"#94A3B8"}}>{isExp?"▲":"▼"}</span>
-                </div>
-              </div>
-              {/* Capacity line */}
-              {emp.avgTime>0&&<div style={{marginTop:8,background:"#FEF9EC",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#92400E"}}>
-                ⏰ Last safe booking: <b>{lastSafeTime(emp.avgTime)||"Cannot take new customers at this time"}</b>
-                <span style={{color:"#B45309",marginLeft:6,fontSize:10}}>(avg {emp.avgTime}m + 15m buffer)</span>
-              </div>}
-            </div>
-
-            {/* Expanded: per-service breakdown */}
-            {isExp&&<div style={{padding:"0 14px 14px"}}>
-              <div style={{borderTop:"0.5px solid #E2E8F0",marginBottom:10,marginTop:4}}/>
-              {/* Service table */}
-              <div style={{overflowX:"auto"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:300}}>
-                  <span>Service</span><span style={{textAlign:"center"}}>×</span><span style={{textAlign:"center"}}>Avg</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
-                </div>
-                {emp.services.map((s,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 45px 55px 65px 55px",gap:4,padding:"5px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",minWidth:300}}>
-                  <div>
-                    <span style={{color:"#111827",fontWeight:500}}>{s.name}</span>
-                    {s.sub&&<span style={{color:"#94A3B8",fontSize:10,marginLeft:4,display:"block"}}>{s.sub}</span>}
-                  </div>
-                  <span style={{textAlign:"center",color:"#475569"}}>{s.count}</span>
-                  <span style={{textAlign:"center",fontWeight:700,color:"#1B2E4B"}}>{s.avgActual}m</span>
-                  <span style={{textAlign:"center",color:"#64748B"}}>{s.avgExpected}m</span>
-                  <span style={{textAlign:"center",background:diffBg(s.diff),color:diffColor(s.diff),borderRadius:5,padding:"1px 5px",fontWeight:700,fontSize:11}}>{s.diff>0?"+":""}{s.diff}m</span>
-                </div>)}
-              </div>
-              {/* Recent records for this employee */}
-              <div style={{marginTop:12}}>
-                <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>Recent records:</p>
-                {emp.logs.slice(0,8).map((r,i)=>{
-                  const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
-                  return<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11}}>
-                    <span style={{color:"#374151",flex:1}}>{r.service}</span>
-                    <span style={{color:"#64748B",marginRight:10}}>{r.customer} · {r.date}</span>
-                    <span style={{background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 7px",fontWeight:700,fontSize:11,flexShrink:0}}>{r.durationMins}m {diff>0?"(+"+diff+"m)":diff<0?"("+diff+"m)":"(on time)"}</span>
-                  </div>;
-                })}
-              </div>
-            </div>}
-          </div>;
-        })}
-      </div>
-
-      {/* ── Full log table ── */}
-      <div style={{borderTop:"0.5px solid #E2E8F0",margin:"16px 0"}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-        <h3 style={{...S.sh,margin:0}}>📋 Full Log — Every Service</h3>
-        <span style={{fontSize:11,color:"#64748B"}}>{filtered.length} records</span>
-      </div>
-      <div style={{overflowX:"auto",maxHeight:500,overflowY:"auto"}}>
-        <div style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"6px 10px",background:"#1B2E4B",borderRadius:8,marginBottom:4,fontSize:10,fontWeight:700,color:"#fff",minWidth:540,position:"sticky",top:0}}>
-          <span>Employee</span><span>Service</span><span>Customer</span><span style={{textAlign:"center"}}>#</span><span style={{textAlign:"center"}}>Actual</span><span style={{textAlign:"center"}}>Expected</span><span style={{textAlign:"center"}}>Diff</span>
-        </div>
-        {[...filtered].sort((a,b)=>{
-          if(sdSort==="speed"){const da=Number(a.durationMins||0)-Number(a.expectedMins||0);const db=Number(b.durationMins||0)-Number(b.expectedMins||0);return db-da;}
-          if(sdSort==="service")return(a.service||"").localeCompare(b.service||"");
-          if(sdSort==="date")return(b.date||"").localeCompare(a.date||"");
-          return(a.employee||"").localeCompare(b.employee||"");
-        }).map((r,i)=>{
-          const diff=Number(r.durationMins||0)-Number(r.expectedMins||0);
-          return<div key={i} style={{display:"grid",gridTemplateColumns:"120px 1fr 1fr 50px 55px 65px 60px",gap:4,padding:"5px 10px",background:i%2===0?"#F8FAFC":"#fff",borderRadius:6,marginBottom:2,fontSize:11,alignItems:"center",border:diff>10?"1px solid #FECACA":"none",minWidth:540}}>
-            <span style={{fontWeight:500,color:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.employee}</span>
-            <span style={{color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.service}</span>
-            <span style={{color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.customer}</span>
-            <span style={{textAlign:"center",color:"#64748B"}}>#{r.queue}</span>
-            <span style={{textAlign:"center",fontWeight:700,color:"#111827"}}>{r.durationMins}m</span>
-            <span style={{textAlign:"center",color:"#64748B"}}>{r.expectedMins}m</span>
-            <span style={{textAlign:"center",background:diffBg(diff),color:diffColor(diff),borderRadius:5,padding:"1px 6px",fontWeight:700}}>{diff>0?"+":""}{diff}m</span>
-          </div>;
-        })}
-        {filtered.length===0&&<div style={{textAlign:"center",padding:30,color:"#94A3B8",fontSize:13}}>No records match this filter.</div>}
-      </div>
-    </>}
-  </section>;
-}
-
 function QueueSummary({visits,emps,sc}){
   const[open,setOpen]=React.useState(false);
   const today=visits.filter(v=>v.date===new Date().toISOString().slice(0,10));
   const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
-
-  // Count by section: who is waiting / in progress per section
   const sections={};
   active.forEach(v=>{
     (v.services||[]).forEach(l=>{
       if(["Completed","Cancelled"].includes(l.status))return;
       const sec=l.employeeSection||"Other";
       if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
-      if(l.status==="In Progress")sections[sec].inProgress++;
-      else sections[sec].waiting++;
+      if(l.status==="In Progress")sections[sec].inProgress++;else sections[sec].waiting++;
     });
-    // Customers with no services yet
-    if(!(v.services||[]).length){
-      const sec="Unassigned";
-      if(!sections[sec])sections[sec]={waiting:0,inProgress:0};
-      sections[sec].waiting++;
-    }
+    if(!(v.services||[]).length){if(!sections["Unassigned"])sections["Unassigned"]={waiting:0,inProgress:0};sections["Unassigned"].waiting++;}
   });
-
-  const totalWaiting=active.filter(v=>v.status==="Waiting for Supervisor"||v.status==="With Supervisor").length;
-  const totalInProgress=active.filter(v=>v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress")).length;
-  const totalReady=active.filter(v=>v.status==="Ready for Payment").length;
-  const totalAllDone=active.filter(v=>(v.services||[]).length>0&&(v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment").length;
-  const entries=Object.entries(sections).sort((a,b)=>(b[1].inProgress+b[1].waiting)-(a[1].inProgress+a[1].waiting));
-
+  const totalW=active.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)).length;
+  const totalIP=active.filter(v=>v.status==="In Service").length;
+  const totalR=active.filter(v=>v.status==="Ready for Payment").length;
+  const totalD=active.filter(v=>(v.services||[]).length>0&&(v.services||[]).every(l=>["Completed","Cancelled"].includes(l.status))&&v.status!=="Ready for Payment").length;
   if(!active.length)return null;
-
   return<div style={{position:"relative",marginBottom:10}}>
     <button onClick={()=>setOpen(o=>!o)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#fff"}}>
-      <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{fontSize:11,fontWeight:500,color:"#5A8C72",letterSpacing:0.5}}>QUEUE STATUS</span>
-        <span style={{display:"flex",gap:6,alignItems:"center"}}>
-          {totalWaiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>⏳ {totalWaiting} waiting</span>}
-          {totalInProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>🔄 {totalInProgress} in progress</span>}
-          {totalAllDone>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✅ {totalAllDone} done</span>}
-          {totalReady>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>💳 {totalReady} ready</span>}
-        </span>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:10,fontWeight:600,color:"#5A8C72",letterSpacing:0.8}}>QUEUE STATUS</span>
+        {totalW>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>⏳ {totalW} waiting</span>}
+        {totalIP>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>🔄 {totalIP} in progress</span>}
+        {totalD>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>✅ {totalD} done</span>}
+        {totalR>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>💳 {totalR} ready</span>}
       </div>
-      <span style={{color:"#5A8C72",fontSize:14,flexShrink:0}}>{open?"▲":"▼"}</span>
+      <span style={{color:"#5A8C72",fontSize:13,flexShrink:0}}>{open?"▲":"▼"}</span>
     </button>
-
     {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",padding:12,marginTop:4}}>
-      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>BY SERVICE SECTION</p>
-      {entries.length===0&&<p style={{fontSize:12,color:"#94A3B8",margin:0}}>No active services</p>}
-      {entries.map(([sec,counts])=><div key={sec} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4}}>
-        <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{sec}</span>
-        <div style={{display:"flex",gap:6}}>
-          {counts.waiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.waiting} waiting</span>}
-          {counts.inProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:5,padding:"1px 8px",fontSize:11,fontWeight:700}}>{counts.inProgress} in progress</span>}
+      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:0.8}}>BY SECTION</p>
+      {Object.entries(sections).sort((a,b)=>(b[1].inProgress+b[1].waiting)-(a[1].inProgress+a[1].waiting)).map(([sec,c])=><div key={sec} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"#F8FAFC",borderRadius:7,marginBottom:3}}>
+        <span style={{fontSize:12,color:"#1B2E4B",fontWeight:500}}>{sec}</span>
+        <div style={{display:"flex",gap:5}}>
+          {c.waiting>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"0 7px",fontSize:10,fontWeight:700}}>{c.waiting} waiting</span>}
+          {c.inProgress>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:5,padding:"0 7px",fontSize:10,fontWeight:700}}>{c.inProgress} in progress</span>}
         </div>
       </div>)}
-      <div style={{borderTop:"0.5px solid #E2E8F0",marginTop:8,paddingTop:8}}>
-        <p style={{margin:"0 0 4px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOTAL ACTIVE TODAY</p>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B2E4B"}}>{active.length}</b> customers</span>
-          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#92400E"}}>{totalWaiting}</b> waiting</span>
-          <span style={{fontSize:12,color:"#374151"}}><b style={{color:"#1B4FA8"}}>{totalInProgress}</b> in progress</span>
-          {totalAllDone>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalAllDone}</b> all done</span>}
-          {totalReady>0&&<span style={{fontSize:12,color:"#374151"}}><b style={{color:"#166534"}}>{totalReady}</b> ready for payment</span>}
-        </div>
+      <div style={{borderTop:"0.5px solid #E2E8F0",marginTop:8,paddingTop:8,display:"flex",gap:12,flexWrap:"wrap",fontSize:12,color:"#374151"}}>
+        <span><b style={{color:"#1B2E4B"}}>{active.length}</b> total</span>
+        <span><b style={{color:"#92400E"}}>{totalW}</b> waiting</span>
+        <span><b style={{color:"#1B4FA8"}}>{totalIP}</b> in progress</span>
+        {totalR>0&&<span><b style={{color:"#166534"}}>{totalR}</b> ready</span>}
       </div>
     </div>}
   </div>;
 }
 
-function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving,barberQueueNum,setBarberQueueNum}){
-  const[bName,setBName]=React.useState("");
-  const[bPhone,setBPhone]=React.useState("");
-  const[bNote,setBNote]=React.useState("");
-  const[bSvcIds,setBSvcIds]=React.useState([]); // multiple services
-  const[bBarber,setBBarber]=React.useState("");
-  const[bRoza,setBRoza]=React.useState("");    // separate Roza preference
-  const[showReg,setShowReg]=React.useState(false);
-  const[tipModal,setTipModal]=React.useState(null); // {visitId}
-  const[tipAmt,setTipAmt]=React.useState("");
-  const[tipEmpName,setTipEmpName]=React.useState("");
+function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
+  const[selEmp,setSelEmp]=React.useState("all");
+  const[selSvc,setSelSvc]=React.useState("all");
+  const today=new Date().toISOString().slice(0,10);
+  const logs=(svcLog||[]).filter(l=>l.date===today);
+  const empNames=[...new Set(logs.map(l=>l.employee).filter(Boolean))];
+  const svcNames=[...new Set(logs.map(l=>l.service).filter(Boolean))];
+  const filtered=logs.filter(l=>(selEmp==="all"||l.employee===selEmp)&&(selSvc==="all"||l.service===selSvc));
+  const avgByEmp={};
+  empNames.forEach(e=>{const rows=logs.filter(l=>l.employee===e&&l.duration>0);avgByEmp[e]=rows.length?Math.round(rows.reduce((s,l)=>s+l.duration,0)/rows.length):0;});
+  const avgByService={};
+  svcNames.forEach(s=>{const rows=logs.filter(l=>l.service===s&&l.duration>0);avgByService[s]=rows.length?Math.round(rows.reduce((s2,l)=>s2+l.duration,0)/rows.length):0;});
+  const now=new Date();
+  const closeMin=CLOSE_HOUR*60;
+  const curMin=now.getHours()*60+now.getMinutes();
+  const minsLeft=Math.max(0,closeMin-curMin);
+  return<section style={S.card}>
+    <h2 style={S.ct}>⏱ Service Duration</h2>
+    <p style={S.hlp}>How long each service takes per employee — helps plan last customer intake.</p>
+    <div style={{background:"#1B2E4B",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <span style={{color:"#94A3B8",fontSize:12}}>Time until close</span>
+      <b style={{color:minsLeft<60?"#F87171":"#5A8C72",fontSize:18}}>{Math.floor(minsLeft/60)}h {minsLeft%60}m</b>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:14}}>
+      {empNames.length>0&&<div>
+        <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>AVG BY EMPLOYEE</p>
+        {Object.entries(avgByEmp).map(([e,m])=><div key={e} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4}}>
+          <span style={{fontSize:12,color:"#1B2E4B",fontWeight:500}}>{e}</span>
+          <b style={{fontSize:13,color:m>45?"#DC2626":m>30?"#D97706":"#166534"}}>{m} min</b>
+        </div>)}
+      </div>}
+      {svcNames.length>0&&<div>
+        <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>AVG BY SERVICE</p>
+        {Object.entries(avgByService).map(([s,m])=><div key={s} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4}}>
+          <span style={{fontSize:12,color:"#1B2E4B",fontWeight:500}}>{s}</span>
+          <b style={{fontSize:13,color:"#1B4FA8"}}>{m} min</b>
+        </div>)}
+      </div>}
+    </div>
+    {filtered.length===0?<p style={{color:"#94A3B8",fontSize:13,textAlign:"center",padding:"20px 0"}}>No service logs yet today. Data records automatically as services are completed.</p>
+    :<div>
+      <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+        <select style={{...S.inp,width:"auto",marginBottom:0}} value={selEmp} onChange={e=>setSelEmp(e.target.value)}>
+          <option value="all">All Staff</option>{empNames.map(e=><option key={e}>{e}</option>)}
+        </select>
+        <select style={{...S.inp,width:"auto",marginBottom:0}} value={selSvc} onChange={e=>setSelSvc(e.target.value)}>
+          <option value="all">All Services</option>{svcNames.map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+      {filtered.sort((a,b)=>b.endTime-a.endTime).map((l,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#F8FAFC",borderRadius:8,marginBottom:4,fontSize:12}}>
+        <div>
+          <b style={{color:"#1B2E4B"}}>{l.service}</b>
+          <span style={{color:"#64748B",marginLeft:8}}>{l.employee}</span>
+        </div>
+        <b style={{color:l.duration>45?"#DC2626":l.duration>30?"#D97706":"#166534"}}>{l.duration} min</b>
+      </div>)}
+    </div>}
+  </section>;
+}
 
+function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct,push,setVisits,queueEnabled,setQueueEnabled,saving,setSaving,barberQueueNum,setBarberQueueNum}){
+  const R=React;
+  const[bName,setBName]=R.useState("");const[bPhone,setBPhone]=R.useState("");
+  const[bNote,setBNote]=R.useState("");const[bSvcIds,setBSvcIds]=R.useState([]);
+  const[bBarber,setBBarber]=R.useState("");const[bRoza,setBRoza]=R.useState("");
+  const[showReg,setShowReg]=R.useState(false);const[selId,setSelId]=R.useState(null);
+  const[errs,setErrs]=R.useState({});
   const barberEmps=emps.filter(e=>e.active&&e.section==="Barbershop");
   const rozaEmps=emps.filter(e=>e.active&&(e.section==="Hair Wash & Color"||e.name==="Roza"||e.name==="ሮዛ"));
-  const allBarberStaff=[...barberEmps,...rozaEmps];
-  const barberSvcs=svcs.filter(s=>s.category==="Barbershop"&&(s.employeeSection==="Barbershop"||!s.employeeSection));
-  const rozaSvcs=svcs.filter(s=>s.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(s.sub));
-  const allAreaSvcs=[...barberSvcs,...rozaSvcs];
-  function lineIncome(l){return l.free?0:Math.max(0,Number(l.price||0)*Number(l.qty||1)-Number(l.discount||0));}
-
-  // Today's barbershop visits
+  const allStaff=[...barberEmps,...rozaEmps];
+  const barberSvcs=svcs.filter(s=>s.category==="Barbershop"&&s.employeeSection==="Barbershop");
+  const rozaSvcs=svcs.filter(s=>s.employeeSection==="Hair Wash & Color");
+  const allSvcs=[...barberSvcs,...rozaSvcs];
+  const li=l=>l.free?0:Math.max(0,Number(l.price||0)*Number(l.qty||1)-Number(l.discount||0));
   const today=visits.filter(v=>{
     if(v.date!==todayStr())return false;
-    if(["Paid & Closed","Cancelled"].includes(v.status)&&v.status!=="Paid & Closed")return false;
-    const lines=v.services||[];
-    if(lines.length===0)return false;
-    return lines.some(l=>["Barbershop","Hair Wash & Color"].includes(l.employeeSection)||l.category==="Barbershop");
-  }).sort((a,b)=>a.queue-b.queue);
-
+    const ls=v.services||[];if(!ls.length)return false;
+    return ls.some(l=>["Barbershop","Hair Wash & Color"].includes(l.employeeSection)||l.category==="Barbershop");
+  }).sort((a,b)=>(a.barberQueue||0)-(b.barberQueue||0));
+  const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
   const waiting=today.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status));
   const inProgress=today.filter(v=>v.status==="In Service");
   const readyToPay=today.filter(v=>v.status==="Ready for Payment");
   const paid=today.filter(v=>v.status==="Paid & Closed");
-
-  // Per-staff queue counts (waiting by preference, in-progress by assignment)
-  const staffQueues={};
-  allBarberStaff.forEach(e=>{staffQueues[e.name]={waiting:0,inProgress:0,total:0};});
-  waiting.forEach(v=>{
-    const pref=(v.services||[]).map(l=>l.preferredEmployee||l.employee).find(Boolean);
-    if(pref&&staffQueues[pref]){staffQueues[pref].waiting++;staffQueues[pref].total++;}
-  });
-  inProgress.forEach(v=>{
-    (v.services||[]).filter(l=>l.status==="In Progress").forEach(l=>{
-      const emp=l.employee;
-      if(emp&&staffQueues[emp]){staffQueues[emp].inProgress++;staffQueues[emp].total++;}
-    });
-  });
-
-  const totalRevToday=paid.reduce((s,v)=>s+(v.totalPaid||0),0);
-
+  const sel=today.find(v=>v.id===selId)||null;
+  const sq={};allStaff.forEach(e=>{sq[e.name]={w:0,p:0,n:0};});
+  waiting.forEach(v=>{const pref=(v.services||[]).map(l=>l.preferredEmployee||l.employee).find(Boolean);if(pref&&sq[pref]){sq[pref].w++;sq[pref].n++;}});
+  inProgress.forEach(v=>{(v.services||[]).filter(l=>l.status==="In Progress").forEach(l=>{if(l.employee&&sq[l.employee]){sq[l.employee].p++;sq[l.employee].n++;}});});
+  const rev=paid.reduce((s,v)=>s+(v.totalPaid||0),0);
+  const lc=n=>n===0?"#5A8C72":n===1?"#D97706":"#DC2626";
+  const ll=n=>n===0?"Free":n===1?"1 waiting":n+" waiting";
+  function validate(){const e={};if(!bName.trim())e.name="Name is required";if(!bSvcIds.length)e.svcs="Select at least one service";setErrs(e);return!Object.keys(e).length;}
   async function addWalkIn(){
-    if(!bName.trim())return alert("Enter customer name.");
-    if(!bSvcIds.length)return alert("Select at least one service.");
+    if(!validate())return;
     const lines=bSvcIds.map((sid,i)=>{
-      const svc=allAreaSvcs.find(s=>s.id===Number(sid));
-      if(!svc)return null;
-      const prefEmp=svc.employeeSection==="Hair Wash & Color"?(bRoza||""):(bBarber&&bBarber!=="random"?bBarber:"");
-      return{lineId:Date.now()+i,serviceId:svc.id,name:svc.name,
-        category:"Barbershop",sub:svc.sub||"Barbershop",
-        price:Number(svc.price),qty:1,discount:0,free:false,
-        commission:Number(svc.commission||svc.cm||0),
-        employeeSection:svc.employeeSection||"Barbershop",
-        employee:"",preferredEmployee:prefEmp,status:"Waiting",wigDeduction:0};
+      const svc=allSvcs.find(s=>s.id===Number(sid));if(!svc)return null;
+      const pref=svc.employeeSection==="Hair Wash & Color"?(bRoza||""):(bBarber&&bBarber!=="random"?bBarber:"");
+      return{lineId:Date.now()+i,serviceId:svc.id,name:svc.name,category:"Barbershop",sub:svc.sub||"Barbershop",
+        price:Number(svc.price),qty:1,discount:0,free:false,commission:Number(svc.commission||0),
+        employeeSection:svc.employeeSection||"Barbershop",employee:"",preferredEmployee:pref,status:"Waiting",wigDeduction:0};
     }).filter(Boolean);
-    // Barbershop uses its OWN queue number (B-1, B-2...) separate from main salon queue
     const bqNum=queueEnabled?barberQueueNum:0;
-    const nextBqNum=bqNum+1;
-    const cid=bName.trim().toLowerCase().replace(/\s+/g,"_")+"_"+(bPhone.trim()||"walkin")+Date.now();
-    const prefNote=[bBarber&&bBarber!=="random"?"Barber: "+bBarber:"",bRoza?"Roza: "+bRoza:""].filter(Boolean).join(" · ");
-    const vr={id:Date.now(),date:todayStr(),
-      // barber_queue stores the B-number; main queue stays 0 so it doesn't mess up reception order
-      queue:0,barber_queue:bqNum,
-      customer_id:cid,name:bName.trim(),payer_name:bName.trim(),
-      phone:bPhone.trim(),group_id:null,group_name:"",
-      services:lines,total_service:lines.reduce((s,l)=>s+lineIncome(l),0),
-      total_paid:0,payment_method:"",tips:[],
-      status:"Waiting for Supervisor",
-      note:[bNote.trim(),prefNote].filter(Boolean).join(" — ")
-    };
-    setSaving(true);
-    const{error}=await supabase.from("visits").insert(vr);
-    setSaving(false);
+    const cid="B_"+bName.trim().replace(/\s+/g,"_").toLowerCase()+"_"+Date.now();
+    const pn=[bBarber&&bBarber!=="random"?"Barber: "+bBarber:"",bRoza?"Roza: "+bRoza:""].filter(Boolean).join(" · ");
+    const vr={id:Date.now(),date:todayStr(),queue:0,barber_queue:bqNum,customer_id:cid,
+      name:bName.trim(),payer_name:bName.trim(),phone:bPhone.trim(),group_id:null,group_name:"",
+      services:lines,total_service:lines.reduce((s,l)=>s+li(l),0),total_paid:0,payment_method:"",tips:[],
+      status:"Waiting for Supervisor",note:[bNote.trim(),pn].filter(Boolean).join(" — ")};
+    setSaving(true);const{error}=await supabase.from("visits").insert(vr);setSaving(false);
     if(error){push("Failed: "+error.message,"error");return;}
-    // Increment barbershop queue counter and save to DB
-    if(queueEnabled){
-      setBarberQueueNum(nextBqNum);
-      supabase.from("settings").upsert({key:"barberQueueNum",value:String(nextBqNum)}).then(()=>{});
-    }
-    setVisits(prev=>[...prev,{...vr,totalService:vr.total_service,totalPaid:0,
-      customerId:vr.customer_id,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null,barberQueue:bqNum}]);
-    logAct(user,"Barbershop Walk-in",bName.trim()+" — "+lines.map(l=>l.name).join(", "));
-    setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");setShowReg(false);
-    push(bName.trim()+" added"+(queueEnabled?" — B-"+bqNum:""),"success");
+    if(queueEnabled){const nx=bqNum+1;setBarberQueueNum(nx);supabase.from("settings").upsert({key:"barberQueueNum",value:String(nx)}).then(()=>{});}
+    setVisits(p=>[...p,{...vr,barberQueue:bqNum,totalService:vr.total_service,totalPaid:0,customerId:cid,payerName:vr.payer_name,groupId:null,groupName:"",paymentMethod:"",registeredAt:null}]);
+    logAct(user,"Barbershop Walk-in",bName.trim()+(queueEnabled?" B-"+bqNum:"")+" — "+lines.map(l=>l.name).join(", "));
+    const n=bName.trim();setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");setShowReg(false);setErrs({});
+    push(n+" added"+(queueEnabled?" — B-"+bqNum:""),"success");
   }
-
-  async function assignStaff(visitId,lineId,empName){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const upd=(v.services||[]).map(l=>l.lineId===lineId
-      ?{...l,employee:empName,preferredEmployee:l.preferredEmployee||empName,status:empName?"In Progress":"Waiting"}
-      :l);
-    const hasInProgress=upd.some(l=>l.status==="In Progress");
-    const{error}=await supabase.from("visits").update({services:upd,status:hasInProgress?"In Service":"Waiting for Supervisor"}).eq("id",visitId);
+  async function assign(vid,lid,emp){
+    const v=visits.find(x=>x.id===vid);if(!v)return;
+    const upd=(v.services||[]).map(l=>l.lineId===lid?{...l,employee:emp,preferredEmployee:l.preferredEmployee||emp,status:emp?"In Progress":"Waiting"}:l);
+    const has=upd.some(l=>l.status==="In Progress");
+    const{error}=await supabase.from("visits").update({services:upd,status:has?"In Service":"Waiting for Supervisor"}).eq("id",vid);
     if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:hasInProgress?"In Service":"Waiting for Supervisor"}:x));
+    setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:has?"In Service":"Waiting for Supervisor"}:x));
   }
-
-  async function markDone(visitId,lineId){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const upd=(v.services||[]).map(l=>l.lineId===lineId?{...l,status:"Completed"}:l);
-    const allDone=upd.filter(l=>l.status!=="Cancelled").every(l=>l.status==="Completed");
-    const newStatus=allDone?"Ready for Payment":"In Service";
-    const{error}=await supabase.from("visits").update({services:upd,status:newStatus}).eq("id",visitId);
+  async function done(vid,lid){
+    const v=visits.find(x=>x.id===vid);if(!v)return;
+    const upd=(v.services||[]).map(l=>l.lineId===lid?{...l,status:"Completed"}:l);
+    const all=upd.filter(l=>l.status!=="Cancelled").every(l=>l.status==="Completed");
+    const{error}=await supabase.from("visits").update({services:upd,status:all?"Ready for Payment":"In Service"}).eq("id",vid);
     if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,services:upd,status:newStatus}:x));
-    if(allDone)push(v.name+" — ready to pay","success");
+    setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:all?"Ready for Payment":"In Service"}:x));
+    if(all)push(v.name+" — ready to pay 💳","success");
   }
-
-  async function addTipToVisit(visitId){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    const amt=Number(tipAmt);
-    if(!amt||amt<=0)return alert("Enter tip amount.");
-    if(!tipEmpName)return alert("Select who gets the tip.");
-    const newTips=[...(v.tips||[]),{id:Date.now(),employee:tipEmpName,amount:amt}];
-    const{error}=await supabase.from("visits").update({tips:newTips}).eq("id",visitId);
-    if(error){push("Failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,tips:newTips}:x));
-    setTipModal(null);setTipAmt("");setTipEmpName("");
-    push("Tip of "+amt.toLocaleString()+" Birr added for "+tipEmpName,"success");
-  }
-
-  async function collectPayment(visitId,method,cardTips,cardTotal){
-    const v=visits.find(x=>x.id===visitId);if(!v)return;
-    // Use tips/total from BarberCard if provided (they may have added tips locally)
-    const finalTips=cardTips||v.tips||[];
-    const finalTotal=cardTotal||(v.totalService||0)+finalTips.reduce((s,t)=>s+Number(t.amount||0),0);
-    const{error}=await supabase.from("visits").update({
-      status:"Paid & Closed",total_paid:finalTotal,
-      payment_method:method,tips:finalTips
-    }).eq("id",visitId);
+  async function pay(vid,method,tips,total){
+    const v=visits.find(x=>x.id===vid);if(!v)return;
+    const{error}=await supabase.from("visits").update({status:"Paid & Closed",total_paid:total,payment_method:method,tips}).eq("id",vid);
     if(error){push("Payment failed: "+error.message,"error");return;}
-    setVisits(prev=>prev.map(x=>x.id===visitId?{...x,status:"Paid & Closed",totalPaid:finalTotal,paymentMethod:method,tips:finalTips}:x));
-    logAct(user,"Barbershop Payment",v.name+" — "+finalTotal.toLocaleString()+" Birr via "+method+(finalTips.length?" + tips":""));
-    push(v.name+" — "+finalTotal.toLocaleString()+" Birr collected via "+method,"success");
+    setVisits(p=>p.map(x=>x.id===vid?{...x,status:"Paid & Closed",totalPaid:total,paymentMethod:method,tips}:x));
+    logAct(user,"Barbershop Payment",v.name+" — "+total.toLocaleString()+" Birr via "+method);
+    push("✓ "+v.name+" paid "+total.toLocaleString()+" Birr via "+method,"success");setSelId(null);
   }
-
-  async function toggleQueue(val){
-    setQueueEnabled(val);
-    await supabase.from("settings").upsert({key:"queueEnabled",value:String(val)});
-    push("Queue numbers "+(val?"enabled":"disabled"),"success");
+  async function toggleQ(val){setQueueEnabled(val);await supabase.from("settings").upsert({key:"queueEnabled",value:String(val)});push("Queue "+(val?"ON":"OFF"),"success");}
+  const gc=sc.mob?"1fr":"270px 1fr";
+  const bq=v=>v.barberQueue||v.barber_queue||0;
+  function ListBtn({v,selId,setSelId,colorBg,colorBorder,colorSel,badge}){
+    const sel=selId===v.id;
+    const bqv=bq(v);
+    const svcLine=(v.services||[]).map(l=>l.name).join(", ");
+    const nextUp=waiting[0]?.id===v.id||inProgress[0]?.id===v.id;
+    return<button onClick={()=>setSelId(v.id)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:11,border:`1.5px solid ${sel?colorSel:colorBorder}`,background:sel?colorSel:colorBg,color:sel?"#fff":"#111827",cursor:"pointer",marginBottom:5,textAlign:"left",transition:"all 0.12s"}}>
+      <span style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+        {queueEnabled&&bqv>0&&<span style={{background:sel?"rgba(255,255,255,0.2)":"#1B2E4B",color:sel?"#fff":"#E0B85A",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:800,flexShrink:0}}>B-{bqv}</span>}
+        {nextUp&&<span style={{background:"#5A8C72",color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:700,flexShrink:0}}>NEXT</span>}
+        <span style={{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.name}</span>
+      </span>
+      <span style={{fontSize:11,color:sel?"rgba(255,255,255,0.7)":"#64748B",flexShrink:0,marginLeft:6}}>{svcLine.slice(0,20)}{svcLine.length>20?"…":""}</span>
+    </button>;
   }
-
-  const loadColor=(n)=>n===0?"#166534":n===1?"#92400E":n===2?"#B45309":"#DC2626";
-  const loadBg=(n)=>n===0?"rgba(22,101,52,0.12)":n===1?"rgba(146,64,14,0.12)":n===2?"rgba(180,83,9,0.12)":"rgba(220,38,38,0.12)";
-  const loadLabel=(n)=>n===0?"Free":n===1?"1 in queue":n+" in queue";
-
-  return<section style={{...S.card,maxWidth:"100%"}}>
-    {/* ── Header ── */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:14}}>
-      <div>
-        <h2 style={{...S.ct,marginBottom:2}}>💈 Barbershop</h2>
-        <p style={{...S.hlp,margin:0}}>Manage walk-ins, assign staff, and collect payments</p>
-      </div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <label style={{display:"flex",alignItems:"center",gap:8,background:queueEnabled?"#F0FDF4":"#FEF2F2",border:`1.5px solid ${queueEnabled?"#86EFAC":"#FECACA"}`,borderRadius:10,padding:"6px 12px",cursor:"pointer"}}>
+  return<div>
+    {/* Header */}
+    <div style={{background:"#1B2E4B",borderRadius:14,padding:"14px 18px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff"}}>💈 Barbershop</h2>
+        <p style={{margin:"2px 0 0",fontSize:11,color:"#94A3B8"}}>Walk-ins · Assignments · Payments</p></div>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <label style={{display:"flex",alignItems:"center",gap:7,background:"rgba(255,255,255,0.07)",border:`1.5px solid ${queueEnabled?"#5A8C72":"#475569"}`,borderRadius:9,padding:"5px 12px",cursor:"pointer"}}>
           <div style={{position:"relative",width:36,height:20,flexShrink:0}}>
-            <input type="checkbox" checked={queueEnabled} onChange={e=>toggleQueue(e.target.checked)} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
-            <div style={{position:"absolute",inset:0,background:queueEnabled?"#166534":"#DC2626",borderRadius:10,transition:"background 0.2s"}}/>
-            <div style={{position:"absolute",top:2,left:queueEnabled?18:2,width:16,height:16,background:"#fff",borderRadius:8,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.25)"}}/>
+            <input type="checkbox" checked={queueEnabled} onChange={e=>toggleQ(e.target.checked)} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
+            <div style={{position:"absolute",inset:0,background:queueEnabled?"#5A8C72":"#475569",borderRadius:10,transition:"all 0.2s"}}/>
+            <div style={{position:"absolute",top:2,left:queueEnabled?18:2,width:16,height:16,background:"#fff",borderRadius:8,transition:"all 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
           </div>
-          <span style={{fontSize:12,fontWeight:700,color:queueEnabled?"#166534":"#DC2626"}}>{queueEnabled?"Queue ON":"Queue OFF"}</span>
+          <span style={{fontSize:11,fontWeight:600,color:queueEnabled?"#5A8C72":"#94A3B8"}}>{queueEnabled?"Queue ON":"Queue OFF"}</span>
         </label>
-        <button onClick={()=>setShowReg(r=>!r)} style={{...S.btnP,width:"auto",padding:"8px 18px",margin:0}}>+ Walk-in</button>
+        <button onClick={()=>{setShowReg(r=>!r);setErrs({});}} style={{padding:"7px 16px",borderRadius:9,border:"none",background:showReg?"#475569":"#5A8C72",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          {showReg?"✕ Cancel":"+ Walk-in"}
+        </button>
       </div>
     </div>
-
-    {/* ── Stats ── */}
-    <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
-      {[
-        {label:"WAITING",value:waiting.length,bg:"#FEF3C7",tx:"#92400E"},
-        {label:"IN CHAIR",value:inProgress.length,bg:"#DBEAFE",tx:"#1B4FA8"},
-        {label:"READY TO PAY",value:readyToPay.length,bg:"#DCFCE7",tx:"#166534"},
-        {label:"PAID TODAY",value:totalRevToday.toLocaleString()+" Birr",bg:"#F0FDF4",tx:"#166534"},
-      ].map(c=><div key={c.label} style={{background:c.bg,borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
-        <b style={{fontSize:c.value!==undefined&&typeof c.value==="string"?13:22,color:c.tx,display:"block"}}>{c.value}</b>
-        <p style={{margin:0,fontSize:9,color:c.tx,fontWeight:600,letterSpacing:0.8}}>{c.label}</p>
+    {/* Stats */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:12}}>
+      {[{l:"Waiting",v:waiting.length,bg:"#FEF9EC",tx:"#92400E",ic:"⏳"},{l:"In Chair",v:inProgress.length,bg:"#EFF6FF",tx:"#1B4FA8",ic:"✂"},{l:"Ready",v:readyToPay.length,bg:"#F0FDF4",tx:"#166534",ic:"💳"},{l:"Paid",v:rev.toLocaleString()+" Birr",bg:"#1B2E4B",tx:"#5A8C72",ic:"✓"}].map(c=><div key={c.l} style={{background:c.bg,borderRadius:10,padding:"9px 10px",display:"flex",alignItems:"center",gap:7}}>
+        <span style={{fontSize:18}}>{c.ic}</span>
+        <div><b style={{fontSize:c.l==="Paid"?11:18,color:c.tx,display:"block",lineHeight:1.1}}>{c.v}</b>
+          <p style={{margin:0,fontSize:9,color:c.tx,opacity:0.8,fontWeight:600}}>{c.l}</p></div>
       </div>)}
     </div>
+    {/* Staff load */}
+    {queueEnabled&&allStaff.length>0&&active.length>0&&<div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 12px",marginBottom:12}}>
+      <p style={{margin:"0 0 6px",fontSize:9,fontWeight:700,color:"#5A8C72",letterSpacing:1}}>STAFF QUEUE LOAD</p>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {allStaff.map(e=>{const q=sq[e.name]||{n:0,w:0,p:0};return<div key={e.id} style={{background:`rgba(${q.n===0?"22,101,52":q.n===1?"217,119,6":"220,38,38"},0.12)`,border:`1px solid ${lc(q.n)}33`,borderRadius:8,padding:"6px 10px",flex:1,minWidth:90}}>
+          <div style={{display:"flex",justifyContent:"space-between"}}>
+            <b style={{fontSize:11,color:"#fff"}}>{e.name}</b>
+            <span style={{background:lc(q.n),color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,fontWeight:700}}>{ll(q.n)}</span>
+          </div>
+          <p style={{margin:"2px 0 0",fontSize:9,color:"#94A3B8"}}>{e.section==="Hair Wash & Color"?"💆":"✂"}{q.p>0?" · "+q.p+" in chair":""}</p>
+        </div>;})}
+      </div>
+    </div>}
+    {/* Registration form */}
+    {showReg&&<div style={{background:"#fff",border:"1.5px solid #E2E8F0",borderRadius:12,padding:18,marginBottom:12,boxShadow:"0 4px 16px rgba(27,46,75,0.07)"}}>
+      <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Walk-in</h3>
+      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
+        <div>
+          <p style={{margin:"0 0 3px",fontSize:11,fontWeight:600,color:"#374151"}}>Name <span style={{color:"#DC2626"}}>*</span></p>
+          <input style={{...S.inp,borderColor:errs.name?"#FCA5A5":"#CBD5E0",marginBottom:0}} placeholder="Customer name" value={bName} onChange={e=>{setBName(e.target.value);if(e.target.value.trim())setErrs(p=>({...p,name:undefined}));}}/>
+          {errs.name&&<p style={{margin:"3px 0 0",fontSize:10,color:"#DC2626"}}>⚠ {errs.name}</p>}
+        </div>
+        <div>
+          <p style={{margin:"0 0 3px",fontSize:11,fontWeight:600,color:"#374151"}}>Phone <span style={{color:"#94A3B8",fontWeight:400}}>(optional)</span></p>
+          <input style={{...S.inp,marginBottom:0}} placeholder="Phone number" value={bPhone} onChange={e=>setBPhone(e.target.value)}/>
+        </div>
+      </div>
+      <p style={{margin:"0 0 4px",fontSize:11,fontWeight:600,color:"#374151"}}>Services <span style={{color:"#DC2626"}}>*</span></p>
+      {errs.svcs&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:7,padding:"5px 9px",marginBottom:5,fontSize:11,color:"#DC2626"}}>⚠ {errs.svcs}</div>}
+      {barberSvcs.length>0&&<div style={{marginBottom:7}}>
+        <p style={{margin:"0 0 3px",fontSize:10,fontWeight:700,color:"#1B2E4B"}}>✂ HAIRCUT / BEARD</p>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {barberSvcs.map(s=>{const sl=bSvcIds.includes(String(s.id));return<button key={s.id} type="button" onClick={()=>{setBSvcIds(p=>sl?p.filter(x=>x!==String(s.id)):[...p,String(s.id)]);setErrs(p=>({...p,svcs:undefined}));}} style={{padding:"6px 12px",borderRadius:18,border:`1.5px solid ${sl?"#1B2E4B":"#E2E8F0"}`,background:sl?"#1B2E4B":"#fff",color:sl?"#fff":"#374151",fontSize:11,fontWeight:sl?700:400,cursor:"pointer"}}>{s.name} · {Number(s.price).toLocaleString()}</button>;})}</div></div>}
+      {rozaSvcs.length>0&&<div style={{marginBottom:10}}>
+        <p style={{margin:"0 0 3px",fontSize:10,fontWeight:700,color:"#5A8C72"}}>💆 WASH / COLOR / TREATMENT</p>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {rozaSvcs.map(s=>{const sl=bSvcIds.includes(String(s.id));return<button key={s.id} type="button" onClick={()=>{setBSvcIds(p=>sl?p.filter(x=>x!==String(s.id)):[...p,String(s.id)]);setErrs(p=>({...p,svcs:undefined}));}} style={{padding:"6px 12px",borderRadius:18,border:`1.5px solid ${sl?"#5A8C72":"#E2E8F0"}`,background:sl?"#5A8C72":"#fff",color:sl?"#fff":"#374151",fontSize:11,fontWeight:sl?700:400,cursor:"pointer"}}>{s.name} · {Number(s.price).toLocaleString()}</button>;})}</div></div>}
+      {bSvcIds.some(id=>barberSvcs.find(s=>s.id===Number(id)))&&barberEmps.length>0&&<div style={{marginBottom:8}}>
+        <p style={{margin:"0 0 4px",fontSize:11,fontWeight:600,color:"#374151"}}>Preferred Barber</p>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {[{v:"",l:"Any"},{v:"random",l:"🎲 Random"},...barberEmps.map(e=>({v:e.name,l:"✂ "+e.name}))].map(o=><button key={o.v} type="button" onClick={()=>setBBarber(o.v)} style={{padding:"5px 11px",borderRadius:18,border:`1.5px solid ${bBarber===o.v?"#1B2E4B":"#E2E8F0"}`,background:bBarber===o.v?"#1B2E4B":"#fff",color:bBarber===o.v?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{o.l}{queueEnabled&&sq[o.v]&&<span style={{marginLeft:3,fontSize:9,opacity:0.7}}>({ll(sq[o.v]?.n||0)})</span>}</button>)}
+        </div>
+      </div>}
+      {bSvcIds.some(id=>rozaSvcs.find(s=>s.id===Number(id)))&&rozaEmps.length>0&&<div style={{marginBottom:8}}>
+        <p style={{margin:"0 0 4px",fontSize:11,fontWeight:600,color:"#374151"}}>Roza / Technician</p>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {[{v:"",l:"Any"},...rozaEmps.map(e=>({v:e.name,l:"💆 "+e.name}))].map(o=><button key={o.v} type="button" onClick={()=>setBRoza(o.v)} style={{padding:"5px 11px",borderRadius:18,border:`1.5px solid ${bRoza===o.v?"#5A8C72":"#E2E8F0"}`,background:bRoza===o.v?"#5A8C72":"#fff",color:bRoza===o.v?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{o.l}</button>)}
+        </div>
+      </div>}
+      <p style={{margin:"0 0 3px",fontSize:11,fontWeight:600,color:"#374151"}}>Note <span style={{color:"#94A3B8",fontWeight:400}}>(optional)</span></p>
+      <input style={{...S.inp,marginBottom:0}} placeholder="Special requests..." value={bNote} onChange={e=>setBNote(e.target.value)}/>
+      {bSvcIds.length>0&&<div style={{background:"#F8FAFC",borderRadius:8,padding:"8px 12px",margin:"10px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:11,color:"#64748B"}}>{bSvcIds.length} service{bSvcIds.length!==1?"s":""}{queueEnabled?<span style={{color:"#1B2E4B",fontWeight:600,marginLeft:8}}>→ B-{barberQueueNum}</span>:null}</span>
+        <b style={{fontSize:14,color:"#1B2E4B"}}>{allSvcs.filter(s=>bSvcIds.includes(String(s.id))).reduce((s,sv)=>s+Number(sv.price),0).toLocaleString()} Birr</b>
+      </div>}
+      <button onClick={addWalkIn} disabled={saving} style={{width:"100%",padding:"10px",borderRadius:9,border:"none",background:saving?"#94A3B8":"#1B2E4B",color:"#fff",fontWeight:700,fontSize:13,cursor:saving?"default":"pointer",marginTop:10}}>
+        {saving?"Adding...":"✓ Add to Queue"+(queueEnabled?" (B-"+barberQueueNum+")":"")}
+      </button>
+    </div>}
+    {/* Empty state */}
+    {today.length===0&&!showReg&&<div style={{textAlign:"center",padding:"44px 20px",background:"#fff",borderRadius:12,border:"1px dashed #E2E8F0"}}>
+      <div style={{fontSize:48,marginBottom:10}}>💈</div>
+      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:6}}>No customers today yet</b>
+      <p style={{fontSize:12,color:"#94A3B8",margin:"0 0 14px"}}>Tap "+ Walk-in" to add the first customer</p>
+      <button onClick={()=>setShowReg(true)} style={{padding:"8px 22px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Walk-in</button>
+    </div>}
+    {/* Two-column list + detail */}
+    {today.length>0&&<div style={{display:"grid",gridTemplateColumns:sc.mob&&selId?"1fr":gc,gap:12}}>
+      {(!sc.mob||!selId)&&<div>
+        {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8}}>← Back</button>}
+        {waiting.length>0&&<div style={{marginBottom:10}}>
+          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:0.5}}>⏳ WAITING ({waiting.length})</p>
+          {waiting.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#FFFBEB" colorBorder="#FDE68A" colorSel="#92400E" badge="orange"/>)}
+        </div>}
+        {inProgress.length>0&&<div style={{marginBottom:10}}>
+          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#1B4FA8",letterSpacing:0.5}}>✂ IN CHAIR ({inProgress.length})</p>
+          {inProgress.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#EFF6FF" colorBorder="#BFDBFE" colorSel="#1B4FA8" badge="blue"/>)}
+        </div>}
+        {readyToPay.length>0&&<div style={{marginBottom:10}}>
+          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#166534",letterSpacing:0.5}}>💳 READY TO PAY ({readyToPay.length})</p>
+          {readyToPay.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#F0FDF4" colorBorder="#86EFAC" colorSel="#166534" badge="green"/>)}
+        </div>}
+        {paid.length>0&&<details><summary style={{cursor:"pointer",fontSize:11,fontWeight:700,color:"#64748B",padding:"5px 0",listStyle:"none",display:"flex",justifyContent:"space-between"}}><span>✓ Paid ({paid.length})</span><span style={{color:"#5A8C72"}}>{rev.toLocaleString()} Birr</span></summary>
+          {paid.map(v=>{const tt=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);return<div key={v.id} style={{padding:"6px 9px",background:"#F0FDF4",borderRadius:8,marginTop:3,fontSize:11}}>
+            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:600}}>{queueEnabled&&bq(v)>0?"B-"+bq(v)+" · ":""}{v.name}</span><span><b style={{color:"#166534"}}>{(v.totalPaid||0).toLocaleString()}</b><span style={{color:"#94A3B8"}}> via {v.paymentMethod}</span></span></div>
+            <p style={{margin:"1px 0 0",color:"#64748B"}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
+            {tt>0&&<p style={{margin:"1px 0 0",color:"#92400E",fontSize:10}}>💰 Tips: {tt.toLocaleString()} Birr</p>}
+          </div>;})}
+        </details>}
+      </div>}
+      {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8}}>← Back to queue</button>}
+      <div>
+        {!selId&&!sc.mob&&<div style={{background:"#F8FAFC",borderRadius:12,border:"1px dashed #E2E8F0",padding:"44px 20px",textAlign:"center"}}>
+          <div style={{fontSize:36,marginBottom:8}}>👈</div>
+          <p style={{margin:0,color:"#94A3B8",fontSize:13}}>Select a customer to manage their services and payment</p>
+        </div>}
+        {sel&&<BarberCard v={sel} allStaff={allStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} onAssign={assign} onDone={done} onPay={pay} queueEnabled={queueEnabled} li={li} sq={sq} S={S}/>}
+      </div>
+    </div>}
+  </div>;
+}
 
-    {/* ── Staff load panel ── */}
-    {queueEnabled&&allBarberStaff.length>0&&(waiting.length>0||inProgress.length>0)&&<div style={{background:"#1B2E4B",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
-      <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#5A8C72",letterSpacing:1}}>STAFF QUEUE</p>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        {allBarberStaff.map(e=>{
-          const q=staffQueues[e.name]||{waiting:0,inProgress:0,total:0};
-          return<div key={e.id} style={{background:loadBg(q.total),border:`1px solid ${loadColor(q.total)}33`,borderRadius:10,padding:"8px 12px",flex:1,minWidth:120}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
-                <b style={{fontSize:12,color:"#fff"}}>{e.name}</b>
-                <p style={{margin:"1px 0 0",fontSize:9,color:"#94A3B8"}}>{e.section==="Hair Wash & Color"?"💆 Wash/Color/Treatment":"✂ Barber"}</p>
+function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueEnabled,li,sq,S}){
+  const R=React;
+  const[payM,setPayM]=R.useState("Cash");const[cash,setCash]=R.useState("");
+  const[tips,setTips]=R.useState(v.tips||[]);const[showTip,setShowTip]=R.useState(false);
+  const[tipEmp,setTipEmp]=R.useState("");const[tipAmt,setTipAmt]=R.useState("");const[tipErr,setTipErr]=R.useState("");
+  R.useEffect(()=>setTips(v.tips||[]),[v.id]);
+  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
+  const svcT=lines.reduce((s,l)=>s+li(l),0);
+  const tipT=tips.reduce((s,t)=>s+Number(t.amount||0),0);
+  const grand=svcT+tipT;
+  const given=Number(cash||0);
+  const change=given-grand;
+  const isR=l=>l.employeeSection==="Hair Wash & Color";
+  const sfLine=l=>isR(l)?(rozaEmps.length?rozaEmps:allStaff):barberEmps;
+  function addTip(){if(!tipEmp){setTipErr("Select who gets the tip");return;}if(!tipAmt||Number(tipAmt)<=0){setTipErr("Enter a valid amount");return;}setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");setShowTip(false);setTipErr("");}
+  const isWait=["Waiting for Supervisor","With Supervisor"].includes(v.status);
+  const isIP=v.status==="In Service";const isRdy=v.status==="Ready for Payment";const isDone=v.status==="Paid & Closed";
+  const banner=isDone?{bg:"#F0FDF4",bd:"#86EFAC",ic:"✅",tx:"Paid & Closed",co:"#166534"}:isRdy?{bg:"#FFF7ED",bd:"#FCD34D",ic:"💳",tx:"Ready for Payment",co:"#B45309"}:isIP?{bg:"#EFF6FF",bd:"#93C5FD",ic:"✂",tx:"In Chair",co:"#1B4FA8"}:{bg:"#FFFBEB",bd:"#FDE68A",ic:"⏳",tx:"Waiting",co:"#92400E"};
+  const bqv=v.barberQueue||v.barber_queue||0;
+  return<div style={{background:"#fff",borderRadius:13,border:"1px solid #E2E8F0",overflow:"hidden",boxShadow:"0 2px 12px rgba(27,46,75,0.07)"}}>
+    <div style={{background:"#1B2E4B",padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:9}}>
+        {queueEnabled&&bqv>0&&<span style={{background:"#E0B85A",color:"#1B2E4B",borderRadius:7,padding:"2px 9px",fontSize:13,fontWeight:900}}>B-{bqv}</span>}
+        <div><b style={{fontSize:15,color:"#fff",display:"block"}}>{v.name}</b>{v.phone&&<p style={{margin:0,fontSize:10,color:"#94A3B8"}}>{v.phone}</p>}</div>
+      </div>
+      <span style={{background:banner.bg,color:banner.co,border:`1px solid ${banner.bd}`,borderRadius:18,padding:"3px 10px",fontSize:11,fontWeight:700}}>{banner.ic} {banner.tx}</span>
+    </div>
+    {v.note&&<div style={{background:"#F8FAFC",padding:"5px 16px",fontSize:11,color:"#64748B",borderBottom:"1px solid #F1F5F9"}}>📝 {v.note}</div>}
+    <div style={{padding:"14px 16px"}}>
+      <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:0.5}}>SERVICES</p>
+      <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
+        {lines.map((l,i)=>{
+          const rz=isR(l);const acc=rz?"#5A8C72":"#1B2E4B";const dn=l.status==="Completed";
+          return<div key={i} style={{border:`1px solid ${dn?"#86EFAC":acc+"33"}`,borderRadius:9,padding:"9px 11px",background:dn?"#F0FDF4":"#FAFAFA"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:dn?0:7}}>
+              <span style={{display:"flex",alignItems:"center",gap:5,fontWeight:600,fontSize:13,color:"#111827"}}>{rz?"💆":"✂"} {l.name}</span>
+              <div style={{display:"flex",gap:7,alignItems:"center"}}>
+                <b style={{fontSize:12,color:acc}}>{li(l).toLocaleString()} Birr</b>
+                {dn&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>✓ {l.employee||"Done"}</span>}
               </div>
-              <span style={{background:loadColor(q.total),color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{loadLabel(q.total)}</span>
             </div>
-            {(q.inProgress>0||q.waiting>0)&&<div style={{marginTop:4,display:"flex",gap:4}}>
-              {q.inProgress>0&&<span style={{background:"rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:4,padding:"0 6px",fontSize:10}}>{q.inProgress} in chair</span>}
-              {q.waiting>0&&<span style={{background:"rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:4,padding:"0 6px",fontSize:10}}>{q.waiting} waiting</span>}
+            {!dn&&<div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+              {!isRdy&&!isDone&&<select value={l.employee||""} onChange={e=>onAssign(v.id,l.lineId,e.target.value)} style={{flex:1,padding:"5px 8px",borderRadius:7,border:`1px solid ${acc}44`,background:"#fff",color:"#111827",fontSize:11,minWidth:110}}>
+                <option value="">{rz?"Assign Roza...":"Assign barber..."}</option>
+                {sfLine(l).map(e=>{const q=sq[e.name]||{n:0};return<option key={e.id} value={e.name}>{e.name}{q.n>0?" ("+q.n+")":""};</option>;})}
+              </select>}
+              {l.preferredEmployee&&!l.employee&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
+              {l.employee&&l.status==="In Progress"&&<span style={{background:rz?"#EBF5EE":"#EFF6FF",color:rz?"#166534":"#1B4FA8",borderRadius:5,padding:"2px 7px",fontSize:11,fontWeight:700}}>{rz?"💆":"✂"} {l.employee}</span>}
+              {isIP&&l.status==="In Progress"&&l.employee&&<button onClick={()=>onDone(v.id,l.lineId)} style={{padding:"4px 12px",borderRadius:7,border:"none",background:"#166534",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>✓ Done</button>}
+              {!l.employee&&!isRdy&&!isDone&&<span style={{fontSize:10,color:"#F59E0B",fontWeight:600}}>⚠ Needs assignment</span>}
             </div>}
           </div>;
         })}
       </div>
-    </div>}
-
-    {/* ── Add walk-in form ── */}
-    {showReg&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:14}}>
-      <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:"#1B2E4B"}}>New Walk-in Customer</h3>
-      <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
-        <div><p style={S.lbl}>Name *</p><input style={S.inp} placeholder="Customer name" value={bName} onChange={e=>setBName(e.target.value)}/></div>
-        <div><p style={S.lbl}>Phone</p><input style={S.inp} placeholder="Phone (optional)" value={bPhone} onChange={e=>setBPhone(e.target.value)}/></div>
-      </div>
-
-      {/* Services — split by type */}
-      <div style={{marginBottom:12}}>
-        <p style={{...S.lbl,marginBottom:6}}>Services *</p>
-        {/* Barbershop services */}
-        {barberSvcs.length>0&&<div style={{marginBottom:8}}>
-          <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#1B2E4B"}}>✂ Haircut / Beard</p>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {barberSvcs.map(s=>{
-              const sel=bSvcIds.includes(String(s.id));
-              return<button key={s.id} type="button" onClick={()=>setBSvcIds(p=>sel?p.filter(x=>x!==String(s.id)):[...p,String(s.id)])}
-                style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#1B2E4B":"#E2E8F0"}`,background:sel?"#1B2E4B":"#fff",color:sel?"#fff":"#374151",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
-                {s.name} — {Number(s.price).toLocaleString()} Birr
-              </button>;
-            })}
+      {/* Tips */}
+      <div style={{borderTop:"1px solid #F1F5F9",paddingTop:12,marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tips.length?7:0}}>
+          <p style={{margin:0,fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:0.5}}>TIPS</p>
+          {!isDone&&!showTip&&<button onClick={()=>setShowTip(true)} style={{fontSize:10,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"1px solid #FDE68A",borderRadius:7,padding:"3px 9px",cursor:"pointer"}}>+ Add Tip</button>}
+        </div>
+        {tips.map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 9px",background:"#FFFBEB",borderRadius:7,marginBottom:3,fontSize:11}}>
+          <span style={{color:"#92400E"}}>💰 {t.employee}</span>
+          <div style={{display:"flex",gap:5,alignItems:"center"}}><b style={{color:"#92400E"}}>{Number(t.amount).toLocaleString()} Birr</b>{!isDone&&<button onClick={()=>setTips(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#94A3B8",cursor:"pointer",fontSize:13}}>×</button>}</div>
+        </div>)}
+        {showTip&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:9,padding:"10px 12px",marginTop:7}}>
+          <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#92400E"}}>Who gets the tip?</p>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
+            {allStaff.map(e=><button key={e.id} onClick={()=>{setTipEmp(e.name);setTipErr("");}} style={{padding:"4px 10px",borderRadius:14,border:`1.5px solid ${tipEmp===e.name?"#92400E":"#FDE68A"}`,background:tipEmp===e.name?"#92400E":"#fff",color:tipEmp===e.name?"#fff":"#92400E",fontSize:11,cursor:"pointer"}}>{e.name}</button>)}
           </div>
-        </div>}
-        {/* Roza services */}
-        {rozaSvcs.length>0&&<div>
-          <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#5A8C72"}}>💆 Wash / Color / Treatment (Roza)</p>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {rozaSvcs.map(s=>{
-              const sel=bSvcIds.includes(String(s.id));
-              return<button key={s.id} type="button" onClick={()=>setBSvcIds(p=>sel?p.filter(x=>x!==String(s.id)):[...p,String(s.id)])}
-                style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#5A8C72":"#E2E8F0"}`,background:sel?"#5A8C72":"#fff",color:sel?"#fff":"#374151",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
-                {s.name} — {Number(s.price).toLocaleString()} Birr
-              </button>;
-            })}
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+            <input type="number" placeholder="Amount (Birr)" value={tipAmt} onChange={e=>{setTipAmt(e.target.value);setTipErr("");}} style={{flex:1,padding:"6px 9px",borderRadius:7,border:`1px solid ${tipErr?"#FCA5A5":"#FDE68A"}`,color:"#111827",fontSize:12,minWidth:80}}/>
+            <button onClick={addTip} style={{padding:"6px 14px",borderRadius:7,border:"none",background:"#92400E",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
+            <button onClick={()=>{setShowTip(false);setTipEmp("");setTipAmt("");setTipErr("");}} style={{padding:"6px 10px",borderRadius:7,border:"1px solid #E2E8F0",background:"#fff",color:"#64748B",fontSize:11,cursor:"pointer"}}>Cancel</button>
           </div>
+          {tipErr&&<p style={{margin:"3px 0 0",fontSize:10,color:"#DC2626"}}>⚠ {tipErr}</p>}
         </div>}
       </div>
-
-      {/* Staff preference — only show relevant section if service selected */}
-      {bSvcIds.some(id=>barberSvcs.find(s=>s.id===Number(id)))&&barberEmps.length>0&&<div style={{marginBottom:10}}>
-        <p style={S.lbl}>Preferred Barber</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {[{val:"",label:"Any barber"},{val:"random",label:"🎲 Random"},...barberEmps.map(e=>({val:e.name,label:"✂ "+e.name}))].map(opt=><button key={opt.val} type="button"
-            onClick={()=>setBBarber(opt.val)}
-            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bBarber===opt.val?"#1B2E4B":"#E2E8F0"}`,background:bBarber===opt.val?"#1B2E4B":"#fff",color:bBarber===opt.val?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:bBarber===opt.val?700:400}}>
-            {opt.label}
-            {queueEnabled&&opt.val&&opt.val!=="random"&&staffQueues[opt.val]!==undefined&&<span style={{marginLeft:4,fontSize:10,opacity:0.7}}>({loadLabel(staffQueues[opt.val]?.total||0)})</span>}
-          </button>)}
+      {/* Totals */}
+      <div style={{background:"#1B2E4B",borderRadius:9,padding:"9px 12px",marginBottom:isRdy?12:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",color:"#94A3B8",fontSize:11,marginBottom:tipT>0?3:0}}><span>Services</span><span>{svcT.toLocaleString()} Birr</span></div>
+        {tipT>0&&<div style={{display:"flex",justifyContent:"space-between",color:"#E0B85A",fontSize:11,marginBottom:3}}><span>Tips</span><span>{tipT.toLocaleString()} Birr</span></div>}
+        <div style={{display:"flex",justifyContent:"space-between",color:"#fff",fontSize:14,fontWeight:700,borderTop:"1px solid rgba(255,255,255,0.1)",paddingTop:5,marginTop:3}}><span>Total</span><span style={{color:"#5A8C72"}}>{grand.toLocaleString()} Birr</span></div>
+      </div>
+      {/* Payment */}
+      {isRdy&&<div>
+        <p style={{margin:"12px 0 6px",fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:0.5}}>PAYMENT METHOD</p>
+        <div style={{display:"flex",gap:5,marginBottom:10}}>
+          {["Cash","Card","Transfer"].map(m=><button key={m} onClick={()=>{setPayM(m);setCash("");}} style={{flex:1,padding:"8px 5px",borderRadius:9,border:`2px solid ${payM===m?"#1B2E4B":"#E2E8F0"}`,background:payM===m?"#1B2E4B":"#fff",color:payM===m?"#fff":"#374151",fontSize:12,fontWeight:payM===m?700:400,cursor:"pointer",textAlign:"center"}}>{m==="Cash"?"💵 Cash":m==="Card"?"💳 Card":"📱 Transfer"}</button>)}
         </div>
-      </div>}
-
-      {bSvcIds.some(id=>rozaSvcs.find(s=>s.id===Number(id)))&&rozaEmps.length>0&&<div style={{marginBottom:10}}>
-        <p style={S.lbl}>Roza / Hair Technician</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {[{val:"",label:"Any"},...rozaEmps.map(e=>({val:e.name,label:"💆 "+e.name}))].map(opt=><button key={opt.val} type="button"
-            onClick={()=>setBRoza(opt.val)}
-            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${bRoza===opt.val?"#5A8C72":"#E2E8F0"}`,background:bRoza===opt.val?"#5A8C72":"#fff",color:bRoza===opt.val?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:bRoza===opt.val?700:400}}>
-            {opt.label}
-          </button>)}
-        </div>
-      </div>}
-
-      <div><p style={S.lbl}>Note</p><input style={S.inp} placeholder="Any note (optional)" value={bNote} onChange={e=>setBNote(e.target.value)}/></div>
-
-      {bSvcIds.length>0&&<div style={{background:"#1B2E4B",borderRadius:10,padding:"8px 12px",margin:"10px 0",fontSize:12,color:"#fff"}}>
-        <b>Total: {allAreaSvcs.filter(s=>bSvcIds.includes(String(s.id))).reduce((s,sv)=>s+Number(sv.price),0).toLocaleString()} Birr</b>
-        <span style={{color:"#94A3B8",marginLeft:8}}>{bSvcIds.length} service{bSvcIds.length!==1?"s":""} selected</span>
-      </div>}
-
-      <div style={{display:"flex",gap:8,marginTop:8}}>
-        <button onClick={addWalkIn} disabled={saving||!bName.trim()||!bSvcIds.length} style={{...S.btnP,width:"auto",padding:"9px 20px",margin:0}}>{saving?"Adding...":"✓ Add to Queue"}</button>
-        <button onClick={()=>{setShowReg(false);setBName("");setBPhone("");setBNote("");setBSvcIds([]);setBBarber("");setBRoza("");}} style={{...S.btnS,width:"auto",padding:"9px 16px",margin:0}}>Cancel</button>
-      </div>
-    </div>}
-
-    {/* ── Tip modal ── */}
-    {tipModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:360,width:"100%"}}>
-        <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700}}>💰 Add Tip</h3>
-        <p style={S.lbl}>Who gets the tip?</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setTipEmpName(e.name)}
-            style={{padding:"6px 12px",borderRadius:20,border:`1.5px solid ${tipEmpName===e.name?"#1B2E4B":"#E2E8F0"}`,background:tipEmpName===e.name?"#1B2E4B":"#fff",color:tipEmpName===e.name?"#fff":"#374151",fontSize:12,cursor:"pointer",fontWeight:tipEmpName===e.name?700:400}}>
-            {e.name}
-          </button>)}
-        </div>
-        <p style={S.lbl}>Tip Amount (Birr)</p>
-        <input style={{...S.inp,marginBottom:16}} type="number" min="1" placeholder="e.g. 50" value={tipAmt} onChange={e=>setTipAmt(e.target.value)}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <button onClick={()=>{setTipModal(null);setTipAmt("");setTipEmpName("");}} style={{padding:"10px",borderRadius:10,border:"1px solid #e5e7eb",background:"#f9fafb",cursor:"pointer",fontWeight:700}}>Cancel</button>
-          <button onClick={()=>addTipToVisit(tipModal)} style={{padding:"10px",borderRadius:10,border:"none",background:"#166534",color:"#fff",cursor:"pointer",fontWeight:700}}>Add Tip</button>
-        </div>
-      </div>
-    </div>}
-
-    {/* ── No customers ── */}
-    {today.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:"#94A3B8"}}>
-      <div style={{fontSize:48,marginBottom:10}}>💈</div>
-      <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:6}}>No customers today</b>
-      <p style={{fontSize:13,margin:0}}>Click "+ Walk-in" to add a customer</p>
-    </div>}
-
-    {/* ── Waiting ── */}
-    {waiting.length>0&&<>
-      <div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 8px"}}>
-        <div style={{width:8,height:8,borderRadius:4,background:"#F59E0B"}}/>
-        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#92400E"}}>⏳ Waiting ({waiting.length})</h3>
-      </div>
-      {waiting.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="waiting" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
-    </>}
-
-    {/* ── In Chair ── */}
-    {inProgress.length>0&&<>
-      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
-        <div style={{width:8,height:8,borderRadius:4,background:"#3B82F6"}}/>
-        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#1B4FA8"}}>✂ In Chair ({inProgress.length})</h3>
-      </div>
-      {inProgress.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="inprogress" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
-    </>}
-
-    {/* ── Ready to Pay ── */}
-    {readyToPay.length>0&&<>
-      <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 8px"}}>
-        <div style={{width:8,height:8,borderRadius:4,background:"#16A34A"}}/>
-        <h3 style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>💳 Ready to Pay ({readyToPay.length})</h3>
-      </div>
-      {readyToPay.map(v=><BarberCard key={v.id} v={v} allBarberStaff={allBarberStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} barberSvcs={barberSvcs} rozaSvcs={rozaSvcs} mode="payment" onAssign={assignStaff} onDone={markDone} onPay={collectPayment} onTip={()=>{setTipModal(v.id);setTipEmpName("");setTipAmt("");}} queueEnabled={queueEnabled} money={money} lineIncome={lineIncome} staffQueues={staffQueues}/>)}
-    </>}
-
-    {/* ── Paid today ── */}
-    {paid.length>0&&<details style={{marginTop:14}}>
-      <summary style={{cursor:"pointer",fontSize:12,fontWeight:700,color:"#64748B",padding:"6px 0",userSelect:"none"}}>
-        ✓ Paid Today ({paid.length}) — {totalRevToday.toLocaleString()} Birr total
-      </summary>
-      {paid.map(v=>{
-        const tipTotal=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);
-        return<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 12px",background:"#F0FDF4",borderRadius:10,marginTop:4,fontSize:12,flexWrap:"wrap",gap:6}}>
-          <div>
-            <span style={{fontWeight:600,color:"#111827"}}>{queueEnabled&&(v.barberQueue||v.barber_queue)>0?"B-"+(v.barberQueue||v.barber_queue)+" — ":""}{v.name}</span>
-            <p style={{margin:"2px 0 0",color:"#64748B",fontSize:11}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
-            {tipTotal>0&&<p style={{margin:"2px 0 0",color:"#92400E",fontSize:11}}>💰 Tips: {tipTotal.toLocaleString()} Birr</p>}
+        {payM==="Cash"&&<div style={{background:"#F8FAFC",borderRadius:9,padding:"11px",marginBottom:10}}>
+          <p style={{margin:"0 0 5px",fontSize:11,fontWeight:600,color:"#374151"}}>💵 Cash Received</p>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
+            {[...new Set([grand,Math.ceil(grand/100)*100,Math.ceil(grand/500)*500,Math.ceil(grand/1000)*1000].filter(a=>a>=grand))].slice(0,4).map(amt=><button key={amt} onClick={()=>setCash(String(amt))} style={{padding:"5px 10px",borderRadius:7,border:`1.5px solid ${Number(cash)===amt?"#1B2E4B":"#E2E8F0"}`,background:Number(cash)===amt?"#1B2E4B":"#fff",color:Number(cash)===amt?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{amt.toLocaleString()}</button>)}
           </div>
-          <div style={{textAlign:"right"}}>
-            <b style={{color:"#166534",display:"block"}}>{(v.totalPaid||0).toLocaleString()} Birr</b>
-            <span style={{fontSize:10,color:"#64748B"}}>via {v.paymentMethod}</span>
-          </div>
-        </div>;
-      })}
-    </details>}
-  </section>;
-}
-
-
-
-function BarberCard({v,allBarberStaff,barberEmps,rozaEmps,mode,onAssign,onDone,onPay,queueEnabled,lineIncome,staffQueues={}}){
-  const[bPayM,setBPayM]=React.useState("Cash");
-  const[bCash,setBCash]=React.useState("");
-  const[bTipEmp,setBTipEmp]=React.useState("");
-  const[bTipAmt,setBTipAmt]=React.useState("");
-  const[showTip,setShowTip]=React.useState(false);
-  const[localTips,setLocalTips]=React.useState(v.tips||[]);
-  React.useEffect(()=>setLocalTips(v.tips||[]),[v.tips]);
-
-  const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");
-  const svcTotal=lines.reduce((s,l)=>s+lineIncome(l),0);
-  const tipTotal=localTips.reduce((s,t)=>s+Number(t.amount||0),0);
-  const total=svcTotal+tipTotal;
-  const cashGiven=Number(bCash||0);
-  const change=cashGiven>0?Math.max(0,cashGiven-total):0;
-
-  function staffForLine(l){
-    const isRoza=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
-    return isRoza?(rozaEmps.length?rozaEmps:allBarberStaff):barberEmps;
-  }
-
-  const cardBg=mode==="payment"?"#F0FDF4":mode==="inprogress"?"#EBF2FD":"#FFFDF7";
-  const borderColor=mode==="payment"?"#86EFAC":mode==="inprogress"?"#BFDBFE":"#FDE68A";
-
-  return<div style={{background:cardBg,border:`1.5px solid ${borderColor}`,borderRadius:14,padding:"12px 14px",marginBottom:10}}>
-    {/* Header */}
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-      {queueEnabled&&(v.barberQueue||v.barber_queue)>0&&<span style={{background:"#1B2E4B",color:"#E0B85A",borderRadius:8,padding:"2px 10px",fontSize:13,fontWeight:900}}>B-{v.barberQueue||v.barber_queue}</span>}
-      <b style={{fontSize:15,color:"#111827",flex:1}}>{v.name}</b>
-      {v.phone&&<span style={{fontSize:11,color:"#64748B"}}>{v.phone}</span>}
-      <span style={{...{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:600,background:mode==="payment"?"#DCFCE7":mode==="inprogress"?"#DBEAFE":"#FEF3C7",color:mode==="payment"?"#166534":mode==="inprogress"?"#1B4FA8":"#92400E"}}}>{mode==="payment"?"Ready to Pay":mode==="inprogress"?"In Chair":"Waiting"}</span>
-    </div>
-    {v.note&&<p style={{margin:"0 0 8px",fontSize:11,color:"#64748B",fontStyle:"italic"}}>📝 {v.note}</p>}
-
-    {/* Service lines */}
-    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
-      {lines.map((l,i)=>{
-        const staff=staffForLine(l);
-        const isRozaLine=l.employeeSection==="Hair Wash & Color"||["Wash","Color","Treatment"].includes(l.sub);
-        const accent=isRozaLine?"#5A8C72":"#1B2E4B";
-        return<div key={i} style={{background:"rgba(255,255,255,0.85)",borderRadius:10,padding:"8px 10px",border:`0.5px solid ${accent}22`}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-            <span style={{fontSize:12}}>{isRozaLine?"💆":"✂"}</span>
-            <span style={{flex:1,fontSize:13,fontWeight:500,color:"#111827"}}>{l.name}{l.qty>1?` ×${l.qty}`:""}</span>
-            <b style={{fontSize:13,color:"#1B2E4B",flexShrink:0}}>{lineIncome(l).toLocaleString()} Birr</b>
-          </div>
-          {/* Assignment + status row */}
-          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
-            {l.status!=="Completed"&&mode!=="payment"&&<select
-              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${accent}44`,background:"#fff",color:"#111827",fontSize:12,flex:1,minWidth:120}}
-              value={l.employee||""}
-              onChange={e=>onAssign(v.id,l.lineId,e.target.value)}>
-              <option value="">{isRozaLine?"Assign Roza...":"Assign barber..."}</option>
-              {staff.map(e=>{const q=staffQueues[e.name]||{total:0};return<option key={e.id} value={e.name}>{e.name}{queueEnabled&&q.total>0?` (${q.total})`:""};</option>;})}
-            </select>}
-            {l.preferredEmployee&&!l.employee&&l.status!=="Completed"&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
-            {l.employee&&l.status==="In Progress"&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>{isRozaLine?"💆":"✂"} {l.employee}</span>}
-            {l.status==="Completed"&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700}}>✓ {l.employee||"Done"}</span>}
-            {mode==="inprogress"&&l.status==="In Progress"&&l.employee&&<button onClick={()=>onDone(v.id,l.lineId)}
-              style={{padding:"4px 12px",borderRadius:8,border:"none",background:"#166534",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>✓ Done</button>}
-          </div>
-        </div>;
-      })}
-    </div>
-
-    {/* Tips */}
-    {localTips.length>0&&<div style={{background:"#FEF9EC",borderRadius:8,padding:"6px 10px",marginBottom:8}}>
-      {localTips.map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#92400E"}}>
-        <span>💰 Tip — {t.employee}</span><b>{Number(t.amount).toLocaleString()} Birr</b>
-      </div>)}
-    </div>}
-
-    {/* Subtotal */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"0.5px solid #E2E8F0",marginBottom:mode==="payment"?10:0}}>
-      <span style={{fontSize:12,color:"#64748B"}}>Services: {svcTotal.toLocaleString()} Birr{tipTotal>0?` + Tips: ${tipTotal.toLocaleString()} Birr`:""}</span>
-      <b style={{fontSize:15,color:"#1B2E4B"}}>{total.toLocaleString()} Birr</b>
-    </div>
-
-    {/* ── Payment panel (only for ready-to-pay) ── */}
-    {mode==="payment"&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:"12px 14px",marginTop:4}}>
-      {/* Payment method */}
-      <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#374151"}}>Payment Method</p>
-      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-        {["Cash","Card","Transfer"].map(m=><button key={m} onClick={()=>setBPayM(m)}
-          style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${bPayM===m?"#1B2E4B":"#E2E8F0"}`,background:bPayM===m?"#1B2E4B":"#fff",color:bPayM===m?"#fff":"#374151",fontSize:12,fontWeight:bPayM===m?700:400,cursor:"pointer"}}>
-          {m==="Cash"?"💵 Cash":m==="Card"?"💳 Card":"📱 Transfer"}
-        </button>)}
-      </div>
-
-      {/* Cash change calculator */}
-      {bPayM==="Cash"&&<div style={{marginBottom:10}}>
-        <p style={{margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#374151"}}>Cash Given</p>
-        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <input type="number" placeholder="Amount given..." value={bCash}
-            onChange={e=>setBCash(e.target.value)}
-            style={{padding:"6px 10px",borderRadius:8,border:"1px solid #E2E8F0",background:"#fff",color:"#111827",fontSize:13,width:140}}/>
-          {cashGiven>=total&&<div style={{background:"#DCFCE7",color:"#166534",borderRadius:8,padding:"6px 12px",fontSize:13,fontWeight:700}}>
-            Change: {change.toLocaleString()} Birr
+          <input type="number" placeholder="Or type exact amount..." value={cash} onChange={e=>setCash(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"8px 10px",borderRadius:8,border:"1px solid #CBD5E0",background:"#fff",color:"#111827",fontSize:13}}/>
+          {given>0&&given>=grand&&<div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:8,padding:"9px 12px",marginTop:7,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:12,color:"#166534",fontWeight:600}}>Change to give back</span>
+            <b style={{fontSize:17,color:"#166534"}}>{change.toLocaleString()} Birr</b>
           </div>}
-          {cashGiven>0&&cashGiven<total&&<div style={{background:"#FEE2E2",color:"#B91C1C",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600}}>
-            Short by: {(total-cashGiven).toLocaleString()} Birr
+          {given>0&&given<grand&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"8px 12px",marginTop:7}}>
+            <p style={{margin:0,fontSize:11,color:"#DC2626",fontWeight:600}}>⚠ Short by {(grand-given).toLocaleString()} Birr</p>
           </div>}
-        </div>
-        {/* Quick amount buttons */}
-        <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
-          {[Math.ceil(total/100)*100, Math.ceil(total/500)*500, Math.ceil(total/1000)*1000].filter((v,i,a)=>a.indexOf(v)===i&&v>=total).slice(0,3).map(amt=><button key={amt} onClick={()=>setBCash(String(amt))}
-            style={{padding:"3px 10px",borderRadius:16,border:"0.5px solid #E2E8F0",background:"#fff",color:"#374151",fontSize:11,cursor:"pointer"}}>{amt.toLocaleString()}</button>)}
-        </div>
+        </div>}
+        <button onClick={()=>{
+          if(payM==="Cash"&&cash&&given<grand){alert("Cash received ("+given.toLocaleString()+" Birr) is less than the total ("+grand.toLocaleString()+" Birr).");return;}
+          if(!window.confirm("Confirm "+payM+" payment of "+grand.toLocaleString()+" Birr from "+v.name+"?"))return;
+          onPay(v.id,payM,tips,grand);
+        }} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"#166534",color:"#fff",fontWeight:800,fontSize:14,cursor:"pointer"}}>
+          ✓ Confirm — {grand.toLocaleString()} Birr{payM==="Cash"&&change>0?" (Change: "+change.toLocaleString()+" Birr)":""}
+        </button>
       </div>}
-
-      {/* Add tip */}
-      {!showTip&&<button onClick={()=>setShowTip(true)}
-        style={{fontSize:11,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"0.5px solid #FDE68A",borderRadius:8,padding:"5px 12px",cursor:"pointer",marginBottom:8}}>
-        + Add Tip
-      </button>}
-      {showTip&&<div style={{background:"#FFFBEB",border:"0.5px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-        <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#92400E"}}>Add Tip</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setBTipEmp(e.name)}
-            style={{padding:"4px 10px",borderRadius:16,border:`1.5px solid ${bTipEmp===e.name?"#92400E":"#FDE68A"}`,background:bTipEmp===e.name?"#92400E":"#fff",color:bTipEmp===e.name?"#fff":"#92400E",fontSize:11,cursor:"pointer",fontWeight:bTipEmp===e.name?700:400}}>{e.name}</button>)}
-        </div>
-        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-          <input type="number" placeholder="Tip amount..." value={bTipAmt}
-            onChange={e=>setBTipAmt(e.target.value)}
-            style={{padding:"5px 8px",borderRadius:8,border:"1px solid #FDE68A",color:"#111827",fontSize:12,width:110}}/>
-          <button onClick={()=>{
-            if(!bTipEmp)return alert("Select who gets the tip.");
-            if(!bTipAmt||Number(bTipAmt)<=0)return alert("Enter tip amount.");
-            const newTip={id:Date.now(),employee:bTipEmp,amount:Number(bTipAmt)};
-            setLocalTips(p=>[...p,newTip]);
-            setBTipEmp("");setBTipAmt("");setShowTip(false);
-          }} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"#92400E",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
-          <button onClick={()=>{setShowTip(false);setBTipEmp("");setBTipAmt("");}}
-            style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid #E2E8F0",background:"#fff",color:"#64748B",fontSize:11,cursor:"pointer"}}>Cancel</button>
-        </div>
+      {isDone&&<div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:9,padding:"11px",textAlign:"center",marginTop:10}}>
+        <p style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>✅ Paid — {(v.totalPaid||0).toLocaleString()} Birr via {v.paymentMethod}</p>
       </div>}
-
-      {/* Confirm payment */}
-      <button onClick={()=>{
-        if(bPayM==="Cash"&&bCash&&Number(bCash)<total)return alert("Cash given ("+Number(bCash).toLocaleString()+" Birr) is less than the total ("+total.toLocaleString()+" Birr).");
-        onPay(v.id,bPayM,localTips,total);
-      }}
-        style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"#166534",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",marginTop:4}}>
-        ✓ Confirm Payment — {total.toLocaleString()} Birr {bPayM==="Cash"&&change>0?`(Change: ${change.toLocaleString()})`:""} 
-      </button>
-    </div>}
-
-    {/* Add tip button for in-progress */}
-    {mode==="inprogress"&&<div style={{marginTop:6}}>
-      {!showTip&&<button onClick={()=>setShowTip(true)}
-        style={{fontSize:11,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"0.5px solid #FDE68A",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>+ Add Tip</button>}
-      {showTip&&<div style={{background:"#FFFBEB",border:"0.5px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginTop:6}}>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-          {allBarberStaff.map(e=><button key={e.id} onClick={()=>setBTipEmp(e.name)}
-            style={{padding:"4px 10px",borderRadius:16,border:`1.5px solid ${bTipEmp===e.name?"#92400E":"#FDE68A"}`,background:bTipEmp===e.name?"#92400E":"#fff",color:bTipEmp===e.name?"#fff":"#92400E",fontSize:11,cursor:"pointer"}}>{e.name}</button>)}
-        </div>
-        <div style={{display:"flex",gap:6}}>
-          <input type="number" placeholder="Tip..." value={bTipAmt} onChange={e=>setBTipAmt(e.target.value)}
-            style={{padding:"5px 8px",borderRadius:8,border:"1px solid #FDE68A",color:"#111827",fontSize:12,width:90}}/>
-          <button onClick={()=>{if(!bTipEmp||!bTipAmt||Number(bTipAmt)<=0)return;setLocalTips(p=>[...p,{id:Date.now(),employee:bTipEmp,amount:Number(bTipAmt)}]);setBTipEmp("");setBTipAmt("");setShowTip(false);}}
-            style={{padding:"5px 10px",borderRadius:8,border:"none",background:"#92400E",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
-          <button onClick={()=>{setShowTip(false);setBTipEmp("");setBTipAmt("");}}
-            style={{padding:"5px 8px",borderRadius:8,border:"0.5px solid #E2E8F0",background:"#fff",color:"#64748B",fontSize:11,cursor:"pointer"}}>✕</button>
-        </div>
-      </div>}
-    </div>}
+    </div>
   </div>;
 }
 
@@ -1742,7 +1345,7 @@ export default function App(){
   const[staff,setStaff]=useState(DEFAULT_STAFF);
   const[loading,setLoading]=useState(true);
   const[queueEnabled,setQueueEnabled]=useState(true);
-  const[barberQueueNum,setBarberQueueNum]=useState(1); // Barbershop has its OWN queue counter
+  const[barberQueueNum,setBarberQueueNum]=useState(1);
   const[checkInModal,setCheckInModal]=useState(null);
   const[ciHoldQueue,setCiHoldQueue]=useState(false);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
   const[pullY,setPullY]=useState(0);const[pulling,setPulling]=useState(false);const[refreshing,setRefreshing]=useState(false);
@@ -1783,6 +1386,11 @@ export default function App(){
   const[invLogFilter,setInvLogFilter]=useState("all"); // "all" | "out" | "in"
   // Load inventory from Supabase — overrides defaults with saved data
   useEffect(()=>{
+    supabase.from("settings").select("*").eq("key","queueEnabled").single()
+      .then(({data})=>{if(data?.value!=null)setQueueEnabled(data.value==="true"||data.value===true);}).catch(()=>{});
+    const bqToday=new Date().toISOString().slice(0,10);
+    Promise.all([supabase.from("settings").select("*").eq("key","barberQueueDate").single(),supabase.from("settings").select("*").eq("key","barberQueueNum").single()])
+      .then(([dr,nr])=>{if(dr?.data?.value===bqToday){setBarberQueueNum(Number(nr?.data?.value||1));}else{supabase.from("settings").upsert({key:"barberQueueDate",value:bqToday}).then(()=>{});supabase.from("settings").upsert({key:"barberQueueNum",value:"1"}).then(()=>{});setBarberQueueNum(1);}}).catch(()=>{setBarberQueueNum(1);});
     supabase.from("settings").select("*").eq("key","inventory").single()
       .then(({data})=>{
         if(data?.value)try{
@@ -1790,24 +1398,6 @@ export default function App(){
           if(saved&&saved.length>0)setInventory(saved);
         }catch(e){}
       });
-    // Load queue toggle
-    supabase.from("settings").select("*").eq("key","queueEnabled").single()
-      .then(({data})=>{if(data?.value!=null)setQueueEnabled(data.value==="true"||data.value===true);}).catch(()=>{});
-    // Load barbershop queue counter (resets daily)
-    const bqToday=new Date().toISOString().slice(0,10);
-    Promise.all([
-      supabase.from("settings").select("*").eq("key","barberQueueDate").single(),
-      supabase.from("settings").select("*").eq("key","barberQueueNum").single(),
-    ]).then(([dateRes,numRes])=>{
-      const savedDate=dateRes?.data?.value;
-      const savedNum=Number(numRes?.data?.value||1);
-      if(savedDate===bqToday){setBarberQueueNum(savedNum);}
-      else{
-        supabase.from("settings").upsert({key:"barberQueueDate",value:bqToday}).then(()=>{});
-        supabase.from("settings").upsert({key:"barberQueueNum",value:"1"}).then(()=>{});
-        setBarberQueueNum(1);
-      }
-    }).catch(()=>{setBarberQueueNum(1);});
     // Load saved Amharic text overrides
     supabase.from("settings").select("*").eq("key","amTexts").single()
       .then(({data})=>{
@@ -2873,8 +2463,7 @@ export default function App(){
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
-  // Prevent black screen: show loading while data loads or tab not yet set
-  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:40,marginBottom:12,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:16,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:12,color:"#94A3B8",marginTop:6}}>Loading...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:40,marginBottom:12,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:16,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:12,color:"#94A3B8",marginTop:6}}>Loading...</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
   if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
     {/* Header */}
@@ -3037,6 +2626,7 @@ export default function App(){
           <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
         </section>
         <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
+          <QueueSummary visits={visits} emps={emps} sc={sc}/>
           {todayV.length===0&&saving&&[1,2,3].map(i=><div key={i} style={{height:42,background:"#F1F5F9",borderRadius:10,marginBottom:6,animation:"pulse 1.5s ease-in-out infinite"}}/>)}
           {todayV.length===0&&!saving&&<EMP>No customers registered yet today.</EMP>}
           {todayV.map((v,idx)=>{
@@ -3073,7 +2663,7 @@ export default function App(){
       {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:sc.mob&&actId?"1fr":gc,gap:14}}>
         {/* On mobile: hide queue list when customer is selected */}
         {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
-          <h3 style={S.sh}>⏳ Waiting</h3>
+          <QueueSummary visits={visits} emps={emps} sc={sc}/>          <h3 style={S.sh}>⏳ Waiting</h3>
           {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
             :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
@@ -4420,12 +4010,8 @@ function SvcTimer({lineId,status}){
   const[mins,setMins]=useState(()=>svcMins(lineId)||0);
   const[frozenMins,setFrozenMins]=useState(null);
   useEffect(()=>{
-    if(status!=="In Progress"){
-      if((status==="Completed"||status==="Cancelled")&&frozenMins===null){const m=svcMins(lineId);if(m)setFrozenMins(m);}
-      return;
-    }
-    const t=setInterval(()=>setMins(svcMins(lineId)||0),15000);
-    return()=>clearInterval(t);
+    if(status!=="In Progress"){if((status==="Completed"||status==="Cancelled")&&frozenMins===null){const m=svcMins(lineId);if(m)setFrozenMins(m);}return;}
+    const t=setInterval(()=>setMins(svcMins(lineId)||0),15000);return()=>clearInterval(t);
   },[lineId,status]);
   if(status==="Waiting"||status==="On Hold")return null;
   if((status==="Completed"||status==="Cancelled")){const m=frozenMins||svcMins(lineId);if(!m)return null;return <div style={{fontSize:10,fontWeight:700,color:"#166534",background:"#dcfce7",borderRadius:6,padding:"2px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>Done in {m} min</div>;}
@@ -4451,4 +4037,4 @@ function HR(){return <div style={{borderTop:"0.5px solid #E2E8F0",margin:"14px 0
 function EMP({children}){return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:14}}>{children}</div>;}
 function SC({label,value,highlight,accent}){return <div style={{background:highlight?"#1B2E4B":accent?"#FEF2F2":"#F8FAFC",color:highlight?"#fff":"#1B2E4B",borderRadius:12,padding:"10px 12px",border:"0.5px solid "+(highlight?"transparent":accent?"#FECACA":"#E2E8F0")}}><p style={{margin:0,fontSize:9,fontWeight:500,color:highlight?"#5A8C72":accent?"#B91C1C":"#64748B",letterSpacing:0.5}}>{label}</p><h3 style={{margin:"3px 0 0",fontSize:15,fontWeight:500,color:highlight?"#fff":accent?"#B91C1C":"#1B2E4B"}}>{value}</h3></div>;}
 function FI({label,value,onChange,type="text",note,onNote}){return <div><p style={{fontSize:10,fontWeight:700,color:"#334155",margin:"0 0 2px"}}>{label}</p><input type={type} value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"7px 9px",borderRadius:9,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:13}}/>{onNote!==undefined&&<input value={note||""} onChange={e=>onNote(e.target.value)} placeholder="Note" style={{width:"100%",boxSizing:"border-box",padding:"4px 7px",borderRadius:7,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:11,marginTop:3}}/>}</div>;}
-function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
+function SB(st){const m={"Waiting for Supervisor":{bg:"#FEF3C7",co:"#92400E"},"With Supervisor":{bg:"#E0F2FE",co:"#0369A1"},"In Service":{bg:"#EBF2FD",co:"#1B4FA8"},"Ready for Payment":{bg:"#EBF5EE",co:"#2D7D46"},"Paid & Closed":{bg:"#F0FDF4",co:"#166534"},Waiting:{bg:"#F8FAFC",co:"#475569"},"On Hold":{bg:"#EDE9FE",co:"#5B3FA6"},"In Progress":{bg:"#EBF2FD",co:"#1B4FA8"},Completed:{bg:"#EBF5EE",co:"#2D7D46"},Cancelled:{bg:"#FEE2E2",co:"#B91C1C"},Pending:{bg:"#FEF3C7",co:"#92400E"},Confirmed:{bg:"#EBF2FD",co:"#1B4FA8"},Arrived:{bg:"#EBF5EE",co:"#2D7D46"},"No-show":{bg:"#F1F5F9",co:"#64748B"},"Spa Arrived":{bg:"#E0F2FE",co:"#0369A1"}};const c=m[st]||{bg:"#F1F5F9",co:"#475569"};return{borderRadius:7,padding:"2px 9px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",background:c.bg,color:c.co};}
