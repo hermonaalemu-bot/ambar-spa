@@ -1715,7 +1715,7 @@ export default function App(){
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"visits"},p=>{
         setVisits(prev=>{if(prev.find(x=>x.id===p.new.id))return prev;return[...prev,dbVis(p.new)];});
         if(role===ROLES.SUPERVISOR||role===ROLES.MANAGER){
-          push("🆕 New: "+p.new.name+" #"+p.new.queue,"info");
+          push("New: "+p.new.name+" #"+p.new.queue,"info");
           nativePush("New Customer",p.new.name+" #"+p.new.queue+" is waiting","queue");
         }
       })
@@ -2265,7 +2265,7 @@ export default function App(){
       const{error:updErr}=await supabase.from("visits").update({note:(v.note?v.note+" | ":"")+"Transferred to Beauty #"+qNum}).eq("id",v.id);
       if(updErr)console.error("Note update failed:",updErr.message);
       setVisits(prev=>prev.map(vv=>vv.id===v.id?{...vv,beautyQueueNum:qNum}:vv));
-      push(v.name+" → Beauty Salon Queue #"+qNum,"success");
+      push(v.name+" moved to Beauty Salon Queue #"+qNum,"success");
     },false);
   }
   async function giveBeautyQueue(b){
@@ -2604,7 +2604,7 @@ export default function App(){
     {/* Pull to refresh indicator */}
     {(pulling||refreshing)&&<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,display:"flex",justifyContent:"center",paddingTop:Math.min(pullY,60)+"px",pointerEvents:"none",transition:refreshing?"none":"padding 0.1s"}}>
       <div style={{background:"#1B2E4B",color:"#5A8C72",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",display:"flex",alignItems:"center",gap:8}}>
-        <span style={{display:"inline-block",animation:refreshing?"spin 1s linear infinite":"none",fontSize:14}}>↻</span>
+        <RefreshCw size={14} style={{animation:refreshing?"spin 1s linear infinite":"none"}}/>
         {refreshing?"Refreshing...":pullY>60?"Release to refresh":"Pull to refresh"}
       </div>
     </div>}
@@ -2793,9 +2793,9 @@ export default function App(){
                 </div>}
               </div>);})}
         </section>}
-        {sc.mob&&actId&&<button onClick={()=>{setActId(null);window.scrollTo({top:0,behavior:"smooth"});}} style={{...S.btnS,width:"auto",padding:"8px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontWeight:500,color:"#1B2E4B"}}>← Back to Queue</button>}
+        {sc.mob&&actId&&<button onClick={()=>{setActId(null);window.scrollTo({top:0,behavior:"smooth"});}} style={{...S.btnS,width:"auto",padding:"8px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontWeight:500,color:"#1B2E4B"}}><ArrowLeft size={13}/> Back to Queue</button>}
         <section style={S.card}>
-          {!act?(!sc.mob&&<EMP>← Select a customer to assign services.</EMP>):!act.services?<EMP>Loading...</EMP>:<>
+          {!act?(!sc.mob&&<EMP><ArrowLeft size={13} style={{marginRight:6,verticalAlign:"-2px"}}/>Select a customer to assign services.</EMP>):!act.services?<EMP>Loading...</EMP>:<>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
               <div><h2 style={{...S.ct,marginBottom:2}}>#{act.queue} — {act.name}</h2><p style={S.hlp}>{act.groupName||"Individual"} · {act.status}</p></div>
               {(()=>{
@@ -3475,7 +3475,7 @@ export default function App(){
           {custs.filter(c=>c.deletedAt).map(c=>(
             <div key={c.id} style={{...S.li,opacity:0.7,background:"#fff5f5",border:"1px solid #fca5a5"}}>
               <div><b style={{color:"#dc2626"}}>{c.name}</b><p style={S.hlp}>{c.phone} · Deleted {new Date(c.deletedAt).toLocaleDateString()}</p></div>
-              <button style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:0,color:"#166534",borderColor:"#86efac",fontWeight:700}} onClick={()=>restoreCust(c.id)}>↩ Restore</button>
+              <button style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:0,color:"#166534",borderColor:"#86efac",fontWeight:700,display:"flex",alignItems:"center",gap:6}} onClick={()=>restoreCust(c.id)}><Undo2 size={13}/> Restore</button>
             </div>
           ))}
         </>}
@@ -3948,7 +3948,7 @@ export default function App(){
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                       <div style={{width:28,height:28,borderRadius:8,background:getD(key),border:"0.5px solid #E2E8F0"}}/>
-                      <button onClick={()=>setD(key,def)} style={{padding:"2px 8px",border:"0.5px solid #E2E8F0",borderRadius:6,background:"#F8FAFC",color:"#64748B",fontSize:10,cursor:"pointer"}}>↺</button>
+                      <button onClick={()=>setD(key,def)} style={{padding:"3px 8px",border:"0.5px solid #E2E8F0",borderRadius:6,background:"#F8FAFC",color:"#64748B",cursor:"pointer",display:"flex"}}><RotateCcw size={10}/></button>
                     </div>
                   </div>
                 ))}
@@ -4077,8 +4077,8 @@ function SLines({visit,emps,mode,onUpd,onRem,onMove}){
         </p>}
           </div>
           <div style={{display:"flex",gap:4}}>
-                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"up")}>↑</button>}
-                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",fontSize:12}} onClick={()=>onMove(line.lineId,"down")}>↓</button>}
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",display:"flex"}} onClick={()=>onMove(line.lineId,"up")}><ArrowUp size={12}/></button>}
+                {!locked&&<button style={{padding:"4px 6px",borderRadius:7,border:0,background:"#fef3c7",color:"#92400e",cursor:"pointer",display:"flex"}} onClick={()=>onMove(line.lineId,"down")}><ArrowDown size={12}/></button>}
                 {!locked&&<button style={{padding:"4px 10px",borderRadius:8,border:0,background:"#ffe3de",color:"#8a1f12",fontWeight:800,cursor:"pointer",fontSize:12}} onClick={()=>onRem(line.lineId)}>Remove</button>}
               </div>
         </div>
