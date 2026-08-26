@@ -1349,15 +1349,23 @@ export default function App(){
   // fresh login — it is never trusted from client-side storage.
   useEffect(()=>{
     let active=true;
+    let resolvedFor=null; // last auth.users id we already resolved, so a same-identity
+                           // event (token refresh, cross-tab focus sync) is a no-op
     async function resolveSession(session){
-      if(!session){if(active)setUser(null);return;}
+      if(!session){resolvedFor=null;if(active)setUser(null);return;}
+      if(session.user.id===resolvedFor)return;
       const{data:profile}=await supabase.from("staff").select("id,name,role,active").eq("user_id",session.user.id).single();
       if(!active)return;
-      if(!profile||!profile.active){await supabase.auth.signOut();setUser(null);return;}
+      if(!profile||!profile.active){resolvedFor=null;await supabase.auth.signOut();setUser(null);return;}
+      resolvedFor=session.user.id;
       setUser(profile);
     }
-    supabase.auth.getSession().then(({data})=>resolveSession(data.session).finally(()=>{if(active)setCheckingSession(false);}));
-    const{data:sub}=supabase.auth.onAuthStateChange((_event,session)=>{resolveSession(session);});
+    // onAuthStateChange fires immediately with the current session on subscribe, so a
+    // separate getSession() call isn't needed — calling both was exactly what caused
+    // every load to run twice.
+    const{data:sub}=supabase.auth.onAuthStateChange((_event,session)=>{
+      resolveSession(session).finally(()=>{if(active)setCheckingSession(false);});
+    });
     return()=>{active=false;sub.subscription.unsubscribe();};
   },[]);
   const[queueEnabled,setQueueEnabled]=useState(true);
