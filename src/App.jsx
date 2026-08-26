@@ -2947,7 +2947,7 @@ export default function App(){
         </div>
 
         {showWalkIn&&user.role!=="supervisor"&&<div style={{background:"#f0fdfa",border:"1px solid #0f766e",borderRadius:16,padding:18,marginBottom:16}}>
-          <h3 style={{margin:"0 0 12px",fontWeight:800,color:"#0f766e"}}>🚶 Spa Walk-in — Add to Queue Now</h3>
+          <h3 style={{margin:"0 0 12px",fontWeight:800,color:"#0f766e",display:"flex",alignItems:"center",gap:8}}><Footprints size={16}/> Spa Walk-in — Add to Queue Now</h3>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:10}}>
             <div><L>Customer Name *</L><input style={S.inp} value={wiName} onChange={e=>setWiName(e.target.value)} placeholder="Full name"/></div>
             <div><L>Phone *</L><div style={S.r2}><input style={S.inp} value={wiPhone} onChange={e=>setWiPhone(e.target.value)} placeholder="Phone"/><button style={S.btnS} onClick={()=>{const f=custs.find(c=>c.phone===wiPhone.trim());if(f)setWiName(f.name);}}>{t("recall")}</button></div></div>
@@ -2990,7 +2990,7 @@ export default function App(){
               {["Female","Male"].map(g=>(
                 <button key={g} onClick={()=>setBkF(p=>({...p,gender:p.gender===g?"":g}))}
                   style={{flex:1,padding:"10px 4px",borderRadius:10,border:"0.5px solid "+(bkF.gender===g?"#1B2E4B":"#CBD5E0"),background:bkF.gender===g?"#1B2E4B":"#fff",color:bkF.gender===g?"#fff":"#475569",fontSize:13,fontWeight:bkF.gender===g?500:400,cursor:"pointer"}}>
-                  {g==="Female"?"♀ Female":"♂ Male"}
+                  {g}
                 </button>
               ))}
             </div>
@@ -3003,11 +3003,11 @@ export default function App(){
           {bkSearch&&<button style={{...S.btnD,whiteSpace:"nowrap"}} onClick={()=>setBkSearch("")}>Clear</button>}
           <button style={{...S.btnS,width:"auto",padding:"8px 14px",marginBottom:0}} onClick={async()=>{const{data,error}=await supabase.from("bookings").select("*").order("date",{ascending:true}).order("time",{ascending:true});if(data){setBks(data.map(dbBk));push("Loaded "+data.length+" bookings","success");}if(error)push("Error: "+error.message,"warning");}}>{t("refresh")}</button>
         </div>
-        <div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#0369a1"}}>
-          📊 {bks.filter(b=>!["Cancelled","No-show","Completed"].includes(b.status)&&b.date>=todayStr()).length} active upcoming bookings · {bks.filter(b=>b.date===bkDate&&!["Cancelled","No-show","Completed"].includes(b.status)).length} on selected date · {bks.filter(b=>b.status==="Pending"&&b.date>=todayStr()).length} pending confirmation
+        <div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#0369a1",display:"flex",alignItems:"center",gap:6}}>
+          <BarChart3 size={13} style={{flexShrink:0}}/> {bks.filter(b=>!["Cancelled","No-show","Completed"].includes(b.status)&&b.date>=todayStr()).length} active upcoming bookings · {bks.filter(b=>b.date===bkDate&&!["Cancelled","No-show","Completed"].includes(b.status)).length} on selected date · {bks.filter(b=>b.status==="Pending"&&b.date>=todayStr()).length} pending confirmation
         </div>
-        <h3 style={S.sh}>📅 {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
-        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking 🔄 Refresh. If you just created a booking, refresh the page.</p></div>}
+        <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><Calendar size={13}/> {bkDate} — Schedule <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>({todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length} active booking{todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length!==1?"s":""})</span></h3>
+        {todayBk.filter(b=>!["Cancelled","No-show"].includes(b.status)).length===0&&<div style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16}}><p style={{color:"#0369a1",fontSize:13,margin:"0 0 6px",fontWeight:700}}>No bookings found for {bkDate}</p><p style={{color:"#6b7280",fontSize:11,margin:0}}>Total bookings in system: {bks.length}. Try clicking Refresh. If you just created a booking, refresh the page.</p></div>}
         
         <div style={{border:"1px solid #ecdba3",borderRadius:12,overflow:"hidden",marginBottom:16}}>
           {timeSlots().map(slot=>{
@@ -3048,8 +3048,8 @@ export default function App(){
                             {cVisits.length} visit{cVisits.length>1?"s":""}{fav?" · fav: "+fav.slice(0,20):""}
                           </span>;
                         })()}
-                        <div style={{fontSize:11,color:"#374151",marginTop:2}}>
-                          ⏱ {b.durationMins}min · {b.time}–{(()=>{const[h,m]=b.time.split(":").map(Number);const total=h*60+m+Number(b.durationMins||60);return String(Math.floor(total/60)%24).padStart(2,"0")+":"+String(total%60).padStart(2,"0");})()}
+                        <div style={{fontSize:11,color:"#374151",marginTop:2,display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                          <Timer size={11}/> {b.durationMins}min · {b.time}–{(()=>{const[h,m]=b.time.split(":").map(Number);const total=h*60+m+Number(b.durationMins||60);return String(Math.floor(total/60)%24).padStart(2,"0")+":"+String(total%60).padStart(2,"0");})()}
                           {" · "}{b.people} person{b.people>1?"s":""}
                           {b.notes&&<span style={{fontStyle:"italic",color:"#6b7280"}}> · "{b.notes}"</span>}
                         </div>
@@ -3059,18 +3059,17 @@ export default function App(){
                         {b.status==="Pending"&&<button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Confirmed")}>{t("confirmBooking")}</button>}
                         {b.status==="Confirmed"&&<button style={{...S.btnP,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>checkIn(b)}>{t("checkIn")}</button>}
                         {["Confirmed","Pending","Arrived"].includes(b.status)&&!b.beautyQueueNum&&b.serviceCategory==="Spa"&&
-                          <button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:500}}
+                          <button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:500,display:"inline-flex",alignItems:"center",gap:5}}
                             onClick={()=>giveBeautyQueue(b)}>
-                            💇 Get Beauty Queue
+                            <Waves size={11}/> Get Beauty Queue
                           </button>}
-                        {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:500}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
-                        {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,marginRight:4}}>💇 Beauty Q#{b.beautyQueueNum}</span>}
-                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px"}}>✓ Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>
+                        {b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:500,display:"inline-flex",alignItems:"center",gap:4}}><Waves size={10}/> Beauty Q#{b.beautyQueueNum}</span>}
+                        {b.status==="Arrived"&&<><span style={{color:"#166534",fontWeight:700,fontSize:11,padding:"3px 8px",display:"inline-flex",alignItems:"center",gap:4}}><Check size={12}/> Checked In</span><button style={{...S.btnS,width:"auto",padding:"3px 10px",marginBottom:0,fontSize:11}} onClick={()=>updBk(b.id,"Completed")}>{t("markDone")}</button></>
                         }
-                        {["Pending","Confirmed","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:10}} onClick={()=>printBookingSlip(b)}>🖨 Slip</button>}
+                        {["Pending","Confirmed","Arrived"].includes(b.status)&&<button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:10,display:"inline-flex",alignItems:"center",gap:4}} onClick={()=>printBookingSlip(b)}><Printer size={10}/> Slip</button>}
                         {!["Completed","Cancelled","No-show","Arrived"].includes(b.status)&&<>
                         <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:b.date,time:b.time,people:b.people,notes:b.notes});}}>Edit</button>
-                        <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:"",time:"",people:b.people,notes:b.notes,gender:b.gender||"",wantBeautyQueue:false});}}>📅 Reschedule</button>
+                        <button style={{...S.btnS,width:"auto",padding:"3px 8px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",display:"inline-flex",alignItems:"center",gap:4}} onClick={()=>{setEditBk(b);setShowBkF(true);setBkF({customerName:b.customerName,customerPhone:b.customerPhone,serviceId:String(b.serviceId),date:"",time:"",people:b.people,notes:b.notes,gender:b.gender||"",wantBeautyQueue:false});}}><Calendar size={11}/> Reschedule</button>
                       </>}
                         {!["Completed","Cancelled"].includes(b.status)&&<button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>updBk(b.id,"Cancelled")}>{t("cancel")}</button>}
                         <button style={{...S.btnD,padding:"3px 8px",fontSize:10}} onClick={()=>delBk(b.id)}>Delete</button>
