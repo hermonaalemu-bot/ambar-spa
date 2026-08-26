@@ -201,7 +201,11 @@ function ethToGreg(ey,em,ed){
   return yr+'-'+String(mo).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
 }
 
-function todayStr(){return new Date().toISOString().slice(0,10);}
+// Local calendar date, not UTC — toISOString() is always UTC, which puts bookings and
+// closing reports on the wrong day for the first ~3 hours of every Addis Ababa morning
+// (Addis is UTC+3). Every other date computation in this file already uses local Date
+// getters; this makes todayStr() consistent with them instead of the odd one out.
+function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function todayDow(){return new Date().getDay();} // 0=Sun,1=Mon...6=Sat
 function isEmpAvailableToday(emp){
   if(!emp.active)return false;
