@@ -2681,14 +2681,14 @@ export default function App(){
             <div style={{padding:"4px 12px 0"}}>
               <button onClick={()=>setMobNav(v=>!v)} style={{background:"rgba(255,255,255,0.07)",border:"none",color:"#fff",borderRadius:7,padding:"7px 12px",fontSize:12,cursor:"pointer",width:"100%",textAlign:"left",marginBottom:4}}>☰ {tab}</button>
               {mobNav&&<div style={{background:"#152030",borderRadius:8,padding:6,border:"1px solid rgba(255,255,255,0.08)",marginBottom:4}}>
-                {allTabs.map(t2=><button key={t2} style={{background:tab===t2?"rgba(224,184,90,0.12)":"transparent",border:"none",color:tab===t2?"#E0B85A":"rgba(255,255,255,0.6)",borderRadius:6,padding:"8px 12px",display:"block",width:"100%",textAlign:"left",cursor:"pointer",fontSize:12,fontWeight:tab===t2?600:400}} onClick={()=>{setTab(t2);setMobNav(false);}}>{t2}</button>)}
+                {allTabs.map(t2=><button key={t2} style={{background:tab===t2?"rgba(224,184,90,0.12)":"transparent",border:"none",color:tab===t2?"#E0B85A":"rgba(255,255,255,0.6)",borderRadius:6,padding:"11px 12px",display:"block",width:"100%",textAlign:"left",cursor:"pointer",fontSize:13,fontWeight:tab===t2?600:400}} onClick={()=>{setTab(t2);setMobNav(false);}}>{t2}</button>)}
               </div>}
             </div>
           ):(
             <div style={{display:"flex",overflowX:"auto"}}>
-              {dailyTabs.map(tk=><button key={tk} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}} style={{padding:"10px 15px",background:"transparent",border:"none",borderBottom:tab===tk?"2px solid #E0B85A":"2px solid transparent",color:tab===tk?"#E0B85A":"rgba(255,255,255,0.45)",fontWeight:tab===tk?600:400,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().split(" ").join("").split("&").join("")]||tk}</button>)}
+              {dailyTabs.map(tk=><button key={tk} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");if(tk!=="Supervisor"&&tk!=="Checkout")setActId(null);}} style={{padding:"13px 15px",background:"transparent",border:"none",borderBottom:tab===tk?"2px solid #E0B85A":"2px solid transparent",color:tab===tk?"#E0B85A":"rgba(255,255,255,0.45)",fontWeight:tab===tk?600:400,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>{(LANG[lang]||LANG.en)[tk.toLowerCase().split(" ").join("").split("&").join("")]||tk}</button>)}
               {mgrTabs.length>0&&<div style={{width:1,background:"rgba(255,255,255,0.1)",margin:"10px 6px"}}/>}
-              {mgrTabs.map(tk=><button key={tk} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}} style={{padding:"10px 12px",background:"transparent",border:"none",borderBottom:tab===tk?"2px solid #5A8C72":"2px solid transparent",color:tab===tk?"#5A8C72":"rgba(255,255,255,0.3)",fontWeight:tab===tk?600:400,cursor:"pointer",fontSize:11,whiteSpace:"nowrap"}}>{tk}</button>)}
+              {mgrTabs.map(tk=><button key={tk} onClick={()=>{setTab(tk);if(tk!=="Checkout")setCoQ("");}} style={{padding:"13px 12px",background:"transparent",border:"none",borderBottom:tab===tk?"2px solid #E0B85A":"2px solid transparent",color:tab===tk?"#E0B85A":"rgba(255,255,255,0.45)",fontWeight:tab===tk?600:400,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>{tk}</button>)}
             </div>
           )}
         </div>
