@@ -3449,16 +3449,16 @@ export default function App(){
               const all=cv.flatMap(v=>(v.services||[]).map(s=>s.name));
               const fav=all.length?all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0]:"None";
               const spent=cv.reduce((s,v)=>s+Number(v.totalService||0),0);
-              const tier=spent>=10000?{label:"Gold ⭐",bg:"#fef3c7",co:"#b45309"}:spent>=5000?{label:"Silver 🥈",bg:"#f1f5f9",co:"#475569"}:spent>=1000?{label:"Bronze 🥉",bg:"#fef9ec",co:"#92400e"}:{label:"New 🌱",bg:"#f0fdf4",co:"#166534"};
+              const tier=spent>=10000?{label:"Gold",bg:"#fef3c7",co:"#b45309",Ic:Trophy}:spent>=5000?{label:"Silver",bg:"#f1f5f9",co:"#475569",Ic:Medal}:spent>=1000?{label:"Bronze",bg:"#fef9ec",co:"#92400e",Ic:Award}:{label:"New",bg:"#f0fdf4",co:"#166534",Ic:Sparkles};
               return <div key={c.id} style={{...S.li,flexDirection:"column",alignItems:"stretch"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                   <div>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                       <b style={{fontSize:15,color:"#111827"}}>{c.name}</b>
-                      <span style={{background:tier.bg,color:tier.co,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{tier.label}</span>
+                      <span style={{background:tier.bg,color:tier.co,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><tier.Ic size={11}/> {tier.label}</span>
                     </div>
                     <p style={{margin:"2px 0 0",fontSize:12,color:"#6b7280"}}>{c.phone}</p>
-                  {c.note&&<p style={{margin:"3px 0 0",fontSize:11,color:"#B91C1C",background:"#FEF2F2",borderRadius:6,padding:"2px 8px",display:"inline-block"}}>⚠ {c.note}</p>}
+                  {c.note&&<p style={{margin:"3px 0 0",fontSize:11,color:"#B91C1C",background:"#FEF2F2",borderRadius:6,padding:"2px 8px",display:"inline-flex",alignItems:"center",gap:4}}><AlertTriangle size={10}/> {c.note}</p>}
                   </div>
                   <button style={{...S.btnD,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11}} onClick={()=>delCust(c.id)}>Delete</button>
                 </div>
@@ -3471,7 +3471,7 @@ export default function App(){
               </div>;})}
         {custs.filter(c=>c.deletedAt).length>0&&<>
           <HR/>
-          <h3 style={S.sh}>🗑 Recently Deleted — can be restored</h3>
+          <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><Trash2 size={13}/> Recently Deleted — can be restored</h3>
           {custs.filter(c=>c.deletedAt).map(c=>(
             <div key={c.id} style={{...S.li,opacity:0.7,background:"#fff5f5",border:"1px solid #fca5a5"}}>
               <div><b style={{color:"#dc2626"}}>{c.name}</b><p style={S.hlp}>{c.phone} · Deleted {new Date(c.deletedAt).toLocaleDateString()}</p></div>
