@@ -1,5 +1,14 @@
 import React,{useEffect,useMemo,useState,useRef} from "react";
 import {supabase} from "./supabase";
+import {
+  Search,Bell,Globe,Lock,RefreshCw,Printer,Calendar,AlertTriangle,HelpCircle,
+  CheckCircle2,XCircle,X,Check,CreditCard,Banknote,Smartphone,Scissors,Users,User,
+  Menu,TrendingUp,Package,Pencil,Trash2,Plus,Minus,Award,Medal,Trophy,Palette,Type,
+  Save,Link as LinkIcon,ChevronUp,ChevronDown,Sparkles,LogOut,Flower2,Waves,
+  ClipboardList,BarChart3,Wallet,ArrowLeftRight,ArrowRight,Undo2,PenLine,
+  ThumbsUp,PartyPopper,Footprints,Shirt,Droplet,Star,CircleDot,Receipt,
+  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,
+} from "lucide-react";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
 const ROLES={RECEPTION:"reception",SUPERVISOR:"supervisor",MANAGER:"manager"};
@@ -1017,7 +1026,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
   return<div>
     {/* Header */}
     <div style={{background:"linear-gradient(135deg,#0F1E33,#1B2E4B)",borderRadius:14,padding:"14px 18px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,border:"1px solid rgba(224,184,90,0.15)"}}>
-      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff",fontFamily:"'Playfair Display',Georgia,serif"}}>💈 Barbershop</h2>
+      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff",fontFamily:"'Inter',system-ui,sans-serif"}}>💈 Barbershop</h2>
         <p style={{margin:"2px 0 0",fontSize:11,color:"rgba(255,255,255,0.45)"}}>Walk-ins · Assignments · Payments</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <label style={{display:"flex",alignItems:"center",gap:7,background:"rgba(255,255,255,0.07)",border:`1.5px solid ${queueEnabled?"#5A8C72":"#475569"}`,borderRadius:9,padding:"5px 12px",cursor:"pointer"}}>
@@ -1172,7 +1181,7 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
     <div style={{background:"#0F1E33",padding:"14px 17px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,backgroundImage:"repeating-linear-gradient(60deg,transparent 0px,transparent 10px,rgba(201,150,42,0.05) 10px,rgba(201,150,42,0.05) 11px),repeating-linear-gradient(-60deg,transparent 0px,transparent 10px,rgba(201,150,42,0.05) 10px,rgba(201,150,42,0.05) 11px)",position:"relative"}}>
       <div style={{display:"flex",alignItems:"center",gap:9}}>
         {queueEnabled&&bqv>0&&<span style={{background:"#E0B85A",color:"#1B2E4B",borderRadius:7,padding:"2px 9px",fontSize:13,fontWeight:900}}>B-{bqv}</span>}
-        <div><b style={{fontSize:17,color:"#fff",display:"block",fontFamily:"'Playfair Display',Georgia,serif",fontWeight:600,letterSpacing:"0.1px"}}>{v.name}</b>{v.phone&&<p style={{margin:0,fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:2}}>{v.phone}</p>}</div>
+        <div><b style={{fontSize:17,color:"#fff",display:"block",fontFamily:"'Inter',system-ui,sans-serif",fontWeight:600,letterSpacing:"0.1px"}}>{v.name}</b>{v.phone&&<p style={{margin:0,fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:2}}>{v.phone}</p>}</div>
       </div>
       <span style={{background:banner.bg,color:banner.co,border:`1px solid ${banner.bd}`,borderRadius:18,padding:"3px 10px",fontSize:11,fontWeight:700}}>{banner.ic} {banner.tx}</span>
     </div>
@@ -2526,25 +2535,25 @@ export default function App(){
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
 
-  if(checkingSession)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:10,animation:"spin 2s linear infinite"}}>✦</div><p style={{fontSize:12,color:"#5A8C72",letterSpacing:2}}>AMBAR SPA & BEAUTY</p><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  if(checkingSession)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><Loader2 size={32} style={{animation:"spin 1s linear infinite"}}/><p style={{fontSize:12,color:"#5A8C72",letterSpacing:2,marginTop:10}}>AMBAR SPA & BEAUTY</p><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
-  if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
+  if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><Lock size={36} color="#1B2E4B" style={{marginBottom:8}}/><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
-  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:10,animation:"spin 2s linear infinite"}}>✦</div><p style={{fontSize:12,color:"#5A8C72",letterSpacing:2}}>AMBAR SPA & BEAUTY</p><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  if(user&&(loading||!tab))return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><Loader2 size={32} style={{animation:"spin 1s linear infinite"}}/><p style={{fontSize:12,color:"#5A8C72",letterSpacing:2,marginTop:10}}>AMBAR SPA & BEAUTY</p><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
   if(!user)return(<div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1B2E4B)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
     {/* Header */}
     <div style={{textAlign:"center",marginBottom:24}}>
-      <div style={{fontSize:40,marginBottom:8}}>✦</div>
-      <h1 style={{margin:0,fontSize:24,fontWeight:500,color:"#fff",letterSpacing:1}}>Ambar Spa & Beauty</h1>
+      <Sparkles size={36} color="#E0B85A" style={{marginBottom:8}}/>
+      <h1 style={{margin:0,fontSize:24,fontWeight:700,color:"#fff",letterSpacing:0.5}}>Ambar Spa & Beauty</h1>
       <p style={{margin:"6px 0 0",color:"#5A8C72",fontSize:12,letterSpacing:2}}>SALON MANAGEMENT SYSTEM</p>
     </div>
     {/* Tab switcher */}
     <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:12,padding:4,marginBottom:20,width:"100%",maxWidth:420}}>
       {["login","bookings"].map(tab=>(
         <button key={tab} onClick={()=>setLoginTab(tab)}
-          style={{flex:1,padding:"10px",borderRadius:9,border:"none",background:loginTab===tab?"#fff":"transparent",color:loginTab===tab?"#1B2E4B":"#94A3B8",fontWeight:loginTab===tab?500:400,cursor:"pointer",fontSize:13,transition:"all 0.15s"}}>
-          {tab==="login"?"🔐 Staff Login":"📅 Today's Bookings"}
+          style={{flex:1,padding:"10px",borderRadius:9,border:"none",background:loginTab===tab?"#fff":"transparent",color:loginTab===tab?"#1B2E4B":"#94A3B8",fontWeight:loginTab===tab?500:400,cursor:"pointer",fontSize:13,transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          {tab==="login"?<><LogIn size={14}/> Staff Login</>:<><Calendar size={14}/> Today's Bookings</>}
         </button>
       ))}
     </div>
@@ -2559,7 +2568,7 @@ export default function App(){
     </div>}
     {/* Public bookings view */}
     {loginTab==="bookings"&&<div style={{background:"#fff",borderRadius:20,padding:20,width:"100%",maxWidth:680,boxShadow:"0 20px 60px rgba(0,0,0,0.4)",maxHeight:"70vh",overflowY:"auto"}}>
-      <h2 style={{margin:"0 0 4px",fontSize:16,fontWeight:500,color:"#1B2E4B"}}>📅 Today's Bookings</h2>
+      <h2 style={{margin:"0 0 4px",fontSize:16,fontWeight:700,color:"#1B2E4B",display:"flex",alignItems:"center",gap:8}}><Calendar size={17}/> Today's Bookings</h2>
       <p style={{margin:"0 0 16px",fontSize:12,color:"#64748B"}}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
       {publicBookings===null
         ?<div style={{textAlign:"center",padding:40,color:"#94A3B8"}}>Loading…</div>
@@ -2584,7 +2593,7 @@ export default function App(){
     </div>}
   </div>);
 
-  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:16,animation:"spin 2s linear infinite"}}>✦</div><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72"}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
+  if(loading)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#1B2E4B",color:"#fff"}}><div style={{textAlign:"center"}}><Loader2 size={40} style={{animation:"spin 1s linear infinite"}}/><div style={{fontSize:18,fontWeight:500,letterSpacing:2,color:"#5A8C72",marginTop:12}}>AMBAR SPA & BEAUTY</div><div style={{fontSize:13,color:"#94A3B8",marginTop:8}}>Loading your workspace...</div><div style={{marginTop:20,display:"flex",gap:6,justifyContent:"center"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:"#5A8C72",opacity:0.4+i*0.3}}/>)}</div><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
   return(<div
     style={{minHeight:"100vh",background:"#ECEAE5",fontFamily:"'Inter',system-ui,sans-serif",color:"#111827",touchAction:"pan-y"}}
     onTouchStart={handleTouchStart}
@@ -2656,7 +2665,7 @@ export default function App(){
     </div>}
     {offline&&<div style={{background:"#b45309",color:"#fff",textAlign:"center",padding:8,fontSize:13,fontWeight:700}}>⚠ Offline — changes will not save</div>}
     {saving&&<div style={{background:"#5A8C72",color:"#fff",textAlign:"center",padding:6,fontSize:13,fontWeight:700}}>Saving...</div>}
-    <div style={{maxWidth:1400,margin:"0 auto",padding:sc.mob?"12px":"28px"}}>
+    <div style={{width:"100%",boxSizing:"border-box",padding:sc.mob?"12px":"20px 28px"}}>
       <header style={{background:"#0F1E33",borderBottom:"1px solid rgba(255,255,255,0.07)",position:"sticky",top:0,zIndex:200}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 16px",height:52}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
