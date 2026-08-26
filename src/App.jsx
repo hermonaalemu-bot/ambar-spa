@@ -1926,7 +1926,7 @@ export default function App(){
   function logout(){supabase.auth.signOut();setUser(null);setTab("");}
   function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
-    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");setSaving(true);
+    if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");if(saving)return;setSaving(true);
     const cnt=Math.max(1,Number(rPpl||1)),gid=Date.now(),gn=cnt>1?rName.trim()+" (Group of "+cnt+")":"";
     const cid=makeId(rName.trim(),rPhone.trim()),tc=visits.filter(v=>v.date===todayStr()).length;
     const fc=custs.find(c=>c.phone===rPhone.trim()),ntv=(fc?.totalVisits||0)+1;
@@ -1959,7 +1959,7 @@ export default function App(){
       push(v.name+" removed","success");
     },true);
   }
-  async function addDE(){if(!deItem.trim()||!deUnit)return alert("Enter item and price.");const q=Math.max(1,Number(deQty||1)),u=Number(deUnit||0);const row={id:Date.now(),date:todayStr(),type:"Daily Operation",name:deItem,reason:"",qty:q,unit:u,total:q*u};const{error}=await supabase.from("expenses").insert(row);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setDeItem("");setDeQty(1);setDeUnit("");}
+  async function addDE(){if(!deItem.trim()||!deUnit)return alert("Enter item and price.");if(saving)return;setSaving(true);const q=Math.max(1,Number(deQty||1)),u=Number(deUnit||0);const row={id:Date.now(),date:todayStr(),type:"Daily Operation",name:deItem,reason:"",qty:q,unit:u,total:q*u};const{error}=await supabase.from("expenses").insert(row);setSaving(false);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setDeItem("");setDeQty(1);setDeUnit("");}
   async function addSvc(){
     if(!act)return alert("Select a customer first.");
     const s=svcs.find(s=>s.id===Number(svSvcId));if(!s)return alert("Select a service.");
@@ -2131,14 +2131,15 @@ export default function App(){
     },true);
   }
   async function confirmPay(grp=false){
-    if(!act)return;
+    if(!act||saving)return;
+    setSaving(true);
     const ids=grp&&act.groupId?visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=>v.id):[act.id];
     for(const id of ids){
       const v=visits.find(x=>x.id===id);
       const mt=id===act.id?tips:[];
       const mtt=mt.reduce((s,t)=>s+Number(t.amount||0),0);
       const{error}=await supabase.from("visits").update({tips:mt,total_paid:v.totalService+mtt,payment_method:payM,status:"Paid & Closed"}).eq("id",id);
-      if(error){push("Payment save failed for "+v.name+": "+error.message,"error");return;}
+      if(error){push("Payment save failed for "+v.name+": "+error.message,"error");setSaving(false);return;}
     }
     setVisits(prev=>prev.map(v=>ids.includes(v.id)?{...v,status:"Paid & Closed",paymentMethod:payM}:v));
     logAct(user,"Payment",act.name+" — "+money(act.totalService)+" via "+payM);
@@ -2149,10 +2150,12 @@ export default function App(){
       if(error)console.error("Booking status update failed:",error.message);
       else setBks(prev=>prev.map(b=>b.id===relBk.id?{...b,status:"Completed"}:b));
     }
+    setSaving(false);
     push("Payment confirmed — "+money(act.totalService)+" via "+payM,"success");
     setTips([]);setActId(null);setCashGiven("");setShowRefund(false);
   }
   async function saveBk(){
+    if(saving)return;
     const sid=Number(bkF.serviceId)||0;
     const s=sid?svcs.find(sv=>sv.id===sid&&sv.bookable===true):null;
     if(!bkF.customerName.trim())return alert("Enter customer name.");
@@ -2304,7 +2307,7 @@ export default function App(){
     markArrival(vr.id);
     push(wiName.trim()+" added to queue as #"+(tc+1)+" (Spa walk-in)","success");
   }
-  async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};const{error}=await supabase.from("expenses").insert(row);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
+  async function addGE(){if(!gName.trim())return alert("Enter expense name.");if(!gAmt||Number(gAmt)<=0)return alert("Enter a valid amount greater than 0.");if(saving)return;setSaving(true);const row={id:Date.now(),date:gDate,type:"General",name:gName,reason:gRsn,category:gCat,qty:1,unit:Number(gAmt),total:Number(gAmt)};const{error}=await supabase.from("expenses").insert(row);setSaving(false);if(error){push("Failed to save expense: "+error.message,"error");return;}setExps(p=>[...p,row]);setGName("");setGRsn("");setGAmt("");}
   async function delE(id){if(!window.confirm("Delete?"))return;const{error}=await supabase.from("expenses").delete().eq("id",id);if(error){push("Failed to delete: "+error.message,"error");return;}setExps(p=>p.filter(e=>e.id!==id));}
   async function addCat(){if(!newCat.trim())return alert("Enter a category name.");if(cats.includes(newCat.trim()))return alert("That category already exists.");const{error}=await supabase.from("categories").insert({name:newCat.trim()});if(error){push("Failed to save category: "+error.message,"error");return;}setCats(p=>[...p,newCat.trim()]);setNewCat("");}
   async function addSvc2(){if(!nSvc.name.trim()||!nSvc.price)return alert("Enter name and price.");if(Number(nSvc.price)<=0)return alert("Price must be greater than 0.");if(Number(nSvc.commission||0)<0)return alert("Commission cannot be negative.");const r={id:Date.now(),category:nSvc.category,sub:nSvc.sub,name:nSvc.name,price:Number(nSvc.price),commission:Number(nSvc.commission||0),employee_section:nSvc.employeeSection,bookable:nSvc.bookable,duration_mins:Number(nSvc.durationMins||60)};const{error}=await supabase.from("services").insert(r);if(error){push("Failed to save service: "+error.message,"error");return;}setSvcs(p=>[...p,{...nSvc,id:r.id,price:Number(nSvc.price),commission:Number(nSvc.commission||0),durationMins:Number(nSvc.durationMins||60)}]);setNSvc({category:DC[0],sub:"",name:"",price:"",commission:0,employeeSection:DC[0],bookable:false,durationMins:60});}
@@ -2688,11 +2691,11 @@ export default function App(){
           <L>Name *</L><input style={S.inp} value={rName} onChange={e=>setRName(e.target.value)} placeholder="Full name"/>
           <L>Number of People</L><input style={S.inp} type="number" min="1" value={rPpl} onChange={e=>setRPpl(e.target.value)}/>
           <L>Note</L><textarea style={S.ta} value={rNote} onChange={e=>setRNote(e.target.value)} rows={2}/>
-          <button style={S.btnP} onClick={register}>{t("registerBtn")}</button>
+          <button style={S.btnP} disabled={saving} onClick={register}>{saving?t("saving"):t("registerBtn")}</button>
           <HR/><h3 style={{margin:"0 0 8px",fontSize:13,fontWeight:800,color:"#374151"}}>Quick Daily Expense</h3>
           <input style={S.inp} value={deItem} onChange={e=>setDeItem(e.target.value)} placeholder="Item name"/>
           <div style={S.r2}><input style={S.inp} type="number" value={deQty} onChange={e=>setDeQty(e.target.value)} placeholder="Qty"/><input style={S.inp} type="number" value={deUnit} onChange={e=>setDeUnit(e.target.value)} placeholder="Unit price"/></div>
-          <button style={S.btnS} onClick={addDE}>{t("saveExpense")}</button>
+          <button style={S.btnS} disabled={saving} onClick={addDE}>{t("saveExpense")}</button>
         </section>
         <section style={S.card}><h2 style={S.ct}>{t("todaysQueue")}</h2><p style={S.hlp}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p>
           <QueueSummary visits={visits} emps={emps} sc={sc}/>
@@ -2886,7 +2889,7 @@ export default function App(){
             {act.groupName&&<>
               <div style={{border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:6,background:"#fff"}}>
                 <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#374151"}}>Group Payment Options</p>
-                <button style={{...S.btnP,marginBottom:6}} onClick={()=>confirmPay(true)}>Pay Together — Whole Group ({money(visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").reduce((s,v)=>s+v.totalService,0))})</button>
+                <button style={{...S.btnP,marginBottom:6}} disabled={saving} onClick={()=>confirmPay(true)}>Pay Together — Whole Group ({money(visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").reduce((s,v)=>s+v.totalService,0))})</button>
                 <button style={{...S.btnS,marginBottom:0}} onClick={()=>setSplitMode(v=>!v)}>Split Payment — Each Pays Their Own</button>
               </div>
               {splitMode&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:11,padding:12,marginBottom:6}}>
@@ -2905,8 +2908,8 @@ export default function App(){
                 </div>)}
               </div>}
             </>}
-            {!act.groupName&&<button style={S.btnP} onClick={()=>confirmPay(false)}>{t("confirmPaid")}</button>}
-            {act.groupName&&!splitMode&&<button style={S.btnP} onClick={()=>confirmPay(false)}>Pay This Person Only</button>}
+            {!act.groupName&&<button style={S.btnP} disabled={saving} onClick={()=>confirmPay(false)}>{t("confirmPaid")}</button>}
+            {act.groupName&&!splitMode&&<button style={S.btnP} disabled={saving} onClick={()=>confirmPay(false)}>Pay This Person Only</button>}
           </>}
         </section>
       </main>}
@@ -2972,7 +2975,7 @@ export default function App(){
               ))}
             </div>
           </div>}
-          <div style={S.r2}><button style={S.btnP} onClick={saveBk}>{t("saveBooking")}</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>{t("cancel")}</button></div>
+          <div style={S.r2}><button style={S.btnP} disabled={saving} onClick={saveBk}>{saving?t("saving"):t("saveBooking")}</button><button style={S.btnS} onClick={()=>{setShowBkF(false);setEditBk(null);setBkWarn("");}}>{t("cancel")}</button></div>
         </div>}
 
         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
@@ -3379,7 +3382,7 @@ export default function App(){
           <div><L>Reason</L><input style={S.inp} value={gRsn} onChange={e=>setGRsn(e.target.value)} placeholder="Optional"/></div>
           <div><L>Amount (Birr)</L><input style={S.inp} type="number" value={gAmt} onChange={e=>setGAmt(e.target.value)} placeholder="0"/></div>
         </div>
-        <button style={S.btnP} onClick={addGE}>{t("saveExpense")}</button><HR/>
+        <button style={S.btnP} disabled={saving} onClick={addGE}>{t("saveExpense")}</button><HR/>
         <div style={S.tb}><span>All-Time Total</span><b>{money(exps.filter(e=>e.type==="General").reduce((s,e)=>s+Number(e.total||0),0))}</b></div><HR/>
         {exps.filter(e=>e.type==="General").sort((a,b)=>b.date.localeCompare(a.date)).map(e=><div key={e.id} style={S.li}><div><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><b>{e.name}</b>{e.category&&<span style={{background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{e.category}</span>}</div>{e.reason&&<p style={S.hlp}>{e.reason}</p>}<p style={{...S.hlp,fontSize:10}}>{e.date}</p></div><span style={{display:"flex",alignItems:"center",gap:8}}><b>{money(e.total)}</b><button style={S.btnD} onClick={()=>delE(e.id)}>×</button></span></div>)}
       </section>}
