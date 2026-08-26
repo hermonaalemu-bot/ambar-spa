@@ -2515,7 +2515,7 @@ export default function App(){
     if(data)setCusts(p=>[...p,dbCust(data)]);
     push("Customer restored","success");
   }
-  function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:(v.services||[]).map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+t.amount,0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
+  function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:(v.services||[]).map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+Number(t.amount||0),0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
 
@@ -2888,8 +2888,8 @@ export default function App(){
               </div>;
             })()}
             <div style={S.tb}><span style={{color:"#94A3B8",fontSize:12}}>Service Total</span><b style={{color:"#fff"}}>{money(act.totalService)}</b></div>
-            {tips.length>0&&<div style={{...S.tb,background:"#1e3a2f",marginTop:6}}><span>Tips Total</span><b>{money(tips.reduce((s,t)=>s+t.amount,0))}</b></div>}
-            <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span style={{color:"#94A3B8",fontSize:12}}>Customer Pays</span><b style={{color:"#5A8C72",fontSize:16}}>{money(act.totalService+tips.reduce((s,t)=>s+t.amount,0))}</b></div>
+            {tips.length>0&&<div style={{...S.tb,background:"#1e3a2f",marginTop:6}}><span>Tips Total</span><b>{money(tips.reduce((s,t)=>s+Number(t.amount||0),0))}</b></div>}
+            <div style={{...S.tb,marginTop:6,fontSize:16,background:"#0f172a"}}><span style={{color:"#94A3B8",fontSize:12}}>Customer Pays</span><b style={{color:"#5A8C72",fontSize:16}}>{money(act.totalService+tips.reduce((s,t)=>s+Number(t.amount||0),0))}</b></div>
             {act.groupName&&<>
               <div style={{border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:6,background:"#fff"}}>
                 <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#374151"}}>Group Payment Options</p>
