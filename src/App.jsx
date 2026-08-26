@@ -1622,8 +1622,8 @@ export default function App(){
       navigator.serviceWorker.ready.then(reg=>{
         reg.showNotification(title,{
           body,
-          icon:'/icon-192.png',
-          badge:'/icon-192.png',
+          icon:'/icon.svg',
+          badge:'/icon.svg',
           tag,
           vibrate:[200,100,200],
           renotify:true,
@@ -1631,7 +1631,7 @@ export default function App(){
       });
     } else {
       // Fallback direct notification
-      new Notification(title,{body,icon:'/icon-192.png'});
+      new Notification(title,{body,icon:'/icon.svg'});
     }
   }
 
@@ -1770,12 +1770,16 @@ export default function App(){
       // Seed categories & services only if empty
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
       if(cc===0){
-        await supabase.from("categories").insert(DC.map(n=>({name:n})));
-        await supabase.from("services").insert(FULL_SERVICES.map(s=>({
+        const{error:catErr}=await supabase.from("categories").insert(DC.map(n=>({name:n})));
+        if(catErr)push("Failed to seed default categories: "+catErr.message,"error");
+        const{error:svcErr}=await supabase.from("services").insert(FULL_SERVICES.map(s=>({
           id:s.id,category:s.category,sub:s.sub,name:s.name,price:s.price,
           commission:s.commission,employee_section:s.employeeSection,
           bookable:s.bookable,duration_mins:s.durationMins
         })));
+        // This exact insert used to fail silently for months because the services table
+        // was missing the bookable/duration_mins columns — surface it loudly instead.
+        if(svcErr)push("Failed to seed default services: "+svcErr.message,"error");
       }
       // Staff accounts are no longer auto-seeded here: each one now needs a matching
       // Supabase Auth login, which only the staff-admin Edge Function can create safely.
@@ -2578,13 +2582,6 @@ export default function App(){
       <div style={{background:"#1B2E4B",color:"#5A8C72",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",display:"flex",alignItems:"center",gap:8}}>
         <span style={{display:"inline-block",animation:refreshing?"spin 1s linear infinite":"none",fontSize:14}}>↻</span>
         {refreshing?"Refreshing...":pullY>60?"Release to refresh":"Pull to refresh"}
-      </div>
-    </div>}
-    {/* Pull to refresh indicator */}
-    {(pulling||refreshing)&&<div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,display:"flex",justifyContent:"center",padding:"8px",pointerEvents:"none"}}>
-      <div style={{background:"#1B2E4B",color:"#5A8C72",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",display:"flex",alignItems:"center",gap:8,transition:"opacity 0.2s"}}>
-        <span style={{display:"inline-block",animation:refreshing?"spin 1s linear infinite":"none"}}>↻</span>
-        {refreshing?"Refreshing...":pullY>60?"Release to refresh ↑":"Pull down to refresh"}
       </div>
     </div>}
     <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap');`}</style>
