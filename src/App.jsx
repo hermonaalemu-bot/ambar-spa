@@ -7,7 +7,7 @@ import {
   Save,Link as LinkIcon,ChevronUp,ChevronDown,Sparkles,LogOut,Flower2,Waves,
   ClipboardList,BarChart3,Wallet,ArrowLeftRight,ArrowRight,Undo2,PenLine,
   ThumbsUp,PartyPopper,Footprints,Shirt,Droplet,Star,CircleDot,Receipt,
-  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,Timer,RotateCcw,
+  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,Timer,RotateCcw,Download,
 } from "lucide-react";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
@@ -612,7 +612,7 @@ const LANG={
     logoutInstead:"Log out instead",loading:"Loading Ambar Spa...",
     noData:"No data.",none:"None",free:"Free",discount:"Discount",
     yes:"Yes",no:"No",save:"Save",edit:"Edit",delete:"Delete",
-    add:"Add",close:"Close",print:"Print",exportCSV:"⬇ Export CSV",
+    add:"Add",close:"Close",print:"Print",exportCSV:"Export CSV",
     search:"Search",clear:"Clear",next:"Next up",position:"Position",
     inProgressBadge:"IN PROGRESS",upNext:"UP NEXT",onHoldBadge:"HOLD",
     noCustomers:"No active customers today.",selectCustomer:"← Select customer to process payment.",
@@ -699,7 +699,7 @@ const LANG={
     logoutInstead:"ይልቁንስ ውጣ",loading:"አምባር ስፓ እየጫነ...",
     noData:"ምንም ውሂብ የለም።",none:"ምንም",free:"ነፃ",discount:"ቅናሽ",
     yes:"አዎ",no:"አይ",save:"አስቀምጥ",edit:"አርትዕ",delete:"ሰርዝ",
-    add:"ጨምር",close:"ዝጋ",print:"አትም",exportCSV:"⬇ CSV ላክ",
+    add:"ጨምር",close:"ዝጋ",print:"አትም",exportCSV:"CSV ላክ",
     search:"ፈልግ",clear:"አጽዳ",next:"ቀጣይ",position:"ቦታ",
     inProgressBadge:"በሂደት",upNext:"ቀጥሎ",onHoldBadge:"በእቆያ",
     noCustomers:"የዛሬ ንቁ ደንበኞች የሉም።",selectCustomer:"← ደንበኛ ምረጥ።",
@@ -2062,7 +2062,7 @@ export default function App(){
       });
       const unlocked=vis.services.filter(l=>l.lineId!==lid2&&l.status==="On Hold");
       if(unlocked.length>0){
-        push("⭐ "+vis.name+" #"+vis.queue+" finished "+line.name+" — NEXT in line for: "+unlocked.map(l=>l.name).join(", ")+" (after any In Progress services finish)","success");
+        push(vis.name+" #"+vis.queue+" finished "+line.name+" — NEXT in line for: "+unlocked.map(l=>l.name).join(", ")+" (after any In Progress services finish)","success");
       }
       return;
     }
@@ -2630,7 +2630,7 @@ export default function App(){
               </div>)}</>}
             {rB.length>0&&<><p style={{margin:"8px 0 6px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:1}}>BOOKINGS</p>
               {rB.map(b=><div key={b.id} style={{...S.li,marginBottom:4,cursor:"pointer"}} onClick={()=>{setTab("Bookings");setShowGS(false);setGSearch("");}}>
-                <div><div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><b style={{color:"#1B2E4B"}}>{b.customerName}</b>{b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 5px"}}>💇 B-Q#{b.beautyQueueNum}</span>}{b.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 5px"}}>{b.gender}</span>}</div><p style={{margin:0,fontSize:11,color:"#64748B"}}>{b.date} at {b.time} · {b.serviceName}</p></div>
+                <div><div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><b style={{color:"#1B2E4B"}}>{b.customerName}</b>{b.beautyQueueNum&&<span style={{background:"#EBF2FD",color:"#1B4FA8",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 5px",display:"inline-flex",alignItems:"center",gap:3}}><Waves size={8}/> B-Q#{b.beautyQueueNum}</span>}{b.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 5px"}}>{b.gender}</span>}</div><p style={{margin:0,fontSize:11,color:"#64748B"}}>{b.date} at {b.time} · {b.serviceName}</p></div>
                 <span style={SB(b.status)}>{b.status}</span>
               </div>)}</>}
             {!rC.length&&!rV.length&&!rB.length&&<p style={{color:"#64748B",textAlign:"center",padding:20}}>No results for "{gSearch}"</p>}
@@ -2807,7 +2807,7 @@ export default function App(){
                     <ClipboardList size={12}/> {showHist?"Hide":"See"} History ({custHistory.length} visit{custHistory.length>1?"s":""})
                   </button>
                   {showHist&&<div style={{background:"#F0F9FF",border:"0.5px solid #BAE6FD",borderRadius:12,padding:12,marginTop:8}}>
-                    {custFav&&<p style={{margin:"0 0 8px",fontSize:12,color:"#0369A1",fontWeight:500}}>⭐ Usually gets: <b>{custFav}</b></p>}
+                    {custFav&&<p style={{margin:"0 0 8px",fontSize:12,color:"#0369A1",fontWeight:500,display:"flex",alignItems:"center",gap:5}}><Star size={12}/> Usually gets: <b>{custFav}</b></p>}
                     {custHistory.map((v,i)=><div key={v.id} style={{marginBottom:i<custHistory.length-1?8:0,paddingBottom:i<custHistory.length-1?8:0,borderBottom:i<custHistory.length-1?"0.5px solid #E0F2FE":"none"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{v.date}</span>
@@ -3383,7 +3383,7 @@ export default function App(){
       </section>}
 
       {tab==="Daily Closing"&&<section style={S.card}><h2 style={S.ct}>Daily Closing Report</h2>
-        <div style={{display:"flex",alignItems:"flex-end",gap:12,marginBottom:18,flexWrap:"wrap"}}><EthPicker label="Date" value={clDate} onChange={setClDate}/><button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0}} onClick={doExportCSV}>⬇ Export CSV</button></div>
+        <div style={{display:"flex",alignItems:"flex-end",gap:12,marginBottom:18,flexWrap:"wrap"}}><EthPicker label="Date" value={clDate} onChange={setClDate}/><button style={{...S.btnS,width:"auto",padding:"10px 16px",marginBottom:0,display:"flex",alignItems:"center",gap:6}} onClick={doExportCSV}><Download size={13}/> Export CSV</button></div>
         <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:12}}>
           <SC label="Revenue"          value={money(clRev)}/><SC label="Cash In"         value={money(clCash)}/><SC label="Transfer/Card" value={money(clTr)}/><SC label="Tips Collected" value={money(clTips)}/>
           <SC label="Daily Expenses"   value={money(clDE)}   accent/><SC label="Net Cash"        value={money(clNet)}/><SC label="Grand Total"  value={money(clGr)}  highlight/><SC label="Profit" value={money(clPr)} highlight/>
@@ -3974,7 +3974,7 @@ export default function App(){
                     <button style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:getD("btnPBg"),color:getD("btnPText"),fontSize:10,fontWeight:500}}>Register</button>
                     <button style={{flex:1,padding:"8px",borderRadius:8,border:"0.5px solid "+getD("btnSBd"),background:getD("btnSBg"),color:getD("btnSText"),fontSize:10,fontWeight:500}}>Recall</button>
                   </div>
-                  <button style={{width:"100%",padding:"8px",borderRadius:8,border:"none",background:getD("btnGBg"),color:getD("btnGTx"),fontSize:10,fontWeight:500}}>✓ Mark Ready for Payment</button>
+                  <button style={{width:"100%",padding:"8px",borderRadius:8,border:"none",background:getD("btnGBg"),color:getD("btnGTx"),fontSize:10,fontWeight:500,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><Check size={11}/> Mark Ready for Payment</button>
                   <div style={{background:getD("totBg"),borderRadius:8,padding:"8px 10px",marginTop:6,display:"flex",justifyContent:"space-between"}}>
                     <span style={{fontSize:10,color:getD("totLabel")}}>Total Income</span>
                     <span style={{fontSize:12,fontWeight:500,color:getD("totValue")}}>2,500 Birr</span>
@@ -3985,10 +3985,10 @@ export default function App(){
                     <p style={{margin:"3px 0 0",fontSize:10,color:getD("txSecondary")||"#64748B"}}>Secondary — sub-label or phone number</p>
                     <p style={{margin:"3px 0 0",fontSize:10,color:getD("txMuted")||"#94A3B8"}}>Muted — hint or placeholder</p>
                     <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
-                      <span style={{fontSize:10,color:getD("txSuccess")||"#166534",fontWeight:500}}>✓ Success</span>
-                      <span style={{fontSize:10,color:getD("txDanger")||"#B91C1C",fontWeight:500}}>✗ Danger</span>
-                      <span style={{fontSize:10,color:getD("txWarning")||"#92400E",fontWeight:500}}>⚠ Warning</span>
-                      <span style={{fontSize:10,color:getD("txAccent")||"#5A8C72",fontWeight:500}}>● Accent</span>
+                      <span style={{fontSize:10,color:getD("txSuccess")||"#166534",fontWeight:500,display:"flex",alignItems:"center",gap:3}}><Check size={10}/> Success</span>
+                      <span style={{fontSize:10,color:getD("txDanger")||"#B91C1C",fontWeight:500,display:"flex",alignItems:"center",gap:3}}><X size={10}/> Danger</span>
+                      <span style={{fontSize:10,color:getD("txWarning")||"#92400E",fontWeight:500,display:"flex",alignItems:"center",gap:3}}><AlertTriangle size={10}/> Warning</span>
+                      <span style={{fontSize:10,color:getD("txAccent")||"#5A8C72",fontWeight:500,display:"flex",alignItems:"center",gap:3}}><CircleDot size={10}/> Accent</span>
                     </div>
                   </div>
                 </div>
@@ -4106,7 +4106,7 @@ function WaitTimer({vid}){
   if(mins===null||mins===0)return null;
   const col=mins>30?"#991b1b":mins>15?"#92400e":"#166534";
   const bg=mins>30?"#fee2e2":mins>15?"#fef3c7":"#dcfce7";
-  return <p style={{fontSize:11,fontWeight:700,color:col,background:bg,borderRadius:6,padding:"1px 7px",margin:"2px 0",display:"inline-block"}}>⏱ {mins} min waiting</p>;
+  return <p style={{fontSize:11,fontWeight:700,color:col,background:bg,borderRadius:6,padding:"1px 7px",margin:"2px 0",display:"inline-flex",alignItems:"center",gap:4}}><Timer size={11}/> {mins} min waiting</p>;
 }
 
 // Live service timer component
@@ -4119,7 +4119,7 @@ function SvcTimer({lineId,status}){
   },[lineId,status]);
   if(status==="Waiting"||status==="On Hold")return null;
   if((status==="Completed"||status==="Cancelled")){const m=frozenMins||svcMins(lineId);if(!m)return null;return <div style={{fontSize:10,fontWeight:700,color:"#166534",background:"#dcfce7",borderRadius:6,padding:"2px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>Done in {m} min</div>;}
-  if(status==="In Progress"&&mins>0)return <div style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#dbeafe",borderRadius:6,padding:"3px 8px",alignSelf:"flex-end",whiteSpace:"nowrap"}}>⏱ {mins} min</div>;
+  if(status==="In Progress"&&mins>0)return <div style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#dbeafe",borderRadius:6,padding:"3px 8px",alignSelf:"flex-end",whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:4}}><Timer size={11}/> {mins} min</div>;
   return null;
 }
 
