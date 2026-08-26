@@ -3236,13 +3236,13 @@ export default function App(){
         {/* ── Inventory Activity Log ── */}
         <HR/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-          <h3 style={S.sh}>📋 Stock Movement Log</h3>
+          <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><ClipboardList size={13}/> Stock Movement Log</h3>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {["all","in","out"].map(f=>(
               <button key={f} onClick={()=>setInvLogFilter(f)}
                 style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid "+(invLogFilter===f?"#1B2E4B":"#E2E8F0"),
-                  background:invLogFilter===f?"#1B2E4B":"#fff",color:invLogFilter===f?"#fff":"#475569",fontSize:11,fontWeight:invLogFilter===f?500:400,cursor:"pointer"}}>
-                {f==="all"?"All":f==="in"?"➕ Stock In":"➖ Stock Out"}
+                  background:invLogFilter===f?"#1B2E4B":"#fff",color:invLogFilter===f?"#fff":"#475569",fontSize:11,fontWeight:invLogFilter===f?500:400,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>
+                {f==="all"?"All":f==="in"?<><Plus size={10}/> Stock In</>:<><Minus size={10}/> Stock Out</>}
               </button>
             ))}
             <button onClick={()=>setShowInvLog(s=>!s)}
@@ -3295,7 +3295,7 @@ export default function App(){
 
         {/* ── Shine Jam Tracker ── */}
         <HR/>
-        <h3 style={S.sh}>✨ Shine Jam Usage Tracker</h3>
+        <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><Sparkles size={13}/> Shine Jam Usage Tracker</h3>
         <p style={{...S.hlp,marginBottom:10}}>Services done per Shine Jam bottle (Braids, Twists, Ponytails)</p>
         {shineJamSvcCounts.length===0
           ?<div style={{background:"#F8FAFC",borderRadius:12,padding:14,border:"0.5px solid #E2E8F0"}}>
@@ -3324,7 +3324,7 @@ export default function App(){
         <HR/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div>
-            <h3 style={{...S.sh,margin:0}}>🔗 Product–Service Links</h3>
+            <h3 style={{...S.sh,margin:0,display:"flex",alignItems:"center",gap:6}}><LinkIcon size={13}/> Product–Service Links</h3>
             <p style={{...S.hlp,margin:"2px 0 0"}}>Link products to services so stock auto-deducts when service is completed</p>
           </div>
           <button onClick={()=>setShowSvcProd(s=>!s)} style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:0}}>
