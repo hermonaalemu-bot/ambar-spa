@@ -3684,35 +3684,37 @@ export default function App(){
           const topRev=empC.filter(e=>e.active&&e.totalRevenue>0).sort((a,b)=>b.totalRevenue-a.totalRevenue);
           const topSvc=empC.filter(e=>e.active&&e.serviceCount>0).sort((a,b)=>b.serviceCount-a.serviceCount);
           if(!ranked.length&&!topSvc.length)return null;
-          const medals=["🥇","🥈","🥉"];
+          const medals=[Trophy,Medal,Award];
+          const medalColors=["#b45309","#64748b","#92400e"];
+          const Rank=({i})=>{const M=medals[i];return M?<M size={12} color={medalColors[i]}/>:null;};
           return <div style={{marginBottom:14}}>
-            <h3 style={S.sh}>⭐ Best Performing Staff — {period.label}</h3>
+            <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><Star size={13}/> Best Performing Staff — {period.label}</h3>
             <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:8}}>
               <div style={{background:"#F8FAFC",borderRadius:12,padding:12,border:"0.5px solid #E2E8F0"}}>
                 <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOP COMMISSION</p>
                 {ranked.slice(0,3).map((e,i)=><div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                  <span style={{fontSize:12}}>{medals[i]} {e.name}</span>
+                  <span style={{fontSize:12,display:"flex",alignItems:"center",gap:5}}><Rank i={i}/> {e.name}</span>
                   <b style={{fontSize:12,color:"#5A8C72"}}>{money(e.commissionTotal)}</b>
                 </div>)}
               </div>
               <div style={{background:"#F8FAFC",borderRadius:12,padding:12,border:"0.5px solid #E2E8F0"}}>
                 <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>TOP REVENUE GENERATED</p>
                 {topRev.slice(0,3).map((e,i)=><div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                  <span style={{fontSize:12}}>{medals[i]} {e.name}</span>
+                  <span style={{fontSize:12,display:"flex",alignItems:"center",gap:5}}><Rank i={i}/> {e.name}</span>
                   <b style={{fontSize:12,color:"#1B2E4B"}}>{money(e.totalRevenue)}</b>
                 </div>)}
               </div>
               <div style={{background:"#F8FAFC",borderRadius:12,padding:12,border:"0.5px solid #E2E8F0"}}>
                 <p style={{margin:"0 0 8px",fontSize:10,fontWeight:700,color:"#94A3B8",letterSpacing:1}}>MOST SERVICES</p>
                 {topSvc.slice(0,3).map((e,i)=><div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                  <span style={{fontSize:12}}>{medals[i]} {e.name}</span>
+                  <span style={{fontSize:12,display:"flex",alignItems:"center",gap:5}}><Rank i={i}/> {e.name}</span>
                   <b style={{fontSize:12,color:"#1B2E4B"}}>{e.serviceCount} services</b>
                 </div>)}
               </div>
             </div>
             {ranked[0]&&<div style={{background:"linear-gradient(135deg,#1B2E4B,#243A5E)",borderRadius:12,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
-                <p style={{margin:0,fontSize:10,color:"#5A8C72",fontWeight:500,letterSpacing:1}}>🏆 EMPLOYEE OF THE PERIOD</p>
+                <p style={{margin:0,fontSize:10,color:"#5A8C72",fontWeight:500,letterSpacing:1,display:"flex",alignItems:"center",gap:5}}><Trophy size={11}/> EMPLOYEE OF THE PERIOD</p>
                 <b style={{fontSize:16,color:"#fff"}}>{ranked[0].name}</b>
                 <p style={{margin:"2px 0 0",fontSize:11,color:"#94A3B8"}}>{ranked[0].section} · {ranked[0].serviceCount} services · {money(ranked[0].commissionTotal)} commission</p>
               </div>
