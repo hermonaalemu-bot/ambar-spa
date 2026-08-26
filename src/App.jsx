@@ -3,13 +3,10 @@ import {supabase} from "./supabase";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
 const ROLES={RECEPTION:"reception",SUPERVISOR:"supervisor",MANAGER:"manager"};
-const DEFAULT_STAFF=[
-  {id:"reception1", name:"Reception 1", role:"reception",  password:"1234",active:true},
-  {id:"reception2", name:"Reception 2", role:"reception",  password:"1234",active:true},
-  {id:"supervisor",  name:"Supervisor",  role:"supervisor", password:"1234",active:true},
-  {id:"manager",     name:"Manager",     role:"manager",    password:"9999",active:true},
-  {id:"inventory1",  name:"Inventory",   role:"inventory",  password:"5678",active:true},
-];
+// Staff log in with a plain username; Supabase Auth needs an email, so each
+// username maps to a synthetic address on a domain that is never actually sent mail.
+const STAFF_EMAIL_DOMAIN="staff.ambarspa.internal";
+const staffEmail=u=>u.trim().toLowerCase()+"@"+STAFF_EMAIL_DOMAIN;
 const BARBER_SECTIONS=["Barbershop","Hair Wash & Color"];
 function isBarberVisit(v){if(v.barberQueue||v.barber_queue)return true;const lines=(v.services||[]).filter(l=>l.status!=="Cancelled");return lines.length>0&&lines.every(l=>BARBER_SECTIONS.includes(l.employeeSection)||l.category==="Barbershop");}
 const DC=["Barbershop","Beauty Salon","Spa"];
@@ -704,18 +701,6 @@ const LANG={
   }
 };
 
-// ── Password hashing using Web Crypto ─────────────────────────
-async function hashPW(pw){
-  const enc=new TextEncoder();
-  const buf=await crypto.subtle.digest('SHA-256',enc.encode(pw+'ambar2024salt'));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-async function checkPW(pw,hash){
-  // Support plain text passwords during migration
-  if(!hash||hash.length<20)return pw===hash;
-  const h=await hashPW(pw);return h===hash;
-}
-
 const DEFAULT_INVENTORY=[
   {id:1,name:"Peroxide (ፐሮሳ)",category:"Salon Products",qty:400,unit:"ml",minQty:50,price:0},
   {id:2,name:"Mo Menmbs (ሞ ምንምስ)",category:"Salon Products",qty:9,unit:"pcs",minQty:2,price:0},
@@ -1340,19 +1325,41 @@ export default function App(){
     tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",color:"#fff",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
     ii2:   {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12},
   };
-  const[user,setUser]=useState(()=>{
-    try{
-      const u=JSON.parse(sessionStorage.getItem("ambar_u"));
-      const t=Number(sessionStorage.getItem("ambar_login_t")||0);
-      if(u&&Date.now()-t>10*60*60*1000){sessionStorage.clear();return null;} // 10hr expiry
-      return u||null;
-    }catch{return null;}
-  });
+  // Identity now comes from a real Supabase Auth session, not client-trusted storage.
+  // See the auth bootstrap effect below (STAFF_EMAIL_DOMAIN / loadFromSession).
+  const[user,setUser]=useState(null);
+  const[checkingSession,setCheckingSession]=useState(true);
   const[lid,setLid]=useState("");const[lpw,setLpw]=useState("");const[lerr,setLerr]=useState("");
   const[loginTab,setLoginTab]=useState("login"); // "login" | "bookings"
+  // Public "today's bookings" preview (shown before login) reads from a narrow view —
+  // never the real bookings table — so an unauthenticated visitor only ever sees the
+  // handful of columns that view exposes, not customer phone numbers or anything else.
+  const[publicBookings,setPublicBookings]=useState(null);
+  useEffect(()=>{
+    if(loginTab!=="bookings"||user)return;
+    supabase.from("public_today_bookings").select("*").then(({data})=>setPublicBookings(data||[]));
+  },[loginTab,user]);
   const loginAttempts=React.useRef({});  // {username: {count, lockedUntil}}
-  const[staff,setStaff]=useState(DEFAULT_STAFF);
+  const[staff,setStaff]=useState([]);
   const[loading,setLoading]=useState(true);
+
+  // Auth bootstrap: on load, and whenever Supabase's own session state changes
+  // (token refresh, expiry, sign-out from another tab), resolve it to our staff
+  // profile. This is the only place `user` gets set from something other than a
+  // fresh login — it is never trusted from client-side storage.
+  useEffect(()=>{
+    let active=true;
+    async function resolveSession(session){
+      if(!session){if(active)setUser(null);return;}
+      const{data:profile}=await supabase.from("staff").select("id,name,role,active").eq("user_id",session.user.id).single();
+      if(!active)return;
+      if(!profile||!profile.active){await supabase.auth.signOut();setUser(null);return;}
+      setUser(profile);
+    }
+    supabase.auth.getSession().then(({data})=>resolveSession(data.session).finally(()=>{if(active)setCheckingSession(false);}));
+    const{data:sub}=supabase.auth.onAuthStateChange((_event,session)=>{resolveSession(session);});
+    return()=>{active=false;sub.subscription.unsubscribe();};
+  },[]);
   const[queueEnabled,setQueueEnabled]=useState(true);
   const[barberQueueNum,setBarberQueueNum]=useState(1);const[saving,setSaving]=useState(false);const[offline,setOffline]=useState(!navigator.onLine);
   const[pullY,setPullY]=useState(0);const[pulling,setPulling]=useState(false);const[refreshing,setRefreshing]=useState(false);
@@ -1531,7 +1538,11 @@ export default function App(){
   }
   function resetIdle(){clearTimeout(idleRef.current);idleRef.current=setTimeout(()=>setPinLocked(true),30*60*1000);}
   useEffect(()=>{if(!user)return;const evs=["mousemove","keydown","click","touchstart"];evs.forEach(e=>window.addEventListener(e,resetIdle));resetIdle();return()=>{clearTimeout(idleRef.current);evs.forEach(e=>window.removeEventListener(e,resetIdle));};},[user]);
-  function unlockPin(){const f=staff.find(s=>s.id===user.id&&s.password===pinInput);if(f){setPinLocked(false);setPinInput("");setPinErr("");}else setPinErr("Wrong password.");}
+  async function unlockPin(){
+    const{error}=await supabase.auth.signInWithPassword({email:staffEmail(user.id),password:pinInput});
+    if(!error){setPinLocked(false);setPinInput("");setPinErr("");}
+    else setPinErr("Wrong password.");
+  }
   useEffect(()=>{const on=async()=>{setOffline(false);push("Back online — syncing...","success");
       const q=[...offlineQRef.current];
       offlineQRef.current=[];setOfflineQueue([]);
@@ -1758,8 +1769,8 @@ export default function App(){
           bookable:s.bookable,duration_mins:s.durationMins
         })));
       }
-      const{count:sc}=await supabase.from("staff").select("*",{count:"exact",head:true});
-      if(sc===0)await supabase.from("staff").insert(DEFAULT_STAFF);
+      // Staff accounts are no longer auto-seeded here: each one now needs a matching
+      // Supabase Auth login, which only the staff-admin Edge Function can create safely.
       await loadAll();
     }
     seed();
@@ -1871,40 +1882,36 @@ export default function App(){
   const mgrTabs=allTabs.filter(t=>!dailyTabs.includes(t));
 
   async function doLogin(){
-    const u=lid.trim();
-    // Rate limiting
+    const u=lid.trim().toLowerCase();
+    // Rate limiting (the real security backstop is server-side in Supabase Auth —
+    // this is just friendlier UX so staff aren't stuck guessing after a typo)
     const now=Date.now();
     const att=loginAttempts.current[u]||{count:0,lockedUntil:0};
     if(att.lockedUntil>now){
       const mins=Math.ceil((att.lockedUntil-now)/60000);
       return setLerr("Too many failed attempts. Try again in "+mins+" minute"+(mins>1?"s":"")+".");
     }
-    const candidate=staff.find(s=>s.id===u&&s.active);
-    if(!candidate){
-      const att2=loginAttempts.current[u]||{count:0,lockedUntil:0};
-      const newCount=(att2.count||0)+1;
+    if(!u||!lpw)return setLerr("Enter username and password.");
+    const{data,error}=await supabase.auth.signInWithPassword({email:staffEmail(u),password:lpw});
+    if(error||!data?.session){
+      const newCount=(att.count||0)+1;
       loginAttempts.current[u]={count:newCount,lockedUntil:newCount>=3?now+5*60000:0};
       const rem=Math.max(0,3-newCount);
       setLerr(newCount>=3?"🔒 Account locked for 5 minutes.":"Invalid username or password. "+rem+" attempt"+(rem===1?"":"s")+" remaining.");
-      supabase.from("activity_log").insert({staff_id:u||"unknown",staff_name:u||"unknown",action:"Failed Login",detail:"Unknown user: "+u,ts:new Date().toISOString()}).then(()=>{});
+      supabase.from("activity_log").insert({staff_id:u||"unknown",staff_name:u||"unknown",action:"Failed Login",detail:"Failed attempt for: "+u,ts:new Date().toISOString()}).then(()=>{});
       return;
     }
-    const ok=await checkPW(lpw,candidate.password);
-    if(ok){
-      loginAttempts.current[u]={count:0,lockedUntil:0};
-      const f=candidate;
-      setUser(f);sessionStorage.setItem("ambar_u",JSON.stringify(f));setLerr("");
-      supabase.from("activity_log").insert({staff_id:f.id,staff_name:f.name,action:LANG.en["login"]||"login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
-    }else{
-      const att2=loginAttempts.current[u]||{count:0,lockedUntil:0};
-      const newCount=(att2.count||0)+1;
-      loginAttempts.current[u]={count:newCount,lockedUntil:newCount>=3?now+5*60000:0};
-      const rem=Math.max(0,3-newCount);
-      setLerr(newCount>=3?"🔒 Account locked for 5 minutes.":"Invalid password. "+rem+" attempt"+(rem===1?"":"s")+" remaining.");
-      supabase.from("activity_log").insert({staff_id:u,staff_name:u,action:"Failed Login",detail:"Failed attempt "+newCount+" for: "+u,ts:new Date().toISOString()}).then(()=>{});
+    const{data:profile}=await supabase.from("staff").select("id,name,role,active").eq("user_id",data.session.user.id).single();
+    if(!profile||!profile.active){
+      await supabase.auth.signOut();
+      setLerr("This account has been deactivated. Contact a manager.");
+      return;
     }
+    loginAttempts.current[u]={count:0,lockedUntil:0};
+    setUser(profile);setLerr("");
+    supabase.from("activity_log").insert({staff_id:profile.id,staff_name:profile.name,action:LANG.en["login"]||"login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
   }
-  function logout(){setUser(null);sessionStorage.removeItem("ambar_u");setTab("");}
+  function logout(){supabase.auth.signOut();setUser(null);setTab("");}
   function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
     if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");setSaving(true);
@@ -2438,19 +2445,34 @@ export default function App(){
   async function closePeriod(){
     if(!window.confirm("Close pay period "+period.label+"?"))return;
     const snap=empC.map(e=>({id:e.id,name:e.name,section:e.section,salary:e.salary,commissionTotal:e.commissionTotal,absentDays:e.absentDays,loan:e.loan,brokerFee:e.brokerFee,otherDeduction:e.otherDeduction,loanNote:e.loanNote,otherNote:e.otherNote}));
-    const{error:cpErr}=await supabase.from("closed_periods").insert({period:period.label,start_date:period.start,end_date:period.end,closed_at:new Date().toISOString(),employees:snap});
-    if(cpErr){push("Failed to close period: "+cpErr.message,"error");return;}
-    let resetFailed=false;
-    for(const e of emps){
-      const{error}=await supabase.from("employees").update({absent_days:0,loan:0,loan_note:"",broker_fee:0,other_deduction:0,other_note:""}).eq("id",e.id);
-      if(error){resetFailed=true;console.error("Reset failed for",e.name,error.message);}
-    }
+    // One database transaction: the snapshot and the reset either both happen or neither does —
+    // no more risk of a half-closed period if a request fails partway through.
+    const{error}=await supabase.rpc("close_pay_period",{p_period:period.label,p_start:period.start,p_end:period.end,p_snapshot:snap});
+    if(error){push("Failed to close period: "+error.message,"error");return;}
     setEmps(p=>p.map(e=>({...e,absentDays:0,loan:0,loanNote:"",brokerFee:0,otherDeduction:0,otherNote:""})));
     logAct(user,"Closed period",period.label);
-    if(resetFailed)push("Period closed, but some employee resets failed — check Employees tab","warning");
-    else push("Pay period closed successfully","success");
+    push("Pay period closed successfully","success");
   }
-  async function saveStaff(){if(!nStaff.id.trim()||!nStaff.name.trim()||!nStaff.password.trim())return alert("Fill all fields.");const r={id:nStaff.id.trim().toLowerCase(),name:nStaff.name.trim(),role:nStaff.role,password:nStaff.password.trim(),active:true};const{error}=await supabase.from("staff").upsert(r);if(error){push("Failed to save staff: "+error.message,"error");return;}setStaff(p=>{const i=p.findIndex(s=>s.id===r.id);if(i>=0){const n=[...p];n[i]=r;return n;}return[...p,r];});logAct(user,"Staff saved",r.name);setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);push("Staff account saved","success");}
+  async function saveStaff(){
+    const id=nStaff.id.trim().toLowerCase();
+    if(!id||!nStaff.name.trim())return alert("Fill in username and name.");
+    if(!editStaff&&!nStaff.password.trim())return alert("Choose a password for the new account.");
+    setSaving(true);
+    // Creating or resetting a login has to happen server-side — only the staff-admin
+    // Edge Function holds the key needed to create/update a Supabase Auth account.
+    const{data,error}=await supabase.functions.invoke("staff-admin",{body:{
+      action:editStaff?"update":"create",
+      id,name:nStaff.name.trim(),role:nStaff.role,
+      password:nStaff.password.trim()||undefined,
+    }});
+    setSaving(false);
+    if(error||data?.error){push("Failed to save staff: "+(data?.error||error.message),"error");return;}
+    const{data:fresh}=await supabase.from("staff").select("*");
+    if(fresh)setStaff(fresh.map(dbStaff));
+    logAct(user,"Staff saved",nStaff.name.trim());
+    setNStaff({id:"",name:"",role:"reception",password:""});setEditStaff(null);
+    push("Staff account saved","success");
+  }
   async function setStaffAct(id,active){if(!window.confirm(active?"Reactivate?":"Deactivate?"))return;const{error}=await supabase.from("staff").update({active}).eq("id",id);if(error){push("Failed to update: "+error.message,"error");return;}setStaff(p=>p.map(s=>s.id===id?{...s,active}:s));}
   async function delCust(id){
     if(!window.confirm("Delete this customer? They can be restored from the Customers tab."))return;
@@ -2477,6 +2499,8 @@ export default function App(){
   function doExportCSV(){const rows=clV.filter(v=>v.status==="Paid & Closed").map(v=>({Queue:v.queue,Name:v.name,Phone:v.phone,Services:(v.services||[]).map(s=>s.name).join("|"),Total:v.totalService,Method:v.paymentMethod,Tips:v.tips.reduce((s,t)=>s+t.amount,0)}));if(!rows.length)return alert("No paid visits for this date.");exportCSV(rows,"ambar-closing-"+clDate+".csv");}
 
   const gc=sc.mob?"1fr":"1fr 1.15fr";
+
+  if(checkingSession)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1B2E4B)",color:"#fff"}}><div style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:10,animation:"spin 2s linear infinite"}}>✦</div><p style={{fontSize:12,color:"#5A8C72",letterSpacing:2}}>AMBAR SPA & BEAUTY</p><style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style></div></div>);
 
   if(user&&pinLocked)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1720,#1d2a36)"}}><div style={{background:"#fff",borderRadius:24,padding:40,width:"100%",maxWidth:340,margin:"0 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",textAlign:"center"}}><div style={{fontSize:44,marginBottom:8}}>🔒</div><h2 style={{margin:"0 0 4px"}}>Session Locked</h2><p style={{color:"#6b7280",fontSize:13,marginBottom:20}}>Enter password to continue as {user.name}</p>{pinErr&&<div style={{background:"#fee2e2",color:"#991b1b",borderRadius:10,padding:10,marginBottom:12,fontSize:13,fontWeight:700}}>{pinErr}</div>}<input style={S.inp} type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&unlockPin()} placeholder="Password" autoFocus/><button style={S.btnP} onClick={unlockPin}>{t("unlock")}</button><button style={S.btnS} onClick={logout}>{t("logoutInstead")}</button></div></div>);
 
@@ -2511,19 +2535,21 @@ export default function App(){
     {loginTab==="bookings"&&<div style={{background:"#fff",borderRadius:20,padding:20,width:"100%",maxWidth:680,boxShadow:"0 20px 60px rgba(0,0,0,0.4)",maxHeight:"70vh",overflowY:"auto"}}>
       <h2 style={{margin:"0 0 4px",fontSize:16,fontWeight:500,color:"#1B2E4B"}}>📅 Today's Bookings</h2>
       <p style={{margin:"0 0 16px",fontSize:12,color:"#64748B"}}>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
-      {bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show"].includes(b.status)).length===0
+      {publicBookings===null
+        ?<div style={{textAlign:"center",padding:40,color:"#94A3B8"}}>Loading…</div>
+        :publicBookings.length===0
         ?<div style={{textAlign:"center",padding:40,color:"#94A3B8"}}>No bookings today</div>
         :<div>
-          {bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show"].includes(b.status)).sort((a,b2)=>a.time.localeCompare(b2.time)).map(b=>(
-            <div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",border:"0.5px solid #E2E8F0",borderRadius:12,marginBottom:8,background:b.status==="Confirmed"?"#F0FDF4":b.status==="Arrived"?"#EBF2FD":"#fff"}}>
+          {[...publicBookings].sort((a,b2)=>a.time.localeCompare(b2.time)).map((b,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",border:"0.5px solid #E2E8F0",borderRadius:12,marginBottom:8,background:b.status==="Confirmed"?"#F0FDF4":b.status==="Arrived"?"#EBF2FD":"#fff"}}>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                   <b style={{color:"#1B2E4B",fontSize:14}}>{b.time}</b>
-                  <b style={{color:"#1B2E4B"}}>{b.customerName}</b>
+                  <b style={{color:"#1B2E4B"}}>{b.customer_name}</b>
                   {b.gender&&<span style={{background:"#F3E8FF",color:"#6B21A8",borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:500}}>{b.gender}</span>}
                   {b.people>1&&<span style={{background:"#F1F5F9",color:"#475569",borderRadius:6,padding:"1px 6px",fontSize:10}}>{b.people} people</span>}
                 </div>
-                <p style={{margin:"3px 0 0",fontSize:12,color:"#64748B"}}>{b.serviceName||"TBD"} · {Math.floor(b.durationMins/60)}h{b.durationMins%60?b.durationMins%60+"m":""}</p>
+                <p style={{margin:"3px 0 0",fontSize:12,color:"#64748B"}}>{b.service_name||"TBD"}</p>
               </div>
               <span style={SB(b.status)}>{b.status}</span>
             </div>
@@ -3713,7 +3739,7 @@ export default function App(){
             <div><L>Username</L><input style={{...S.inp,background:editStaff?"#f3f4f6":"#fffdf7"}} value={nStaff.id} onChange={e=>setNStaff(p=>({...p,id:e.target.value}))} placeholder="e.g. reception1" disabled={!!editStaff}/></div>
             <div><L>Display Name</L><input style={S.inp} value={nStaff.name} onChange={e=>setNStaff(p=>({...p,name:e.target.value}))} placeholder="Full name"/></div>
             <div><L>Role</L><select style={S.inp} value={nStaff.role} onChange={e=>setNStaff(p=>({...p,role:e.target.value}))}><option value="reception">Reception</option><option value="supervisor">Supervisor</option><option value="manager">Manager</option><option value="inventory">Inventory</option></select></div>
-            <div><L>{editStaff?"New Password":"Password"}</L><input style={S.inp} type="password" value={nStaff.password} onChange={e=>setNStaff(p=>({...p,password:e.target.value}))} placeholder={editStaff?"Enter new password":"Password"}/></div>
+            <div><L>{editStaff?"New Password":"Password"}</L><input style={S.inp} type="password" value={nStaff.password} onChange={e=>setNStaff(p=>({...p,password:e.target.value}))} placeholder={editStaff?"Leave blank to keep current password":"Password"}/></div>
           </div>
           <div style={S.r2}><button style={S.btnP} onClick={saveStaff}>{editStaff?t("updateAccount"):t("saveAccount")}</button>{editStaff&&<button style={S.btnS} onClick={()=>{setEditStaff(null);setNStaff({id:"",name:"",role:"reception",password:""});}}>{t("cancel")}</button>}</div>
         </div>
