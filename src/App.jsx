@@ -1176,7 +1176,7 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
   function addTip(){if(!tipEmp){setTipErr("Select who gets the tip");return;}if(!tipAmt||Number(tipAmt)<=0){setTipErr("Enter a valid amount");return;}setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");setShowTip(false);setTipErr("");}
   const isWait=["Barber: Waiting","Waiting for Supervisor","With Supervisor"].includes(v.status);
   const isIP=v.status==="In Service";const isRdy=v.status==="Ready for Payment";const isDone=v.status==="Paid & Closed";
-  const banner=isDone?{bg:"#F0FDF4",bd:"#86EFAC",ic:"✅",tx:"Paid & Closed",co:"#166534"}:isRdy?{bg:"#FFF7ED",bd:"#FCD34D",ic:"💳",tx:"Ready for Payment",co:"#B45309"}:isIP?{bg:"#EFF6FF",bd:"#93C5FD",ic:"✂",tx:"In Chair",co:"#1B4FA8"}:{bg:"#FFFBEB",bd:"#FDE68A",ic:"⏳",tx:"Waiting",co:"#92400E"};
+  const banner=isDone?{bg:"#F0FDF4",bd:"#86EFAC",Ic:CheckCircle2,tx:"Paid & Closed",co:"#166534"}:isRdy?{bg:"#FFF7ED",bd:"#FCD34D",Ic:CreditCard,tx:"Ready for Payment",co:"#B45309"}:isIP?{bg:"#EFF6FF",bd:"#93C5FD",Ic:Scissors,tx:"In Chair",co:"#1B4FA8"}:{bg:"#FFFBEB",bd:"#FDE68A",Ic:Clock,tx:"Waiting",co:"#92400E"};
   const bqv=v.barberQueue||v.barber_queue||0;
   return<div style={{background:"#fff",borderRadius:13,border:"1px solid #E2E8F0",overflow:"hidden",boxShadow:"0 2px 12px rgba(27,46,75,0.07)"}}>
     <div style={{background:"#0F1E33",padding:"14px 17px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,backgroundImage:"repeating-linear-gradient(60deg,transparent 0px,transparent 10px,rgba(201,150,42,0.05) 10px,rgba(201,150,42,0.05) 11px),repeating-linear-gradient(-60deg,transparent 0px,transparent 10px,rgba(201,150,42,0.05) 10px,rgba(201,150,42,0.05) 11px)",position:"relative"}}>
@@ -1184,9 +1184,9 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
         {queueEnabled&&bqv>0&&<span style={{background:"#E0B85A",color:"#1B2E4B",borderRadius:7,padding:"2px 9px",fontSize:13,fontWeight:900}}>B-{bqv}</span>}
         <div><b style={{fontSize:17,color:"#fff",display:"block",fontFamily:"'Inter',system-ui,sans-serif",fontWeight:600,letterSpacing:"0.1px"}}>{v.name}</b>{v.phone&&<p style={{margin:0,fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:2}}>{v.phone}</p>}</div>
       </div>
-      <span style={{background:banner.bg,color:banner.co,border:`1px solid ${banner.bd}`,borderRadius:18,padding:"3px 10px",fontSize:11,fontWeight:700}}>{banner.ic} {banner.tx}</span>
+      <span style={{background:banner.bg,color:banner.co,border:`1px solid ${banner.bd}`,borderRadius:18,padding:"3px 10px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}><banner.Ic size={12}/> {banner.tx}</span>
     </div>
-    {v.note&&<div style={{background:"#F8FAFC",padding:"5px 16px",fontSize:11,color:"#64748B",borderBottom:"1px solid #F1F5F9"}}>📝 {v.note}</div>}
+    {v.note&&<div style={{background:"#F8FAFC",padding:"5px 16px",fontSize:11,color:"#64748B",borderBottom:"1px solid #F1F5F9",display:"flex",alignItems:"center",gap:5}}><PenLine size={11}/> {v.note}</div>}
     <div style={{padding:"14px 16px"}}>
       <p style={{margin:"0 0 7px",fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:0.5}}>SERVICES</p>
       <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
@@ -1194,10 +1194,10 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
           const rz=isR(l);const acc=rz?"#5A8C72":"#1B2E4B";const dn=l.status==="Completed";
           return<div key={i} style={{border:`1px solid ${dn?"#86EFAC":acc+"33"}`,borderRadius:9,padding:"9px 11px",background:dn?"#F0FDF4":"#FAFAFA"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:dn?0:7}}>
-              <span style={{display:"flex",alignItems:"center",gap:5,fontWeight:600,fontSize:13,color:"#111827"}}>{rz?"💆":"✂"} {l.name}</span>
+              <span style={{display:"flex",alignItems:"center",gap:5,fontWeight:600,fontSize:13,color:"#111827"}}>{rz?<Waves size={13}/>:<Scissors size={13}/>} {l.name}</span>
               <div style={{display:"flex",gap:7,alignItems:"center"}}>
                 <b style={{fontSize:12,color:acc}}>{li(l).toLocaleString()} Birr</b>
-                {dn&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>✓ {l.employee||"Done"}</span>}
+                {dn&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",gap:3}}><Check size={10}/> {l.employee||"Done"}</span>}
               </div>
             </div>
             {!dn&&<div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
@@ -1206,9 +1206,9 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
                 {sfLine(l).map(e=>{const q=sq[e.name]||{n:0};return<option key={e.id} value={e.name}>{e.name}{q.n>0?" ("+q.n+")":""};</option>;})}
               </select>}
               {l.preferredEmployee&&!l.employee&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:600}}>Pref: {l.preferredEmployee}</span>}
-              {l.employee&&l.status==="In Progress"&&<span style={{background:rz?"#EBF5EE":"#EFF6FF",color:rz?"#166534":"#1B4FA8",borderRadius:5,padding:"2px 7px",fontSize:11,fontWeight:700}}>{rz?"💆":"✂"} {l.employee}</span>}
-              {isIP&&l.status==="In Progress"&&l.employee&&<button onClick={()=>onDone(v.id,l.lineId)} style={{padding:"4px 12px",borderRadius:7,border:"none",background:"#166534",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>✓ Done</button>}
-              {!l.employee&&!isRdy&&!isDone&&<span style={{fontSize:10,color:"#F59E0B",fontWeight:600}}>⚠ Needs assignment</span>}
+              {l.employee&&l.status==="In Progress"&&<span style={{background:rz?"#EBF5EE":"#EFF6FF",color:rz?"#166534":"#1B4FA8",borderRadius:5,padding:"2px 7px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>{rz?<Waves size={11}/>:<Scissors size={11}/>} {l.employee}</span>}
+              {isIP&&l.status==="In Progress"&&l.employee&&<button onClick={()=>onDone(v.id,l.lineId)} style={{padding:"4px 12px",borderRadius:7,border:"none",background:"#166534",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0,display:"inline-flex",alignItems:"center",gap:4}}><Check size={11}/> Done</button>}
+              {!l.employee&&!isRdy&&!isDone&&<span style={{fontSize:10,color:"#F59E0B",fontWeight:600,display:"inline-flex",alignItems:"center",gap:4}}><AlertTriangle size={10}/> Needs assignment</span>}
             </div>}
           </div>;
         })}
@@ -1217,11 +1217,11 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
       <div style={{borderTop:"1px solid #F1F5F9",paddingTop:12,marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tips.length?7:0}}>
           <p style={{margin:0,fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:0.5}}>TIPS</p>
-          {!isDone&&!showTip&&<button onClick={()=>setShowTip(true)} style={{fontSize:10,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"1px solid #FDE68A",borderRadius:7,padding:"3px 9px",cursor:"pointer"}}>+ Add Tip</button>}
+          {!isDone&&!showTip&&<button onClick={()=>setShowTip(true)} style={{fontSize:10,fontWeight:600,color:"#92400E",background:"#FEF9EC",border:"1px solid #FDE68A",borderRadius:7,padding:"3px 9px",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}><Plus size={10}/> Add Tip</button>}
         </div>
         {tips.map((t,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 9px",background:"#FFFBEB",borderRadius:7,marginBottom:3,fontSize:11}}>
-          <span style={{color:"#92400E"}}>💰 {t.employee}</span>
-          <div style={{display:"flex",gap:5,alignItems:"center"}}><b style={{color:"#92400E"}}>{Number(t.amount).toLocaleString()} Birr</b>{!isDone&&<button onClick={()=>setTips(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#94A3B8",cursor:"pointer",fontSize:13}}>×</button>}</div>
+          <span style={{color:"#92400E",display:"flex",alignItems:"center",gap:5}}><Wallet size={11}/> {t.employee}</span>
+          <div style={{display:"flex",gap:5,alignItems:"center"}}><b style={{color:"#92400E"}}>{Number(t.amount).toLocaleString()} Birr</b>{!isDone&&<button onClick={()=>setTips(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#94A3B8",cursor:"pointer",display:"flex"}}><X size={13}/></button>}</div>
         </div>)}
         {showTip&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:9,padding:"10px 12px",marginTop:7}}>
           <p style={{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#92400E"}}>Who gets the tip?</p>
@@ -1233,7 +1233,7 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
             <button onClick={addTip} style={{padding:"6px 14px",borderRadius:7,border:"none",background:"#92400E",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
             <button onClick={()=>{setShowTip(false);setTipEmp("");setTipAmt("");setTipErr("");}} style={{padding:"6px 10px",borderRadius:7,border:"1px solid #E2E8F0",background:"#fff",color:"#64748B",fontSize:11,cursor:"pointer"}}>Cancel</button>
           </div>
-          {tipErr&&<p style={{margin:"3px 0 0",fontSize:10,color:"#DC2626"}}>⚠ {tipErr}</p>}
+          {tipErr&&<p style={{margin:"3px 0 0",fontSize:10,color:"#DC2626",display:"flex",alignItems:"center",gap:4}}><AlertTriangle size={11}/> {tipErr}</p>}
         </div>}
       </div>
       {/* Totals */}
@@ -1246,10 +1246,10 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
       {isRdy&&<div>
         <p style={{margin:"12px 0 6px",fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:0.5}}>PAYMENT METHOD</p>
         <div style={{display:"flex",gap:5,marginBottom:10}}>
-          {["Cash","Card","Transfer"].map(m=><button key={m} onClick={()=>{setPayM(m);setCash("");}} style={{flex:1,padding:"8px 5px",borderRadius:9,border:`2px solid ${payM===m?"#1B2E4B":"#E2E8F0"}`,background:payM===m?"#1B2E4B":"#fff",color:payM===m?"#fff":"#374151",fontSize:12,fontWeight:payM===m?700:400,cursor:"pointer",textAlign:"center"}}>{m==="Cash"?"💵 Cash":m==="Card"?"💳 Card":"📱 Transfer"}</button>)}
+          {["Cash","Card","Transfer"].map(m=><button key={m} onClick={()=>{setPayM(m);setCash("");}} style={{flex:1,padding:"8px 5px",borderRadius:9,border:`2px solid ${payM===m?"#1B2E4B":"#E2E8F0"}`,background:payM===m?"#1B2E4B":"#fff",color:payM===m?"#fff":"#374151",fontSize:12,fontWeight:payM===m?700:400,cursor:"pointer",textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>{m==="Cash"?<Banknote size={13}/>:m==="Card"?<CreditCard size={13}/>:<Smartphone size={13}/>}{m}</button>)}
         </div>
         {payM==="Cash"&&<div style={{background:"#F8FAFC",borderRadius:9,padding:"11px",marginBottom:10}}>
-          <p style={{margin:"0 0 5px",fontSize:11,fontWeight:600,color:"#374151"}}>💵 Cash Received</p>
+          <p style={{margin:"0 0 5px",fontSize:11,fontWeight:600,color:"#374151",display:"flex",alignItems:"center",gap:5}}><Banknote size={12}/> Cash Received</p>
           <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
             {[...new Set([grand,Math.ceil(grand/100)*100,Math.ceil(grand/500)*500,Math.ceil(grand/1000)*1000].filter(a=>a>=grand))].slice(0,4).map(amt=><button key={amt} onClick={()=>setCash(String(amt))} style={{padding:"5px 10px",borderRadius:7,border:`1.5px solid ${Number(cash)===amt?"#1B2E4B":"#E2E8F0"}`,background:Number(cash)===amt?"#1B2E4B":"#fff",color:Number(cash)===amt?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{amt.toLocaleString()}</button>)}
           </div>
@@ -1259,7 +1259,7 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
             <b style={{fontSize:17,color:"#166534"}}>{change.toLocaleString()} Birr</b>
           </div>}
           {given>0&&given<grand&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"8px 12px",marginTop:7}}>
-            <p style={{margin:0,fontSize:11,color:"#DC2626",fontWeight:600}}>⚠ Short by {(grand-given).toLocaleString()} Birr</p>
+            <p style={{margin:0,fontSize:11,color:"#DC2626",fontWeight:600,display:"flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/> Short by {(grand-given).toLocaleString()} Birr</p>
           </div>}
         </div>}
         <button onClick={()=>{
