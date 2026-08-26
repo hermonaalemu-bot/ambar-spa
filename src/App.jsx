@@ -280,15 +280,15 @@ function printBookingSlip(b){
     .badge{display:inline-block;background:#EBF5EE;color:#166534;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700}
     @media print{body{padding:8px}}
   </style></head><body>
-    <div class="logo"><h1>✦ Ambar Spa & Beauty</h1><p>BOOKING CONFIRMATION</p></div>
+    <div class="logo"><h1>Ambar Spa & Beauty</h1><p>BOOKING CONFIRMATION</p></div>
     <p class="title">Please present this slip upon arrival</p>
     <div class="row"><span class="label">Customer</span><span class="value">${b.customerName}</span></div>
     <div class="row"><span class="label">Phone</span><span class="value">${b.customerPhone}</span></div>
     <div class="svc-box">
       <p class="svc-name">${b.serviceName||"To Be Confirmed"}</p>
-      <p class="svc-detail">📅 ${b.date} &nbsp;⏰ ${b.time}${b.gender?" &nbsp;· "+b.gender:""}</p>
-      ${b.people>1?`<p class="svc-detail">👥 ${b.people} people</p>`:""}
-      ${b.notes?`<p class="svc-detail">📝 ${b.notes}</p>`:""}
+      <p class="svc-detail">${b.date} at ${b.time}${b.gender?" · "+b.gender:""}</p>
+      ${b.people>1?`<p class="svc-detail">${b.people} people</p>`:""}
+      ${b.notes?`<p class="svc-detail">Note: ${b.notes}</p>`:""}
     </div>
     <div class="row"><span class="label">Duration</span><span class="value">${Math.floor((b.durationMins||60)/60)}h${(b.durationMins||60)%60?((b.durationMins||60)%60)+"m":""}</span></div>
     <div class="row"><span class="label">Status</span><span class="value"><span class="badge">${b.status}</span></span></div>
@@ -328,7 +328,7 @@ function printReceipt(visit,emps){
     <div class="line"></div>
     <div class="footer">
       <p>Thank you for visiting Ambar Spa & Beauty!</p>
-      <p>እናመሰግናለን 🌸</p>
+      <p>እናመሰግናለን</p>
       <p style="margin-top:6px;font-size:10px">Printed: ${new Date().toLocaleString()}</p>
     </div>
   </body></html>`);
@@ -366,11 +366,11 @@ function checkConflict(bks,form,svcs){
   const sameService=overlap.filter(b=>b.serviceId===svc.id||b.serviceName===svc.name);
   if(sameService.length>0){
     const names=sameService.map(b=>b.customerName).join(", ");
-    return"⚠️ "+svc.name+" is already booked at "+form.time+" for: "+names+". There may be a conflict.";
+    return svc.name+" is already booked at "+form.time+" for: "+names+". There may be a conflict.";
   }
-  if(svc.sub==="Moroccan Bath"){const tot=overlap.filter(b=>b.serviceCategory==="Spa").reduce((s,b)=>s+b.people,0)+Number(form.people||1);if(tot>4)return"⚠️ Morocco Bath room may be over capacity (max 4 people comfortable together).";}
-  if(svc.sub==="Steam & Sauna"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Sauna")).length>0)return"⚠️ Steam & Sauna has overlapping bookings at this time.";
-  if(svc.sub==="Massage"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Massage")).length>=2)return"⚠️ Both massage rooms may be occupied at this time.";
+  if(svc.sub==="Moroccan Bath"){const tot=overlap.filter(b=>b.serviceCategory==="Spa").reduce((s,b)=>s+b.people,0)+Number(form.people||1);if(tot>4)return"Morocco Bath room may be over capacity (max 4 people comfortable together).";}
+  if(svc.sub==="Steam & Sauna"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Sauna")).length>0)return"Steam & Sauna has overlapping bookings at this time.";
+  if(svc.sub==="Massage"&&overlap.filter(b=>b.serviceName&&b.serviceName.includes("Massage")).length>=2)return"Both massage rooms may be occupied at this time.";
   return null;
 }
 
@@ -384,7 +384,8 @@ const dbExp=r=>({id:r.id,date:r.date,type:r.type,name:r.name,reason:r.reason||""
 const dbBk=r=>({id:r.id,date:(r.date||'').trim().slice(0,10),time:(r.time||'00:00').slice(0,5),customerId:r.customer_id,customerName:r.customer_name,customerPhone:r.customer_phone,serviceId:Number(r.service_id),serviceName:r.service_name,serviceCategory:r.service_category,durationMins:Number(r.duration_mins||60),people:r.people||1,notes:r.notes||"",status:r.status,createdBy:r.created_by||"",visitId:r.visit_id||null,gender:r.gender||"",beautyQueueNum:r.beauty_queue_num||null});
 const dbStaff=r=>({id:r.id,name:r.name,role:r.role,password:r.password,active:r.active});
 function useW(){const[w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return{mob:w<640};}
-function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=><div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{fontWeight:700,fontSize:13}}>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,marginLeft:12}}>×</button></div>)}</div>;}
+const NOTIF_ICON={success:CheckCircle2,booking:Calendar,payment:CreditCard,warning:AlertTriangle,info:Bell};
+function Notifs({items,dismiss}){if(!items.length)return null;return <div style={{position:"fixed",top:0,left:0,right:0,zIndex:9999,padding:8,pointerEvents:"none",display:"flex",flexDirection:"column",gap:4}}>{items.map(n=>{const Icon=NOTIF_ICON[n.type]||Bell;return<div key={n.id} style={{background:n.type==="success"?"#166534":n.type==="booking"?"#5b21b6":n.type==="payment"?"#1e40af":n.type==="warning"?"#92400e":"#1e3a8a",color:"#fff",borderRadius:12,padding:"11px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",pointerEvents:"all",maxWidth:460,margin:"0 auto",width:"calc(100% - 16px)"}}><span style={{display:"flex",alignItems:"center",gap:9,fontWeight:600,fontSize:13}}><Icon size={16} style={{flexShrink:0}}/>{n.msg}</span><button onClick={()=>dismiss(n.id)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",display:"flex",marginLeft:12,flexShrink:0}}><X size={16}/></button></div>;})}</div>;}
 
 function EthPicker({value,onChange,label,bookingDates,...props}){
   // Parse current value into Ethiopian date
@@ -1715,7 +1716,7 @@ export default function App(){
         setVisits(prev=>{if(prev.find(x=>x.id===p.new.id))return prev;return[...prev,dbVis(p.new)];});
         if(role===ROLES.SUPERVISOR||role===ROLES.MANAGER){
           push("🆕 New: "+p.new.name+" #"+p.new.queue,"info");
-          nativePush("🔔 New Customer",p.new.name+" #"+p.new.queue+" is waiting","queue");
+          nativePush("New Customer",p.new.name+" #"+p.new.queue+" is waiting","queue");
         }
       })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"visits"},p=>{
@@ -2669,26 +2670,26 @@ export default function App(){
       <header style={{background:"#0F1E33",borderBottom:"1px solid rgba(255,255,255,0.07)",position:"sticky",top:0,zIndex:200}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 16px",height:52}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:28,height:28,background:"linear-gradient(135deg,#C9962A,#E0B85A)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>✦</div>
+            <div style={{width:28,height:28,background:"linear-gradient(135deg,#C9962A,#E0B85A)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Sparkles size={15} color="#1B2E4B"/></div>
             <span style={{fontSize:15,fontWeight:600,color:"#fff"}}>Ambar <span style={{color:"#E0B85A"}}>Spa</span></span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <button onClick={()=>setShowGS(s=>!s)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.6)",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:12}}>🔍</button>
-            <button onClick={toggleLang} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"#5A8C72",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11}}>{lang==="en"?"🇪🇹":"🇬🇧"}</button>
-            {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#3D7A5E",border:"none",color:"#fff",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11}}>🔔</button>}
-            {notifPerm==="granted"&&<span style={{color:"#5A8C72",fontSize:11}}>🔔</span>}
+            <button onClick={()=>setShowGS(s=>!s)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.6)",borderRadius:7,padding:"6px 9px",cursor:"pointer",display:"flex"}}><Search size={14}/></button>
+            <button onClick={toggleLang} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"#5A8C72",borderRadius:7,padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:5}}><Globe size={13}/>{lang==="en"?"EN":"አማ"}</button>
+            {notifPerm!=="granted"&&notifPerm!=="unsupported"&&<button onClick={requestNotifPerm} style={{background:"#3D7A5E",border:"none",color:"#fff",borderRadius:7,padding:"6px 9px",cursor:"pointer",display:"flex"}}><Bell size={14}/></button>}
+            {notifPerm==="granted"&&<span style={{color:"#5A8C72",display:"flex",padding:"6px 2px"}}><Bell size={14}/></span>}
             <div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"3px 10px 3px 5px"}}>
               <div style={{width:20,height:20,background:"#3D7A5E",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700,flexShrink:0}}>{(user.name||"?")[0].toUpperCase()}</div>
               {!sc.mob&&<span style={{fontSize:11,color:"rgba(255,255,255,0.65)",maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</span>}
               <span style={{background:"#3D7A5E",color:"#fff",borderRadius:8,padding:"1px 6px",fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:0.4,flexShrink:0}}>{user.role}</span>
             </div>
-            <button onClick={logout} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.4)",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11}}>{t("logout")}</button>
+            <button onClick={logout} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.4)",borderRadius:7,padding:"6px 10px",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:5}}><LogOut size={13}/>{t("logout")}</button>
           </div>
         </div>
         <div style={{borderTop:"1px solid rgba(255,255,255,0.06)"}}>
           {sc.mob?(
             <div style={{padding:"4px 12px 0"}}>
-              <button onClick={()=>setMobNav(v=>!v)} style={{background:"rgba(255,255,255,0.07)",border:"none",color:"#fff",borderRadius:7,padding:"7px 12px",fontSize:12,cursor:"pointer",width:"100%",textAlign:"left",marginBottom:4}}>☰ {tab}</button>
+              <button onClick={()=>setMobNav(v=>!v)} style={{background:"rgba(255,255,255,0.07)",border:"none",color:"#fff",borderRadius:7,padding:"9px 12px",fontSize:13,cursor:"pointer",width:"100%",textAlign:"left",marginBottom:4,display:"flex",alignItems:"center",gap:8}}><Menu size={15}/> {tab}</button>
               {mobNav&&<div style={{background:"#152030",borderRadius:8,padding:6,border:"1px solid rgba(255,255,255,0.08)",marginBottom:4}}>
                 {allTabs.map(t2=><button key={t2} style={{background:tab===t2?"rgba(224,184,90,0.12)":"transparent",border:"none",color:tab===t2?"#E0B85A":"rgba(255,255,255,0.6)",borderRadius:6,padding:"11px 12px",display:"block",width:"100%",textAlign:"left",cursor:"pointer",fontSize:13,fontWeight:tab===t2?600:400}} onClick={()=>{setTab(t2);setMobNav(false);}}>{t2}</button>)}
               </div>}
