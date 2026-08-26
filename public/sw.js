@@ -69,8 +69,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body: data.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/icon.svg',
+    badge: '/icon.svg',
     vibrate: [200, 100, 200],
     tag: data.tag || 'ambar-notification',
     renotify: true,
