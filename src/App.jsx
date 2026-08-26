@@ -7,7 +7,7 @@ import {
   Save,Link as LinkIcon,ChevronUp,ChevronDown,Sparkles,LogOut,Flower2,Waves,
   ClipboardList,BarChart3,Wallet,ArrowLeftRight,ArrowRight,Undo2,PenLine,
   ThumbsUp,PartyPopper,Footprints,Shirt,Droplet,Star,CircleDot,Receipt,
-  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,
+  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,Timer,
 } from "lucide-react";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
@@ -884,7 +884,7 @@ function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
   const curMin=now.getHours()*60+now.getMinutes();
   const minsLeft=Math.max(0,closeMin-curMin);
   return<section style={S.card}>
-    <h2 style={S.ct}>⏱ Service Duration</h2>
+    <h2 style={{...S.ct,display:"flex",alignItems:"center",gap:8}}><Timer size={16}/> Service Duration</h2>
     <p style={S.hlp}>How long each service takes per employee — helps plan last customer intake.</p>
     <div style={{background:"#1B2E4B",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{color:"#94A3B8",fontSize:12}}>Time until close</span>
@@ -2755,7 +2755,7 @@ export default function App(){
       {tab==="Supervisor"&&<ErrorBoundary><main style={{display:"grid",gridTemplateColumns:sc.mob&&actId?"1fr":gc,gap:14}}>
         {/* On mobile: hide queue list when customer is selected */}
         {(!sc.mob||!actId)&&<section style={S.card}><h2 style={S.ct}>{t("queueOverview")}</h2>
-          <h3 style={S.sh}>⏳ Waiting</h3>
+          <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><Clock size={13}/> Waiting</h3>
           {visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!isBarberVisit(v)).length===0?<p style={{...S.hlp,color:"#374151"}}>No one waiting.</p>
             :visits.filter(v=>["Waiting for Supervisor","With Supervisor"].includes(v.status)&&v.date===todayStr()&&!isBarberVisit(v)).map((v,i,arr)=>{
               const ahead=arr.slice(0,i).length;
@@ -2786,7 +2786,7 @@ export default function App(){
                   <span style={{display:"flex",alignItems:"center",gap:6,color:"inherit"}}>{i===0&&inProg.length===0&&<span style={{background:"#166534",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>NEXT</span>}{i===0&&inProg.length>0&&<span style={{background:"#5A8C72",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>UP NEXT</span>}<b>#{vv.queue}</b> {vv.name}</span><span style={SB("Waiting")}>Waiting</span>
                 </button>)}
                 {onHold.length>0&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px dashed #e5e7eb"}}>
-                  <p style={{fontSize:11,color:"#6b21a8",fontWeight:700,margin:"0 0 4px"}}>⏸ On Hold — will get priority when current service completes</p>
+                  <p style={{fontSize:11,color:"#6b21a8",fontWeight:700,margin:"0 0 4px",display:"flex",alignItems:"center",gap:4}}><PauseCircle size={12}/> On Hold — will get priority when current service completes</p>
                   {onHold.map(({visit:vv,line})=><button key={line.lineId} style={actId===vv.id?S.liA:{...S.liB,background:"#faf5ff",border:"1px solid #e9d5ff"}} onClick={()=>setActId(vv.id)}>
                     <span style={{display:"flex",alignItems:"center",gap:6}}><span style={{background:"#7c3aed",color:"#fff",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:800}}>HOLD</span><b>#{vv.queue}</b> {vv.name}</span><span style={SB("On Hold")}>On Hold</span>
                   </button>)}
@@ -2887,7 +2887,7 @@ export default function App(){
               const coTotal=(act.totalService||0)+tips.reduce((s,t2)=>s+Number(t2.amount||0),0);
               const given=Number(cashGiven)||0;const change=given-coTotal;
               return <div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:12,padding:12,marginBottom:8}}>
-                <p style={{margin:"0 0 8px",fontSize:12,fontWeight:500,color:"#1B2E4B"}}>💵 Cash Calculator</p>
+                <p style={{margin:"0 0 8px",fontSize:12,fontWeight:500,color:"#1B2E4B",display:"flex",alignItems:"center",gap:6}}><Banknote size={13}/> Cash Calculator</p>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
                   {[500,1000,2000,5000].map(amt=>(
                     <button key={amt} onClick={()=>setCashGiven(String(amt))}
@@ -2899,7 +2899,7 @@ export default function App(){
                 <input style={{...S.inp,marginBottom:6}} type="number" placeholder="Amount received (Birr)..." value={cashGiven} onChange={e=>setCashGiven(e.target.value)}/>
                 {given>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:change>=0?"#EBF5EE":"#FEF2F2",borderRadius:10,border:"0.5px solid "+(change>=0?"#86EFAC":"#FECACA")}}>
                   <span style={{fontSize:13,color:change>=0?"#166534":"#B91C1C",fontWeight:500}}>Change to give back</span>
-                  <b style={{fontSize:18,color:change>=0?"#166534":"#B91C1C"}}>{change>=0?change.toLocaleString()+" Birr":"⚠ Not enough"}</b>
+                  <b style={{fontSize:18,color:change>=0?"#166534":"#B91C1C",display:"flex",alignItems:"center",gap:5}}>{change>=0?change.toLocaleString()+" Birr":<><AlertTriangle size={14}/> Not enough</>}</b>
                 </div>}
               </div>;
             })()}
@@ -2916,7 +2916,7 @@ export default function App(){
                 <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#166534"}}>Individual Payments</p>
                 {visits.filter(v=>v.groupId===act.groupId&&v.status!=="Cancelled").map(v=><div key={v.id} style={{...S.li,marginBottom:6,background:v.status==="Paid & Closed"?"#dcfce7":"#fff"}}>
                   <div><b>{v.name}</b><p style={S.hlp}>{money(v.totalService)}</p></div>
-                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700}}>✓ Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{
+                  {v.status==="Paid & Closed"?<span style={{color:"#166534",fontWeight:700,display:"flex",alignItems:"center",gap:5}}><Check size={13}/> Paid</span>:<button style={{...S.btnP,width:"auto",padding:"6px 14px",marginBottom:0}} onClick={async()=>{
                     const prevStatus=v.status;
                     setVisits(prev=>prev.map(x=>x.id===v.id?{...x,status:"Paid & Closed",paymentMethod:payM,totalPaid:v.totalService}:x));
                     const{error}=await supabase.from("visits").update({payment_method:payM,total_paid:v.totalService,status:"Paid & Closed",tips:[]}).eq("id",v.id);
