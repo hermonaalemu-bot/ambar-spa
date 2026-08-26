@@ -7,7 +7,7 @@ import {
   Save,Link as LinkIcon,ChevronUp,ChevronDown,Sparkles,LogOut,Flower2,Waves,
   ClipboardList,BarChart3,Wallet,ArrowLeftRight,ArrowRight,Undo2,PenLine,
   ThumbsUp,PartyPopper,Footprints,Shirt,Droplet,Star,CircleDot,Receipt,
-  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,Timer,
+  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,Timer,RotateCcw,
 } from "lucide-react";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
@@ -3738,7 +3738,7 @@ export default function App(){
           }).reverse();
           const maxRev=Math.max(...days.map(d=>d.rev),1);
           return <div style={{marginBottom:16}}>
-            <h3 style={S.sh}>📊 Last 7 Days Revenue</h3>
+            <h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><BarChart3 size={13}/> Last 7 Days Revenue</h3>
             <div style={{display:"flex",alignItems:"flex-end",gap:6,height:100,padding:"0 4px"}}>
               {days.map(d=>(
                 <div key={d.date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
@@ -3892,13 +3892,13 @@ export default function App(){
         return <section style={{...S.card,padding:0,overflow:"hidden"}}>
           {/* Editor header */}
           <div style={{background:"#1B2E4B",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-            <div><h2 style={{margin:0,fontSize:17,fontWeight:500,color:"#fff"}}>🎨 Design Editor</h2>
+            <div><h2 style={{margin:0,fontSize:17,fontWeight:500,color:"#fff",display:"flex",alignItems:"center",gap:8}}><Palette size={17}/> Design Editor</h2>
               <p style={{margin:"3px 0 0",fontSize:11,color:"#5A8C72"}}>Changes apply instantly across the whole app</p>
             </div>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={resetAll} style={{padding:"8px 14px",borderRadius:9,border:"0.5px solid #334155",background:"transparent",color:"#94A3B8",fontSize:12,cursor:"pointer",fontWeight:500}}>↺ Reset All</button>
-              <button onClick={saveToCloud} style={{padding:"8px 16px",borderRadius:9,border:"none",background:deSaved?"#2D7D46":"#5A8C72",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:500,transition:"background 0.2s"}}>
-                {deSaved?"✓ Saved!":"💾 Save to All Devices"}
+              <button onClick={resetAll} style={{padding:"8px 14px",borderRadius:9,border:"0.5px solid #334155",background:"transparent",color:"#94A3B8",fontSize:12,cursor:"pointer",fontWeight:500,display:"flex",alignItems:"center",gap:6}}><RotateCcw size={12}/> Reset All</button>
+              <button onClick={saveToCloud} style={{padding:"8px 16px",borderRadius:9,border:"none",background:deSaved?"#2D7D46":"#5A8C72",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:500,transition:"background 0.2s",display:"flex",alignItems:"center",gap:6}}>
+                {deSaved?<><Check size={13}/> Saved!</>:<><Save size={13}/> Save to All Devices</>}
               </button>
             </div>
           </div>
@@ -3906,8 +3906,8 @@ export default function App(){
           {/* Tab bar */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:"0.5px solid #E2E8F0"}}>
             {["colors","texts"].map(dt=>(
-              <button key={dt} onClick={()=>setDeTab(dt)} style={{padding:"12px",border:"none",background:deTab===dt?"#fff":"#F8FAFC",color:deTab===dt?"#1B2E4B":"#64748B",fontWeight:deTab===dt?500:400,cursor:"pointer",fontSize:13,borderBottom:deTab===dt?"2px solid #1B2E4B":"2px solid transparent"}}>
-                {dt==="colors"?"🎨 Colors & Design":"🔤 Amharic Text Labels"}
+              <button key={dt} onClick={()=>setDeTab(dt)} style={{padding:"12px",border:"none",background:deTab===dt?"#fff":"#F8FAFC",color:deTab===dt?"#1B2E4B":"#64748B",fontWeight:deTab===dt?500:400,cursor:"pointer",fontSize:13,borderBottom:deTab===dt?"2px solid #1B2E4B":"2px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                {dt==="colors"?<><Palette size={13}/> Colors & Design</>:<><Type size={13}/> Amharic Text Labels</>}
               </button>
             ))}
           </div>
