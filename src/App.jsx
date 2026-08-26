@@ -1297,37 +1297,44 @@ export default function App(){
   // Design settings
   const[design,setDesign]=useState(()=>{try{const d=localStorage.getItem("ambar_design");return d?JSON.parse(d):{primaryBg:"#1B2E4B",primaryText:"#ffffff",accentBg:"#5A8C72",accentText:"#ffffff",cardBg:"#ffffff",headerBg:"#1B2E4B",btnPBg:"#1B2E4B",btnPText:"#ffffff",btnSBg:"#F8FAFC",btnSText:"#1B2E4B"};}catch{return{primaryBg:"#1B2E4B",primaryText:"#ffffff",accentBg:"#5A8C72",accentText:"#ffffff",cardBg:"#ffffff",headerBg:"#1B2E4B",btnPBg:"#1B2E4B",btnPText:"#ffffff",btnSBg:"#F8FAFC",btnSText:"#1B2E4B"};}});
   function saveDes(d){setDesign(d);try{localStorage.setItem("ambar_design",JSON.stringify(d));}catch(e){}}
+  // One border color everywhere (previously three near-identical grays — #CBD5E0,
+  // #E2E8F0, #E3DED8 — were mixed across inputs/tabs/cards for no reason, which reads
+  // as inconsistent even though the difference is subtle).
+  const BORDER="#E3DED8";
   const S={
     // Layout
     wrap:  {maxWidth:1200,margin:"0 auto",padding:sc.mob?"8px":"14px 20px"},
-    card:  {background:design.cardBg||"#ffffff",color:"#1B2E4B",borderRadius:14,padding:sc.mob?14:20,border:"1px solid #E3DED8",boxShadow:"0 2px 16px rgba(15,30,51,0.07)",marginBottom:14},
+    card:  {background:design.cardBg||"#ffffff",color:"#1B2E4B",borderRadius:14,padding:sc.mob?14:20,border:"1px solid "+BORDER,boxShadow:"0 2px 16px rgba(15,30,51,0.07)",marginBottom:14},
     ct:    {margin:"0 0 14px",fontSize:sc.mob?15:17,fontWeight:600,color:design.txPrimary||"#0F1E33"},
     sh:    {margin:"0 0 8px",fontSize:13,fontWeight:500,color:design.txPrimary||"#1B2E4B"},
     hlp:   {color:design.txSecondary||"#64748B",fontSize:11,margin:"2px 0"},
     lbl:   {margin:"0 0 4px",fontSize:12,fontWeight:500,color:design.txLabel||"#334155"},
-    // Inputs
-    inp:   {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:design.txInp||"#1B2E4B",fontSize:13},
-    ii:    {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12,width:"100%",boxSizing:"border-box"},
-    ta:    {width:"100%",boxSizing:"border-box",padding:"10px 12px",marginBottom:8,borderRadius:10,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",minHeight:60,fontSize:13},
-    // Buttons
-    btnP:  {width:"100%",padding:11,borderRadius:10,border:"none",background:design.btnPBg||"#0F1E33",color:design.btnPText||"#ffffff",fontWeight:600,cursor:"pointer",fontSize:13,marginBottom:6},
-    btnS:  {width:"100%",padding:10,borderRadius:10,border:"0.5px solid #CBD5E0",background:design.btnSBg||"#F8FAFC",color:design.btnSText||"#1B2E4B",fontWeight:500,cursor:"pointer",marginBottom:6,fontSize:12},
-    btnD:  {padding:"6px 12px",borderRadius:8,border:"0.5px solid #FECACA",background:"#FEF2F2",color:"#B91C1C",fontWeight:500,cursor:"pointer",fontSize:11},
-    btnG:  {width:"100%",padding:11,borderRadius:10,border:"none",background:"#3D7A5E",color:"#ffffff",fontWeight:600,cursor:"pointer",fontSize:13,marginBottom:6},
+    // Inputs — 12px vertical padding + 14px text keeps every field at a comfortable
+    // tap height on a phone, not just technically clickable.
+    inp:   {width:"100%",boxSizing:"border-box",padding:"12px 14px",marginBottom:8,borderRadius:10,border:"1px solid "+BORDER,background:"#fff",color:design.txInp||"#1B2E4B",fontSize:14},
+    ii:    {padding:"8px 10px",borderRadius:8,border:"1px solid "+BORDER,background:"#fff",color:"#1B2E4B",fontSize:13,width:"100%",boxSizing:"border-box"},
+    ta:    {width:"100%",boxSizing:"border-box",padding:"12px 14px",marginBottom:8,borderRadius:10,border:"1px solid "+BORDER,background:"#fff",color:"#1B2E4B",minHeight:70,fontSize:14},
+    // Buttons — 13-14px vertical padding brings every button to ~44px tall including
+    // its font's line height, the minimum comfortable touch target.
+    btnP:  {width:"100%",padding:"13px 14px",borderRadius:10,border:"none",background:design.btnPBg||"#0F1E33",color:design.btnPText||"#ffffff",fontWeight:600,cursor:"pointer",fontSize:14,marginBottom:6},
+    btnS:  {width:"100%",padding:"12px 14px",borderRadius:10,border:"1px solid "+BORDER,background:design.btnSBg||"#F8FAFC",color:design.btnSText||"#1B2E4B",fontWeight:500,cursor:"pointer",marginBottom:6,fontSize:13},
+    btnD:  {padding:"9px 14px",borderRadius:8,border:"1px solid #FECACA",background:"#FEF2F2",color:"#B91C1C",fontWeight:500,cursor:"pointer",fontSize:12},
+    btnG:  {width:"100%",padding:"13px 14px",borderRadius:10,border:"none",background:"#3D7A5E",color:"#ffffff",fontWeight:600,cursor:"pointer",fontSize:14,marginBottom:6},
     // List items
-    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #E3DED8",color:"#1B2E4B",borderRadius:10,padding:"10px 14px",marginBottom:5},
-    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#0F1E33",border:"none",color:"#fff",borderRadius:10,padding:"10px 14px",marginBottom:5,width:"100%",WebkitTextFillColor:"#fff",cursor:"pointer",textAlign:"left"},
-    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid #E3DED8",color:"#1B2E4B",borderRadius:10,padding:"10px 14px",marginBottom:5,WebkitTextFillColor:"#1B2E4B",width:"100%",cursor:"pointer",textAlign:"left"},
-    // Tabs
-    tab:   {padding:"8px 4px",borderRadius:9,border:"0.5px solid #E2E8F0",background:"#fff",color:"#475569",fontWeight:500,cursor:"pointer",fontSize:11},
-    tabA:  {padding:"8px 4px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#ffffff",fontWeight:500,cursor:"pointer",fontSize:11},
+    li:    {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid "+BORDER,color:"#1B2E4B",borderRadius:10,padding:"12px 14px",marginBottom:5},
+    liA:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#0F1E33",border:"none",color:"#fff",borderRadius:10,padding:"12px 14px",marginBottom:5,width:"100%",WebkitTextFillColor:"#fff",cursor:"pointer",textAlign:"left"},
+    liB:   {display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:"#fff",border:"1px solid "+BORDER,color:"#1B2E4B",borderRadius:10,padding:"12px 14px",marginBottom:5,WebkitTextFillColor:"#1B2E4B",width:"100%",cursor:"pointer",textAlign:"left"},
+    // Tabs — was 8px/4px padding at 11px font, which measures under 30px tall; a grid
+    // of tabs that small is easy to mis-tap in a hurry on a phone.
+    tab:   {padding:"11px 6px",borderRadius:9,border:"1px solid "+BORDER,background:"#fff",color:"#475569",fontWeight:500,cursor:"pointer",fontSize:12,minHeight:44},
+    tabA:  {padding:"11px 6px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#ffffff",fontWeight:600,cursor:"pointer",fontSize:12,minHeight:44},
     // Nav
     navL:  {color:"#94A3B8",margin:"10px 0 5px",fontSize:9,fontWeight:500,letterSpacing:1.5},
-    navBtn:{padding:"4px 10px",borderRadius:7,border:"0.5px solid #E2E8F0",background:"#fff",color:"#1B2E4B",cursor:"pointer",fontWeight:500,fontSize:14},
+    navBtn:{padding:"8px 12px",borderRadius:7,border:"1px solid "+BORDER,background:"#fff",color:"#1B2E4B",cursor:"pointer",fontWeight:500,fontSize:14,minHeight:40},
     // Other
     r2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8},
-    tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",color:"#fff",padding:"11px 16px",borderRadius:11,marginTop:8,gap:8},
-    ii2:   {padding:"6px 9px",borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",color:"#1B2E4B",fontSize:12},
+    tb:    {display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",color:"#fff",padding:"12px 16px",borderRadius:11,marginTop:8,gap:8},
+    ii2:   {padding:"8px 10px",borderRadius:8,border:"1px solid "+BORDER,background:"#fff",color:"#1B2E4B",fontSize:13},
   };
   // Identity now comes from a real Supabase Auth session, not client-trusted storage.
   // See the auth bootstrap effect below (STAFF_EMAIL_DOMAIN / loadFromSession).
