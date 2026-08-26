@@ -1734,7 +1734,11 @@ export default function App(){
   useEffect(()=>{
     if(!user)return;
     async function seed(){
-      // Always upsert employees so new staff are added even if DB already seeded
+      // Add any newly-introduced default employees without touching ones that already
+      // exist — ignoreDuplicates:true means "insert if missing", never "overwrite if present".
+      // (This used to run with ignoreDuplicates:false, which silently reset every employee's
+      // salary/loan/absent-days/active/on-leave fields back to these hardcoded defaults on
+      // every single login, for anyone. That was destroying real payroll data daily.)
       await supabase.from("employees").upsert(
         DEFAULT_EMPLOYEES.map(e=>({
           id:e.id,name:e.name,section:e.section,role:e.role||'',
@@ -1742,7 +1746,7 @@ export default function App(){
           other_deduction:0,other_note:'',active:true,hire_date:e.hireDate,
           day_off:e.dayOff??null,on_leave:false
         })),
-        {onConflict:'id',ignoreDuplicates:false}
+        {onConflict:'id',ignoreDuplicates:true}
       );
       // Seed categories & services only if empty
       const{count:cc}=await supabase.from("categories").select("*",{count:"exact",head:true});
