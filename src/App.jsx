@@ -220,8 +220,10 @@ function svcMins(lineId){try{const t=localStorage.getItem("ambar_svc_"+lineId);i
 function markSvcStart(lineId){try{const k="ambar_svc_"+lineId;if(!localStorage.getItem(k))localStorage.setItem(k,Date.now());}catch(e){}}
 function makeId(name,phone){const n=(name||"CUS").replace(/[^a-zA-Z]/g,"").slice(0,3).toUpperCase()||"CUS";const p=(phone||"0000").replace(/\D/g,"").slice(-4)||"0000";return n+"-"+p;}
 function lineGross(l){return Number(l.price||0)*Number(l.qty||1);}
-function lineIncome(l){if(l.free)return 0;return Math.max(0,lineGross(l)-Number(l.discount||0));}
+function lineIncome(l){if(l.free||l.refunded)return 0;return Math.max(0,lineGross(l)-Number(l.discount||0));}
 function lineComm(l){
+  // A refunded line earns no commission, full stop — checked before any other special case
+  if(l.refunded)return 0;
   // Commission is calculated per quantity
   const qty=Number(l.qty||1);
   const pricePerUnit=Number(l.price||0);
@@ -307,7 +309,7 @@ function printReceipt(visit,emps){
     <div class="row"><span>Payment:</span><span>${visit.paymentMethod}</span></div>
     <div class="line"></div>
     <div class="bold" style="margin-bottom:6px">Services:</div>
-    ${lines.map(l=>`<div class="row"><span>${l.name}${l.qty>1?" x"+l.qty:""}</span><span>${l.free?"FREE":Number(lineIncome(l)).toLocaleString()+" Birr"}</span></div>`).join("")}
+    ${lines.map(l=>`<div class="row"><span>${l.name}${l.qty>1?" x"+l.qty:""}</span><span>${l.refunded?"REFUNDED":l.free?"FREE":Number(lineIncome(l)).toLocaleString()+" Birr"}</span></div>`).join("")}
     ${lines.some(l=>l.discount>0)?`<div class="row" style="color:#991b1b"><span>Discounts applied</span><span>-${lines.reduce((s,l)=>s+Number(l.discount||0),0).toLocaleString()} Birr</span></div>`:""}
     <div class="line"></div>
     <div class="row total"><span>Total Paid</span><span>${Number(visit.totalService).toLocaleString()} Birr</span></div>
@@ -1370,7 +1372,7 @@ export default function App(){
   const[coQ,setCoQ]=useState("");
   const[gSearch,setGSearch]=useState("");const[showGS,setShowGS]=useState(false);const[payM,setPayM]=useState("Cash");const[cashGiven,setCashGiven]=useState("");
   const[tipEmp,setTipEmp]=useState("");const[tipAmt,setTipAmt]=useState("");const[tips,setTips]=useState([]);
-  const[showRefund,setShowRefund]=useState(false);const[refundAmt,setRefundAmt]=useState("");const[refundReason,setRefundReason]=useState("");
+  const[showRefund,setShowRefund]=useState(false);const[refundLines,setRefundLines]=useState([]);const[refundReason,setRefundReason]=useState("");
   const[deActiveGrp,setDeActiveGrp]=useState(0);const[deTab2,setDeTab2]=useState("colors");const[deSaved,setDeSaved]=useState(false);
   const[amTexts,setAmTexts]=useState(()=>({...LANG.am}));
   const[splitMode,setSplitMode]=useState(false);const[splitPayments,setSplitPayments]=useState([]);
@@ -2081,20 +2083,28 @@ export default function App(){
   function addTip(){if(!tipEmp)return alert("Select an employee.");if(!tipAmt||Number(tipAmt)<=0)return alert("Enter a valid tip amount.");setTips(p=>[...p,{id:Date.now(),employee:tipEmp,amount:Number(tipAmt)}]);setTipEmp("");setTipAmt("");}
   async function processRefund(vid){
     const v=visits.find(x=>x.id===vid);if(!v)return;
-    const amt=Number(refundAmt);if(!amt||amt<=0)return alert("Enter refund amount.");
-    if(amt>v.totalPaid)return alert("Refund cannot exceed amount paid ("+money(v.totalPaid)+").");
-    confirm2("Issue refund of "+money(amt)+" for "+v.name+"?",async()=>{
-      const refundNote="[REFUND "+money(amt)+(refundReason?" — "+refundReason:"")+"]";
+    if(!refundLines.length)return alert("Select at least one service to refund.");
+    const linesToRefund=(v.services||[]).filter(l=>refundLines.includes(l.lineId));
+    const amt=linesToRefund.reduce((s,l)=>s+lineIncome(l),0);
+    if(!amt||amt<=0)return alert("Selected service(s) have no refundable amount.");
+    const svcNames=linesToRefund.map(l=>l.name).join(", ");
+    confirm2("Issue refund of "+money(amt)+" for "+v.name+" ("+svcNames+")?",async()=>{
+      const updServices=(v.services||[]).map(l=>refundLines.includes(l.lineId)?{...l,refunded:true}:l);
+      const newTotalService=updServices.reduce((s,l)=>s+lineIncome(l),0);
+      const newTotalPaid=Math.max(0,v.totalPaid-amt);
+      const refundNote="[REFUND "+money(amt)+" — "+svcNames+(refundReason?" — "+refundReason:"")+"]";
       const{error}=await supabase.from("visits").update({
+        services:updServices,
         note:(v.note?v.note+" ":"")+refundNote,
-        total_paid:v.totalPaid-amt,
+        total_service:newTotalService,
+        total_paid:newTotalPaid,
         status:"Paid & Closed"
       }).eq("id",vid);
       if(error){push("Refund failed to save — please retry: "+error.message,"error");return;}
-      setVisits(prev=>prev.map(x=>x.id===vid?{...x,note:(x.note?x.note+" ":"")+refundNote,totalPaid:x.totalPaid-amt}:x));
-      logAct(user,"Refund issued",v.name+" — "+money(amt)+(refundReason?" ("+refundReason+")":""));
+      setVisits(prev=>prev.map(x=>x.id===vid?{...x,services:updServices,note:(x.note?x.note+" ":"")+refundNote,totalService:newTotalService,totalPaid:newTotalPaid}:x));
+      logAct(user,"Refund issued",v.name+" — "+money(amt)+" ("+svcNames+")"+(refundReason?" — "+refundReason:""));
       push("Refund of "+money(amt)+" issued for "+v.name,"success");
-      setShowRefund(false);setRefundAmt("");setRefundReason("");
+      setShowRefund(false);setRefundLines([]);setRefundReason("");
     },true);
   }
   async function confirmPay(grp=false){
@@ -2785,14 +2795,25 @@ export default function App(){
               <span style={{color:"#1B4FA8",fontWeight:500,fontSize:13}}>💇 Beauty Salon Queue #{act.beautyQueueNum}</span>
               <span style={{fontSize:11,color:"#64748B"}}>Services transferred ✓</span>
             </div>}
-            <button style={{...S.btnS,color:"#dc2626",borderColor:"#fca5a5"}} onClick={()=>setShowRefund(v=>!v)}>↩ Issue Refund</button>
-            {showRefund&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:12,padding:14,marginTop:6}}>
-              <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#991b1b"}}>Issue Refund for {act.name}</p>
-              <p style={{margin:"0 0 8px",fontSize:12,color:"#6b7280"}}>Paid: {money(act.totalPaid)} · Max refund: {money(act.totalPaid)}</p>
-              <input style={S.inp} type="number" placeholder="Refund amount (Birr)" value={refundAmt} onChange={e=>setRefundAmt(e.target.value)}/>
-              <input style={S.inp} placeholder="Reason (optional)" value={refundReason} onChange={e=>setRefundReason(e.target.value)}/>
-              <button style={{...S.btnP,background:"#dc2626",color:"#fff"}} onClick={()=>processRefund(act.id)}>Confirm Refund</button>
-            </div>}
+            <button style={{...S.btnS,color:"#dc2626",borderColor:"#fca5a5"}} onClick={()=>{setShowRefund(v=>!v);setRefundLines([]);}}>↩ Issue Refund</button>
+            {showRefund&&(()=>{
+              const refundable=(act.services||[]).filter(l=>l.status!=="Cancelled"&&!l.refunded);
+              const selectedTotal=refundable.filter(l=>refundLines.includes(l.lineId)).reduce((s,l)=>s+lineIncome(l),0);
+              return<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:12,padding:14,marginTop:6}}>
+                <p style={{margin:"0 0 8px",fontWeight:800,fontSize:13,color:"#991b1b"}}>Issue Refund for {act.name}</p>
+                <p style={{margin:"0 0 8px",fontSize:12,color:"#6b7280"}}>Select the service(s) being refunded — this keeps revenue and staff commission accurate.</p>
+                {refundable.length===0?<p style={{margin:"0 0 8px",fontSize:12,color:"#6b7280"}}>No refundable services left on this visit.</p>:refundable.map(l=><label key={l.lineId} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#fff",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1px solid #fecaca"}}>
+                  <span style={{display:"flex",alignItems:"center",gap:8,fontSize:13}}>
+                    <input type="checkbox" checked={refundLines.includes(l.lineId)} onChange={e=>setRefundLines(p=>e.target.checked?[...p,l.lineId]:p.filter(id=>id!==l.lineId))}/>
+                    {l.name}{l.employee?" — "+l.employee:""}
+                  </span>
+                  <b style={{fontSize:13}}>{money(lineIncome(l))}</b>
+                </label>)}
+                <div style={{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:14,padding:"8px 0",borderTop:"1px dashed #fca5a5",marginTop:4}}><span>Refund Total</span><span>{money(selectedTotal)}</span></div>
+                <input style={S.inp} placeholder="Reason (optional)" value={refundReason} onChange={e=>setRefundReason(e.target.value)}/>
+                <button style={{...S.btnP,background:"#dc2626",color:"#fff"}} disabled={!refundLines.length} onClick={()=>processRefund(act.id)}>Confirm Refund — {money(selectedTotal)}</button>
+              </div>;
+            })()}
           </div>
            :!act.services?<EMP>Loading...</EMP>:<><h2 style={S.ct}>#{act.queue} — {act.name}</h2>
             <SLines visit={act} emps={emps} mode="checkout" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
