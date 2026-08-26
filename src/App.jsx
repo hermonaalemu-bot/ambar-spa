@@ -841,10 +841,10 @@ function QueueSummary({visits,emps,sc}){
     <button onClick={()=>setOpen(o=>!o)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1B2E4B",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#fff"}}>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{fontSize:10,fontWeight:600,color:"#5A8C72",letterSpacing:0.8}}>QUEUE STATUS</span>
-        {totalW>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>⏳ {totalW} waiting</span>}
-        {totalIP>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>🔄 {totalIP} in progress</span>}
-        {totalD>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>✅ {totalD} done</span>}
-        {totalR>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700}}>💳 {totalR} ready</span>}
+        {totalW>0&&<span style={{background:"#FEF3C7",color:"#92400E",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><Clock size={11}/> {totalW} waiting</span>}
+        {totalIP>0&&<span style={{background:"#DBEAFE",color:"#1B4FA8",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><RefreshCw size={11}/> {totalIP} in progress</span>}
+        {totalD>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><CheckCircle2 size={11}/> {totalD} done</span>}
+        {totalR>0&&<span style={{background:"#DCFCE7",color:"#166534",borderRadius:6,padding:"1px 8px",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><CreditCard size={11}/> {totalR} ready</span>}
       </div>
       <span style={{color:"#5A8C72",fontSize:13,flexShrink:0}}>{open?"▲":"▼"}</span>
     </button>
@@ -997,7 +997,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     const{error}=await supabase.from("visits").update({services:upd,status:all?"Barber: Ready":"In Service"}).eq("id",vid);
     if(error){push("Failed: "+error.message,"error");return;}
     setVisits(p=>p.map(x=>x.id===vid?{...x,services:upd,status:all?"Barber: Ready":"In Service"}:x));
-    if(all)push(v.name+" — ready to pay 💳","success");
+    if(all)push(v.name+" — ready to pay","success");
   }
   async function pay(vid,method,tips,total){
     const v=visits.find(x=>x.id===vid);if(!v)return;
@@ -1144,14 +1144,14 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
           {paid.map(v=>{const tt=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);return<div key={v.id} style={{padding:"6px 9px",background:"#F0FDF4",borderRadius:8,marginTop:3,fontSize:11}}>
             <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:600}}>{queueEnabled&&bq(v)>0?"B-"+bq(v)+" · ":""}{v.name}</span><span><b style={{color:"#166534"}}>{(v.totalPaid||0).toLocaleString()}</b><span style={{color:"#94A3B8"}}> via {v.paymentMethod}</span></span></div>
             <p style={{margin:"1px 0 0",color:"#64748B"}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
-            {tt>0&&<p style={{margin:"1px 0 0",color:"#92400E",fontSize:10}}>💰 Tips: {tt.toLocaleString()} Birr</p>}
+            {tt>0&&<p style={{margin:"1px 0 0",color:"#92400E",fontSize:10,display:"flex",alignItems:"center",gap:4}}><Wallet size={10}/> Tips: {tt.toLocaleString()} Birr</p>}
           </div>;})}
         </details>}
       </div>}
-      {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8}}>← Back to queue</button>}
+      {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8,display:"inline-flex",alignItems:"center",gap:5}}><ArrowLeft size={12}/> Back to queue</button>}
       <div>
         {!selId&&!sc.mob&&<div style={{background:"#F8FAFC",borderRadius:12,border:"1px dashed #E2E8F0",padding:"44px 20px",textAlign:"center"}}>
-          <div style={{fontSize:36,marginBottom:8}}>👈</div>
+          <Hand size={30} color="#CBD5E0" style={{marginBottom:8}}/>
           <p style={{margin:0,color:"#94A3B8",fontSize:13}}>Select a customer to manage their services and payment</p>
         </div>}
         {sel&&<BarberCard v={sel} allStaff={allStaff} barberEmps={barberEmps} rozaEmps={rozaEmps} onAssign={assign} onDone={done} onPay={pay} queueEnabled={queueEnabled} li={li} sq={sq} S={S}/>}
@@ -1266,12 +1266,12 @@ function BarberCard({v,allStaff,barberEmps,rozaEmps,onAssign,onDone,onPay,queueE
           if(payM==="Cash"&&cash&&given<grand){alert("Cash received ("+given.toLocaleString()+" Birr) is less than the total ("+grand.toLocaleString()+" Birr).");return;}
           if(!window.confirm("Confirm "+payM+" payment of "+grand.toLocaleString()+" Birr from "+v.name+"?"))return;
           onPay(v.id,payM,tips,grand);
-        }} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"#166534",color:"#fff",fontWeight:800,fontSize:14,cursor:"pointer"}}>
-          ✓ Confirm — {grand.toLocaleString()} Birr{payM==="Cash"&&change>0?" (Change: "+change.toLocaleString()+" Birr)":""}
+        }} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"#166534",color:"#fff",fontWeight:800,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <Check size={16}/> Confirm — {grand.toLocaleString()} Birr{payM==="Cash"&&change>0?" (Change: "+change.toLocaleString()+" Birr)":""}
         </button>
       </div>}
       {isDone&&<div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:9,padding:"11px",textAlign:"center",marginTop:10}}>
-        <p style={{margin:0,fontSize:13,fontWeight:700,color:"#166534"}}>✅ Paid — {(v.totalPaid||0).toLocaleString()} Birr via {v.paymentMethod}</p>
+        <p style={{margin:0,fontSize:13,fontWeight:700,color:"#166534",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><CheckCircle2 size={14}/> Paid — {(v.totalPaid||0).toLocaleString()} Birr via {v.paymentMethod}</p>
       </div>}
     </div>
   </div>;
