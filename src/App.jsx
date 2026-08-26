@@ -7,7 +7,7 @@ import {
   Save,Link as LinkIcon,ChevronUp,ChevronDown,Sparkles,LogOut,Flower2,Waves,
   ClipboardList,BarChart3,Wallet,ArrowLeftRight,ArrowRight,Undo2,PenLine,
   ThumbsUp,PartyPopper,Footprints,Shirt,Droplet,Star,CircleDot,Receipt,
-  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,
+  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,
 } from "lucide-react";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
@@ -1027,7 +1027,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
   return<div>
     {/* Header */}
     <div style={{background:"linear-gradient(135deg,#0F1E33,#1B2E4B)",borderRadius:14,padding:"14px 18px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,border:"1px solid rgba(224,184,90,0.15)"}}>
-      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff",fontFamily:"'Inter',system-ui,sans-serif"}}>💈 Barbershop</h2>
+      <div><h2 style={{margin:0,fontSize:17,fontWeight:700,color:"#fff",fontFamily:"'Inter',system-ui,sans-serif",display:"flex",alignItems:"center",gap:8}}><Scissors size={17}/> Barbershop</h2>
         <p style={{margin:"2px 0 0",fontSize:11,color:"rgba(255,255,255,0.45)"}}>Walk-ins · Assignments · Payments</p></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <label style={{display:"flex",alignItems:"center",gap:7,background:"rgba(255,255,255,0.07)",border:`1.5px solid ${queueEnabled?"#5A8C72":"#475569"}`,borderRadius:9,padding:"5px 12px",cursor:"pointer"}}>
@@ -1038,20 +1038,20 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
           </div>
           <span style={{fontSize:11,fontWeight:600,color:queueEnabled?"#5A8C72":"#94A3B8"}}>{queueEnabled?"Queue ON":"Queue OFF"}</span>
         </label>
-        <button onClick={()=>{setShowReg(r=>!r);setErrs({});}} style={{padding:"7px 16px",borderRadius:9,border:"none",background:showReg?"#475569":"#5A8C72",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-          {showReg?"✕ Cancel":"+ Walk-in"}
+        <button onClick={()=>{setShowReg(r=>!r);setErrs({});}} style={{padding:"7px 16px",borderRadius:9,border:"none",background:showReg?"#475569":"#5A8C72",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          {showReg?<><X size={13}/> Cancel</>:<><Plus size={13}/> Walk-in</>}
         </button>
       </div>
     </div>
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:12}}>
       {[
-        {l:"Waiting",v:waiting.length,bg:"#FEF9EC",tx:"#92400E",ic:"⏳"},
-        {l:"In Chair",v:inProgress.length,bg:"#EFF6FF",tx:"#1B4FA8",ic:"✂"},
-        {l:"Ready to Pay",v:readyToPay.length,bg:"#F0FDF4",tx:"#166534",ic:"💳"},
-        ...(user.role==="manager"?[{l:"Paid Today",v:rev.toLocaleString()+" Birr",bg:"#0F1E33",tx:"#E0B85A",ic:"✓"}]:[{l:"Paid",v:paid.length+" customers",bg:"#F0FDF4",tx:"#166534",ic:"✓"}])
+        {l:"Waiting",v:waiting.length,bg:"#FEF9EC",tx:"#92400E",Ic:Clock},
+        {l:"In Chair",v:inProgress.length,bg:"#EFF6FF",tx:"#1B4FA8",Ic:Scissors},
+        {l:"Ready to Pay",v:readyToPay.length,bg:"#F0FDF4",tx:"#166534",Ic:CreditCard},
+        ...(user.role==="manager"?[{l:"Paid Today",v:rev.toLocaleString()+" Birr",bg:"#0F1E33",tx:"#E0B85A",Ic:CheckCircle2}]:[{l:"Paid",v:paid.length+" customers",bg:"#F0FDF4",tx:"#166534",Ic:CheckCircle2}])
       ].map(c=><div key={c.l} style={{background:c.bg,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,border:"1px solid rgba(0,0,0,0.04)"}}>
-        <span style={{fontSize:20}}>{c.ic}</span>
+        <c.Ic size={20} color={c.tx}/>
         <div>
           <b style={{fontSize:c.l.startsWith("Paid Today")?12:c.l==="Paid"?12:20,color:c.tx,display:"block",lineHeight:1.1}}>{c.v}</b>
           <p style={{margin:0,fontSize:9,color:c.tx,opacity:0.75,fontWeight:600,letterSpacing:0.5}}>{c.l.toUpperCase()}</p>
@@ -1067,7 +1067,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
             <b style={{fontSize:11,color:"#fff"}}>{e.name}</b>
             <span style={{background:lc(q.n),color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,fontWeight:700}}>{ll(q.n)}</span>
           </div>
-          <p style={{margin:"2px 0 0",fontSize:9,color:"#94A3B8"}}>{e.section==="Hair Wash & Color"?"💆":"✂"}{q.p>0?" · "+q.p+" in chair":""}</p>
+          <p style={{margin:"2px 0 0",fontSize:9,color:"#94A3B8",display:"flex",alignItems:"center",gap:3}}>{e.section==="Hair Wash & Color"?<Waves size={10}/>:<Scissors size={10}/>}{q.p>0?" · "+q.p+" in chair":""}</p>
         </div>;})}
       </div>
     </div>}
@@ -1078,7 +1078,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         <div>
           <p style={{margin:"0 0 3px",fontSize:11,fontWeight:600,color:"#374151"}}>Name <span style={{color:"#DC2626"}}>*</span></p>
           <input style={{...S.inp,borderColor:errs.name?"#FCA5A5":"#CBD5E0",marginBottom:0}} placeholder="Customer name" value={bName} onChange={e=>{setBName(e.target.value);if(e.target.value.trim())setErrs(p=>({...p,name:undefined}));}}/>
-          {errs.name&&<p style={{margin:"3px 0 0",fontSize:10,color:"#DC2626"}}>⚠ {errs.name}</p>}
+          {errs.name&&<p style={{margin:"3px 0 0",fontSize:10,color:"#DC2626",display:"flex",alignItems:"center",gap:4}}><AlertTriangle size={11}/> {errs.name}</p>}
         </div>
         <div>
           <p style={{margin:"0 0 3px",fontSize:11,fontWeight:600,color:"#374151"}}>Phone <span style={{color:"#94A3B8",fontWeight:400}}>(optional)</span></p>
@@ -1086,25 +1086,25 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         </div>
       </div>
       <p style={{margin:"0 0 4px",fontSize:11,fontWeight:600,color:"#374151"}}>Services <span style={{color:"#DC2626"}}>*</span></p>
-      {errs.svcs&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:7,padding:"5px 9px",marginBottom:5,fontSize:11,color:"#DC2626"}}>⚠ {errs.svcs}</div>}
+      {errs.svcs&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:7,padding:"5px 9px",marginBottom:5,fontSize:11,color:"#DC2626",display:"flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/> {errs.svcs}</div>}
       {barberSvcs.length>0&&<div style={{marginBottom:7}}>
-        <p style={{margin:"0 0 3px",fontSize:10,fontWeight:700,color:"#1B2E4B"}}>✂ HAIRCUT / BEARD</p>
+        <p style={{margin:"0 0 3px",fontSize:10,fontWeight:700,color:"#1B2E4B",display:"flex",alignItems:"center",gap:4}}><Scissors size={11}/> HAIRCUT / BEARD</p>
         <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
           {barberSvcs.map(s=>{const sl=bSvcIds.includes(String(s.id));return<button key={s.id} type="button" onClick={()=>{setBSvcIds(p=>sl?p.filter(x=>x!==String(s.id)):[...p,String(s.id)]);setErrs(p=>({...p,svcs:undefined}));}} style={{padding:"6px 12px",borderRadius:18,border:`1.5px solid ${sl?"#1B2E4B":"#E2E8F0"}`,background:sl?"#1B2E4B":"#fff",color:sl?"#fff":"#374151",fontSize:11,fontWeight:sl?700:400,cursor:"pointer"}}>{s.name} · {Number(s.price).toLocaleString()}</button>;})}</div></div>}
       {rozaSvcs.length>0&&<div style={{marginBottom:10}}>
-        <p style={{margin:"0 0 3px",fontSize:10,fontWeight:700,color:"#5A8C72"}}>💆 WASH / COLOR / TREATMENT</p>
+        <p style={{margin:"0 0 3px",fontSize:10,fontWeight:700,color:"#5A8C72",display:"flex",alignItems:"center",gap:4}}><Waves size={11}/> WASH / COLOR / TREATMENT</p>
         <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
           {rozaSvcs.map(s=>{const sl=bSvcIds.includes(String(s.id));return<button key={s.id} type="button" onClick={()=>{setBSvcIds(p=>sl?p.filter(x=>x!==String(s.id)):[...p,String(s.id)]);setErrs(p=>({...p,svcs:undefined}));}} style={{padding:"6px 12px",borderRadius:18,border:`1.5px solid ${sl?"#5A8C72":"#E2E8F0"}`,background:sl?"#5A8C72":"#fff",color:sl?"#fff":"#374151",fontSize:11,fontWeight:sl?700:400,cursor:"pointer"}}>{s.name} · {Number(s.price).toLocaleString()}</button>;})}</div></div>}
       {bSvcIds.some(id=>barberSvcs.find(s=>s.id===Number(id)))&&barberEmps.length>0&&<div style={{marginBottom:8}}>
         <p style={{margin:"0 0 4px",fontSize:11,fontWeight:600,color:"#374151"}}>Preferred Barber</p>
         <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-          {[{v:"",l:"Any"},{v:"random",l:"🎲 Random"},...barberEmps.map(e=>({v:e.name,l:"✂ "+e.name}))].map(o=><button key={o.v} type="button" onClick={()=>setBBarber(o.v)} style={{padding:"5px 11px",borderRadius:18,border:`1.5px solid ${bBarber===o.v?"#1B2E4B":"#E2E8F0"}`,background:bBarber===o.v?"#1B2E4B":"#fff",color:bBarber===o.v?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{o.l}{queueEnabled&&sq[o.v]&&<span style={{marginLeft:3,fontSize:9,opacity:0.7}}>({ll(sq[o.v]?.n||0)})</span>}</button>)}
+          {[{v:"",l:"Any"},{v:"random",l:"Random"},...barberEmps.map(e=>({v:e.name,l:e.name}))].map(o=><button key={o.v} type="button" onClick={()=>setBBarber(o.v)} style={{padding:"5px 11px",borderRadius:18,border:`1.5px solid ${bBarber===o.v?"#1B2E4B":"#E2E8F0"}`,background:bBarber===o.v?"#1B2E4B":"#fff",color:bBarber===o.v?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{o.l}{queueEnabled&&sq[o.v]&&<span style={{marginLeft:3,fontSize:9,opacity:0.7}}>({ll(sq[o.v]?.n||0)})</span>}</button>)}
         </div>
       </div>}
       {bSvcIds.some(id=>rozaSvcs.find(s=>s.id===Number(id)))&&rozaEmps.length>0&&<div style={{marginBottom:8}}>
         <p style={{margin:"0 0 4px",fontSize:11,fontWeight:600,color:"#374151"}}>Roza / Technician</p>
         <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-          {[{v:"",l:"Any"},...rozaEmps.map(e=>({v:e.name,l:"💆 "+e.name}))].map(o=><button key={o.v} type="button" onClick={()=>setBRoza(o.v)} style={{padding:"5px 11px",borderRadius:18,border:`1.5px solid ${bRoza===o.v?"#5A8C72":"#E2E8F0"}`,background:bRoza===o.v?"#5A8C72":"#fff",color:bRoza===o.v?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{o.l}</button>)}
+          {[{v:"",l:"Any"},...rozaEmps.map(e=>({v:e.name,l:e.name}))].map(o=><button key={o.v} type="button" onClick={()=>setBRoza(o.v)} style={{padding:"5px 11px",borderRadius:18,border:`1.5px solid ${bRoza===o.v?"#5A8C72":"#E2E8F0"}`,background:bRoza===o.v?"#5A8C72":"#fff",color:bRoza===o.v?"#fff":"#374151",fontSize:11,cursor:"pointer"}}>{o.l}</button>)}
         </div>
       </div>}
       <p style={{margin:"0 0 3px",fontSize:11,fontWeight:600,color:"#374151"}}>Note <span style={{color:"#94A3B8",fontWeight:400}}>(optional)</span></p>
@@ -1113,34 +1113,34 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
         <span style={{fontSize:11,color:"#64748B"}}>{bSvcIds.length} service{bSvcIds.length!==1?"s":""}{queueEnabled?<span style={{color:"#1B2E4B",fontWeight:600,marginLeft:8}}>→ B-{barberQueueNum}</span>:null}</span>
         <b style={{fontSize:14,color:"#1B2E4B"}}>{allSvcs.filter(s=>bSvcIds.includes(String(s.id))).reduce((s,sv)=>s+Number(sv.price),0).toLocaleString()} Birr</b>
       </div>}
-      <button onClick={addWalkIn} disabled={saving} style={{width:"100%",padding:"10px",borderRadius:9,border:"none",background:saving?"#94A3B8":"#1B2E4B",color:"#fff",fontWeight:700,fontSize:13,cursor:saving?"default":"pointer",marginTop:10}}>
-        {saving?"Adding...":"✓ Add to Queue"+(queueEnabled?" (B-"+barberQueueNum+")":"")}
+      <button onClick={addWalkIn} disabled={saving} style={{width:"100%",padding:"10px",borderRadius:9,border:"none",background:saving?"#94A3B8":"#1B2E4B",color:"#fff",fontWeight:700,fontSize:13,cursor:saving?"default":"pointer",marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+        {saving?"Adding...":<><CheckCircle2 size={15}/> Add to Queue{queueEnabled?" (B-"+barberQueueNum+")":""}</>}
       </button>
     </div>}
     {/* Empty state */}
     {today.length===0&&!showReg&&<div style={{textAlign:"center",padding:"44px 20px",background:"#fff",borderRadius:12,border:"1px dashed #E2E8F0"}}>
-      <div style={{fontSize:48,marginBottom:10}}>💈</div>
+      <Scissors size={40} color="#CBD5E0" style={{marginBottom:10}}/>
       <b style={{fontSize:15,color:"#374151",display:"block",marginBottom:6}}>No customers today yet</b>
       <p style={{fontSize:12,color:"#94A3B8",margin:"0 0 14px"}}>Tap "+ Walk-in" to add the first customer</p>
-      <button onClick={()=>setShowReg(true)} style={{padding:"8px 22px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Walk-in</button>
+      <button onClick={()=>setShowReg(true)} style={{padding:"8px 22px",borderRadius:9,border:"none",background:"#1B2E4B",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}><Plus size={13}/> Walk-in</button>
     </div>}
     {/* Two-column list + detail */}
     {today.length>0&&<div style={{display:"grid",gridTemplateColumns:sc.mob&&selId?"1fr":gc,gap:12}}>
       {(!sc.mob||!selId)&&<div>
-        {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8}}>← Back</button>}
+        {sc.mob&&selId&&<button onClick={()=>setSelId(null)} style={{...S.btnS,width:"auto",padding:"6px 14px",fontSize:11,marginBottom:8,display:"inline-flex",alignItems:"center",gap:5}}><ArrowLeft size={12}/> Back</button>}
         {waiting.length>0&&<div style={{marginBottom:10}}>
-          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:0.5}}>⏳ WAITING ({waiting.length})</p>
+          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#92400E",letterSpacing:0.5,display:"flex",alignItems:"center",gap:4}}><Clock size={11}/> WAITING ({waiting.length})</p>
           {waiting.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#FFFBEB" colorBorder="rgba(245,158,11,0.3)" colorSel="#92400E" badge="orange"/>)}
         </div>}
         {inProgress.length>0&&<div style={{marginBottom:10}}>
-          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#1B4FA8",letterSpacing:0.5}}>✂ IN CHAIR ({inProgress.length})</p>
+          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#1B4FA8",letterSpacing:0.5,display:"flex",alignItems:"center",gap:4}}><Scissors size={11}/> IN CHAIR ({inProgress.length})</p>
           {inProgress.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#EFF6FF" colorBorder="rgba(59,130,246,0.25)" colorSel="#1B4FA8" badge="blue"/>)}
         </div>}
         {readyToPay.length>0&&<div style={{marginBottom:10}}>
-          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#166534",letterSpacing:0.5}}>💳 READY TO PAY ({readyToPay.length})</p>
+          <p style={{margin:"0 0 5px",fontSize:10,fontWeight:700,color:"#166534",letterSpacing:0.5,display:"flex",alignItems:"center",gap:4}}><CreditCard size={11}/> READY TO PAY ({readyToPay.length})</p>
           {readyToPay.map(v=><ListBtn key={v.id} v={v} selId={selId} setSelId={setSelId} colorBg="#F0FDF4" colorBorder="rgba(16,185,129,0.3)" colorSel="#166534" badge="green"/>)}
         </div>}
-        {paid.length>0&&<details><summary style={{cursor:"pointer",fontSize:11,fontWeight:700,color:"#64748B",padding:"5px 0",listStyle:"none",display:"flex",justifyContent:"space-between"}}><span>✓ Paid ({paid.length})</span><span style={{color:"#5A8C72"}}>{rev.toLocaleString()} Birr</span></summary>
+        {paid.length>0&&<details><summary style={{cursor:"pointer",fontSize:11,fontWeight:700,color:"#64748B",padding:"5px 0",listStyle:"none",display:"flex",justifyContent:"space-between"}}><span style={{display:"flex",alignItems:"center",gap:4}}><CheckCircle2 size={12}/> Paid ({paid.length})</span><span style={{color:"#5A8C72"}}>{rev.toLocaleString()} Birr</span></summary>
           {paid.map(v=>{const tt=(v.tips||[]).reduce((s,t)=>s+Number(t.amount||0),0);return<div key={v.id} style={{padding:"6px 9px",background:"#F0FDF4",borderRadius:8,marginTop:3,fontSize:11}}>
             <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:600}}>{queueEnabled&&bq(v)>0?"B-"+bq(v)+" · ":""}{v.name}</span><span><b style={{color:"#166534"}}>{(v.totalPaid||0).toLocaleString()}</b><span style={{color:"#94A3B8"}}> via {v.paymentMethod}</span></span></div>
             <p style={{margin:"1px 0 0",color:"#64748B"}}>{(v.services||[]).filter(l=>l.status!=="Cancelled").map(l=>l.name+(l.employee?" ("+l.employee+")":"")).join(" · ")}</p>
