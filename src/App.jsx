@@ -3131,7 +3131,7 @@ export default function App(){
 
       {tab==="Inventory"&&<section style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-          <div><h2 style={{...S.ct,marginBottom:4}}>📦 Inventory Management</h2>
+          <div><h2 style={{...S.ct,marginBottom:4,display:"flex",alignItems:"center",gap:8}}><Package size={17}/> Inventory Management</h2>
             <p style={{margin:0,fontSize:12,color:"#6b7280"}}>{inventory.length} items · {lowStock.length} low stock</p>
           </div>
           <div style={{display:"flex",gap:6}}>
@@ -3143,7 +3143,7 @@ export default function App(){
 
         {/* Low stock alert */}
         {lowStock.length>0&&<div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:14,padding:14,marginBottom:16}}>
-          <p style={{margin:"0 0 8px",fontWeight:800,color:"#dc2626",fontSize:14}}>⚠️ Low Stock Alert — {lowStock.length} item{lowStock.length>1?"s":""} need restocking</p>
+          <p style={{margin:"0 0 8px",fontWeight:800,color:"#dc2626",fontSize:14,display:"flex",alignItems:"center",gap:7}}><AlertTriangle size={15}/> Low Stock Alert — {lowStock.length} item{lowStock.length>1?"s":""} need restocking</p>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:6}}>
             {lowStock.map(i=><div key={i.id} style={{background:"#fff",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div><b style={{color:"#dc2626",fontSize:13}}>{i.name}</b><p style={{margin:0,fontSize:11,color:"#6b7280"}}>{i.category}</p></div>
@@ -3182,8 +3182,8 @@ export default function App(){
                 const d=editInvData;
                 return <div key={i.id} style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:14,padding:14,marginBottom:8}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                    <b style={{fontSize:13,color:"#0369A1"}}>✏ Editing: {i.name}</b>
-                    <button onClick={()=>setEditInvId(null)} style={{background:"transparent",border:"none",fontSize:18,cursor:"pointer",color:"#64748B"}}>×</button>
+                    <b style={{fontSize:13,color:"#0369A1",display:"flex",alignItems:"center",gap:6}}><Pencil size={13}/> Editing: {i.name}</b>
+                    <button onClick={()=>setEditInvId(null)} style={{background:"transparent",border:"none",cursor:"pointer",color:"#64748B",display:"flex"}}><X size={18}/></button>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
                     <div><p style={S.lbl}>Name</p>
@@ -3203,7 +3203,7 @@ export default function App(){
                       <input style={S.inp} type="number" value={d.price??i.price} onChange={e=>setEditInvData(p=>({...p,price:Number(e.target.value)}))}/></div>
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <button style={{...S.btnP,marginBottom:0}} onClick={()=>updateInvItem(i.id,editInvData)}>✓ Save Changes</button>
+                    <button style={{...S.btnP,marginBottom:0,display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={()=>updateInvItem(i.id,editInvData)}><Check size={13}/> Save Changes</button>
                     <button style={{...S.btnS,marginBottom:0,width:"auto",padding:"0 16px"}} onClick={()=>setEditInvId(null)}>Cancel</button>
                     <button style={{...S.btnD,marginLeft:"auto"}} onClick={()=>delInvItem(i.id)}>Delete</button>
                   </div>
@@ -3218,14 +3218,14 @@ export default function App(){
                   <p style={{margin:"2px 0 0",fontSize:11,color:"#64748B"}}>{i.category}{i.price>0?" · "+money(i.price)+"/"+i.unit:""}{i.minQty>0?" · Min: "+i.minQty+" "+i.unit:""}</p>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:16,color:"#1B2E4B"}}>−</button>
+                  <button onClick={()=>updInvQty(i.id,-1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",color:"#1B2E4B",display:"flex",alignItems:"center",justifyContent:"center"}}><Minus size={15}/></button>
                   <div style={{textAlign:"center",minWidth:48}}>
                     <b style={{fontSize:20,color:low?"#B91C1C":"#1B2E4B",display:"block",fontWeight:500}}>{i.qty}</b>
                     <span style={{fontSize:9,color:"#94A3B8"}}>{i.unit}</span>
                   </div>
-                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:16,color:"#1B2E4B"}}>+</button>
-                  <button onClick={()=>{setEditInvId(i.id);setEditInvData({});}} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#F8FAFC",cursor:"pointer",fontSize:13,color:"#1B2E4B"}} title="Edit">✏</button>
-                  <button onClick={()=>delInvItem(i.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#FEE2E2",color:"#B91C1C",cursor:"pointer",fontSize:14}}>×</button>
+                  <button onClick={()=>updInvQty(i.id,1)} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",color:"#1B2E4B",display:"flex",alignItems:"center",justifyContent:"center"}}><Plus size={15}/></button>
+                  <button onClick={()=>{setEditInvId(i.id);setEditInvData({});}} style={{width:32,height:32,borderRadius:8,border:"0.5px solid #CBD5E0",background:"#F8FAFC",cursor:"pointer",color:"#1B2E4B",display:"flex",alignItems:"center",justifyContent:"center"}} title="Edit"><Pencil size={14}/></button>
+                  <button onClick={()=>delInvItem(i.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#FEE2E2",color:"#B91C1C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Trash2 size={14}/></button>
                 </div>
               </div>;
             })}
