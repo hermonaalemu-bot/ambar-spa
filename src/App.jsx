@@ -3484,7 +3484,7 @@ export default function App(){
       {tab==="Payroll"&&<section style={S.card}><h2 style={S.ct}>{t("payrollMgmt")}</h2>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
           <div><p style={{...S.hlp,margin:0,color:"#374151"}}>Current pay period</p><b style={{fontSize:15}}>{period.label}</b></div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnS,background:"#1B2E4B",color:"#fff",borderColor:"#1B2E4B"}} onClick={downloadCommissionExcel}>📊 Download Commission Report</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>{t("closePayPeriod")}</button></div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btnS} onClick={()=>window.print()}>Print</button><button style={{...S.btnS,background:"#1B2E4B",color:"#fff",borderColor:"#1B2E4B",display:"flex",alignItems:"center",gap:6}} onClick={downloadCommissionExcel}><BarChart3 size={13}/> Download Commission Report</button><button style={{...S.btnP,width:"auto",padding:"10px 18px"}} onClick={closePeriod}>{t("closePayPeriod")}</button></div>
         </div>
         <div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:14,fontSize:13}}>Commissions update live. Close & Pay to freeze and reset for next period.</div>
         <h3 style={S.sh}>{t("addEmployee")}</h3>
@@ -3497,11 +3497,11 @@ export default function App(){
           <button style={{...S.btnP,width:"auto",padding:"0 18px"}} onClick={addEmp}>+ Add</button>
         </div>
         <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",marginBottom:6}}><input type="checkbox" checked={showFired} onChange={e=>setShowFired(e.target.checked)}/> Show inactive</label>
-        <button onClick={()=>setShowSvcLog(s=>!s)} style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:12,fontSize:12}}>
-          ⏱ {showSvcLog?"Hide":"View"} Service Time Log ({svcLog.length} records)
+        <button onClick={()=>setShowSvcLog(s=>!s)} style={{...S.btnS,width:"auto",padding:"6px 14px",marginBottom:12,fontSize:12,display:"inline-flex",alignItems:"center",gap:6}}>
+          <Timer size={12}/> {showSvcLog?"Hide":"View"} Service Time Log ({svcLog.length} records)
         </button>
         {showSvcLog&&<div style={{background:"#F8FAFC",border:"0.5px solid #E2E8F0",borderRadius:14,padding:16,marginBottom:16}}>
-          <h3 style={{...S.sh,marginBottom:12}}>⏱ Service Time Log — All Employees</h3>
+          <h3 style={{...S.sh,marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Timer size={13}/> Service Time Log — All Employees</h3>
           <p style={{...S.hlp,marginBottom:10}}>Every completed service: who did it, how long it took vs expected.</p>
           {svcLog.length===0?<p style={S.hlp}>No records yet. Times are recorded when services are marked Completed.</p>
           :<div style={{maxHeight:400,overflowY:"auto"}}>
@@ -3518,7 +3518,7 @@ export default function App(){
                   </div>
                   {records.slice(0,10).map((r,i)=>{
                     const diff=r.expectedMins>0?r.durationMins-r.expectedMins:null;
-                    const overUnder=diff===null?null:diff>5?"🔴 +"+diff+"m":diff<-5?"🟢 "+diff+"m":"🟡 on time";
+                    const overUnder=diff===null?null:diff>5?{txt:"+"+diff+"m",co:"#dc2626"}:diff<-5?{txt:diff+"m",co:"#16a34a"}:{txt:"on time",co:"#ca8a04"};
                     return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:i%2===0?"#fff":"#F8FAFC",borderRadius:8,marginBottom:3,color:"#1B2E4B"}}>
                       <div>
                         <span style={{fontSize:12,fontWeight:500,color:"#1B2E4B"}}>{r.service}</span>
@@ -3526,7 +3526,7 @@ export default function App(){
                       </div>
                       <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
                         <b style={{fontSize:13,color:"#1B2E4B"}}>{r.durationMins} min</b>
-                        {overUnder&&<span style={{fontSize:10}}>{overUnder}</span>}
+                        {overUnder&&<span style={{fontSize:10,color:overUnder.co,display:"inline-flex",alignItems:"center",gap:3,fontWeight:600}}><CircleDot size={9}/>{overUnder.txt}</span>}
                         <span style={{fontSize:10,color:"#94A3B8"}}>{r.date}</span>
                       </div>
                     </div>;
@@ -3540,7 +3540,7 @@ export default function App(){
 
         {/* ── Availability Overview ── */}
         <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:14,padding:14,marginBottom:16}}>
-          <h3 style={{margin:"0 0 10px",fontSize:13,fontWeight:800,color:"#166534"}}>📅 Today's Availability — {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</h3>
+          <h3 style={{margin:"0 0 10px",fontSize:13,fontWeight:800,color:"#166534",display:"flex",alignItems:"center",gap:6}}><Calendar size={14}/> Today's Availability — {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</h3>
           {EMP_SECTIONS.map(sec=>{
             const secEmps=emps.filter(e=>e.section===sec&&e.active);
             if(!secEmps.length)return null;
@@ -3552,8 +3552,8 @@ export default function App(){
                 <span style={{fontSize:11,fontWeight:700,background:avail.length>0?"#dcfce7":"#fee2e2",color:avail.length>0?"#166534":"#991b1b",borderRadius:8,padding:"1px 8px"}}>{avail.length} available</span>
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {avail.map(e=><span key={e.id} style={{background:"#fff",border:"1px solid #86efac",borderRadius:8,padding:"2px 8px",fontSize:11,color:"#166534",fontWeight:600}}>✅ {e.name}</span>)}
-                {off.map(e=><span key={e.id} style={{background:"#fff",border:"1px solid #fca5a5",borderRadius:8,padding:"2px 8px",fontSize:11,color:"#991b1b",fontWeight:600}}>{e.onLeave?"🤒 On Leave":"📅 Day Off"} {e.name}</span>)}
+                {avail.map(e=><span key={e.id} style={{background:"#fff",border:"1px solid #86efac",borderRadius:8,padding:"2px 8px",fontSize:11,color:"#166534",fontWeight:600,display:"inline-flex",alignItems:"center",gap:4}}><Check size={10}/> {e.name}</span>)}
+                {off.map(e=><span key={e.id} style={{background:"#fff",border:"1px solid #fca5a5",borderRadius:8,padding:"2px 8px",fontSize:11,color:"#991b1b",fontWeight:600,display:"inline-flex",alignItems:"center",gap:4}}>{e.onLeave?<Frown size={10}/>:<Calendar size={10}/>} {e.onLeave?"On Leave":"Day Off"} {e.name}</span>)}
               </div>
             </div>;
           })}
@@ -3561,7 +3561,7 @@ export default function App(){
         {emps.filter(e=>showFired||e.active).map(emp=>{const extra=empC.find(e=>e.id===emp.id);const d=Number(emp.salary||0)/30;const ad=d*Number(emp.absentDays||0);const grossPay=Number(emp.salary||0)+Number(extra?.commissionTotal||0);
           const net=grossPay-Number(emp.loan||0)-Number(emp.brokerFee||0)-Number(emp.otherDeduction||0)-ad;return(<div key={emp.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:14,marginBottom:10,opacity:emp.active?1:0.6}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#5A8C72",color:"#fff",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.onLeave?"🤒 On Leave":"📅 Day Off Today"}</span>}</div>
+            <div><b style={{fontSize:15}}>{emp.name}</b><span style={{background:"#5A8C72",color:"#fff",borderRadius:14,padding:"2px 10px",fontSize:11,fontWeight:700,marginLeft:6}}>{emp.section}</span>{emp.role&&<span style={{background:"#dbeafe",color:"#1e40af",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4}}>{emp.role}</span>}{!isEmpAvailableToday(emp)&&emp.active&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:14,padding:"2px 8px",fontSize:10,fontWeight:700,marginLeft:4,display:"inline-flex",alignItems:"center",gap:4}}>{emp.onLeave?<Frown size={10}/>:<Calendar size={10}/>} {emp.onLeave?"On Leave":"Day Off Today"}</span>}</div>
             <button style={emp.active?S.btnD:S.btnS} onClick={()=>setEmpAct(emp.id,!emp.active)}>{emp.active?t("deactivate"):t("reactivate")}</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:sc.mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:8}}>
@@ -3582,7 +3582,7 @@ export default function App(){
               <p style={{fontSize:10,fontWeight:700,color:"#1f2937",margin:"0 0 4px"}}>Availability</p>
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",background:emp.onLeave?"#fee2e2":"#f0fdf4",padding:"7px 10px",borderRadius:9,border:"1px solid "+(emp.onLeave?"#fca5a5":"#86efac")}}>
                 <input type="checkbox" checked={!!emp.onLeave} onChange={e=>{updEmp(emp.id,"onLeave",e.target.checked);push(emp.name+(e.target.checked?" marked On Leave":" marked Available"),"success");}}/>
-                <span style={{color:emp.onLeave?"#991b1b":"#166534",fontWeight:700}}>{emp.onLeave?"🤒 On Leave":"✅ Available"}</span>
+                <span style={{color:emp.onLeave?"#991b1b":"#166534",fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>{emp.onLeave?<Frown size={12}/>:<Check size={12}/>} {emp.onLeave?"On Leave":"Available"}</span>
               </label>
             </div>
           </div>
@@ -3625,7 +3625,7 @@ export default function App(){
               </div>
             </div>
             {lsItems.length>0&&<div style={{background:"rgba(185,28,28,0.2)",borderRadius:10,padding:"8px 12px",marginTop:4}}>
-              <p style={{margin:0,fontSize:11,color:"#fca5a5",fontWeight:500}}>⚠ Low: {lsItems.slice(0,4).map(i=>i.name).join(" · ")}{lsItems.length>4?" + "+(lsItems.length-4)+" more":""}</p>
+              <p style={{margin:0,fontSize:11,color:"#fca5a5",fontWeight:500,display:"flex",alignItems:"center",gap:5}}><AlertTriangle size={11}/> Low: {lsItems.slice(0,4).map(i=>i.name).join(" · ")}{lsItems.length>4?" + "+(lsItems.length-4)+" more":""}</p>
             </div>}
           </div>;
         })()}
