@@ -7,7 +7,7 @@ import {
   Save,Link as LinkIcon,ChevronUp,ChevronDown,Sparkles,LogOut,Flower2,Waves,
   ClipboardList,BarChart3,Wallet,ArrowLeftRight,ArrowRight,Undo2,PenLine,
   ThumbsUp,PartyPopper,Footprints,Shirt,Droplet,Star,CircleDot,Receipt,
-  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,
+  ArrowUp,ArrowDown,Hand,Frown,ArrowUpDown,Loader2,LogIn,Clock,ArrowLeft,PauseCircle,
 } from "lucide-react";
 
 const OPEN_HOUR=8,CLOSE_HOUR=19;
@@ -2731,16 +2731,16 @@ export default function App(){
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
                   <b style={{fontSize:15,color:"#111827"}}>#{v.queue} — {v.name}</b>
-                  {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>🔄 In Progress</span>}
-                  {isWithSupervisor&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>👤 With Supervisor</span>}
-                  {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>⏳ Waiting</span>}
-                  {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>💳 Ready</span>}
-                  {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800}}>✓ Done</span>}
+                  {isInProgress&&<span style={{background:"#1e40af",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><RefreshCw size={11}/> In Progress</span>}
+                  {isWithSupervisor&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><User size={11}/> With Supervisor</span>}
+                  {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><Clock size={11}/> Waiting</span>}
+                  {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><CreditCard size={11}/> Ready</span>}
+                  {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><Check size={11}/> Done</span>}
                 </div>
                 {v.groupName&&<p style={{...S.hlp,color:"#374151"}}>{v.groupName}</p>}
-                {v.note&&<p style={{...S.hlp,color:v.note.includes("From Spa")?"#1B4FA8":"#374151",fontWeight:v.note.includes("From Spa")?500:400}}>{v.note.includes("From Spa")?"🧖 ":""}{v.note}</p>}
-                {!isDone&&activeAhead>0&&<p style={{fontSize:11,color:"#6b7280",margin:"2px 0"}}>👥 {activeAhead} customer{activeAhead>1?"s":""} ahead</p>}
-                {!isDone&&activeAhead===0&&<p style={{fontSize:11,color:"#166534",fontWeight:700,margin:"2px 0"}}>✓ You're next!</p>}
+                {v.note&&<p style={{...S.hlp,color:v.note.includes("From Spa")?"#1B4FA8":"#374151",fontWeight:v.note.includes("From Spa")?500:400,display:"flex",alignItems:"center",gap:4}}>{v.note.includes("From Spa")?<Waves size={10}/>:null}{v.note}</p>}
+                {!isDone&&activeAhead>0&&<p style={{fontSize:11,color:"#6b7280",margin:"2px 0",display:"flex",alignItems:"center",gap:4}}><Users size={11}/> {activeAhead} customer{activeAhead>1?"s":""} ahead</p>}
+                {!isDone&&activeAhead===0&&<p style={{fontSize:11,color:"#166534",fontWeight:700,margin:"2px 0",display:"flex",alignItems:"center",gap:4}}><Check size={11}/> You're next!</p>}
                 {!isDone&&<WaitTimer vid={v.id}/>}
                 {isInProgress&&(v.services||[]).filter(l=>l.status==="In Progress").map(l=><SvcTimer key={l.lineId} lineId={l.lineId} status={l.status}/>)}
               </div>
@@ -2768,7 +2768,7 @@ export default function App(){
                 <span style={SB("Waiting for Supervisor")}>New</span>
               </button>;
             })}
-          <HR/><h3 style={S.sh}>🔄 Active Services</h3>
+          <HR/><h3 style={{...S.sh,display:"flex",alignItems:"center",gap:6}}><RefreshCw size={13}/> Active Services</h3>
           {svcQ.length===0&&<p style={S.hlp}>No active queues.</p>}
           {svcs.map(svc=>{const rows=svcQ.filter(r=>r.line.serviceId===svc.id);if(!rows.length)return null;
               const inProg=rows.filter(r=>r.line.status==="In Progress");
@@ -2803,8 +2803,8 @@ export default function App(){
                 const custFav=(()=>{const all=custHistory.flatMap(v=>(v.services||[]).map(l=>l.name));if(!all.length)return null;return all.sort((a,b)=>all.filter(x=>x===b).length-all.filter(x=>x===a).length)[0];})();
                 if(!custHistory.length)return null;
                 return <>
-                  <button onClick={()=>setShowHist(s=>!s)} style={{...S.btnS,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE"}}>
-                    📋 {showHist?"Hide":"See"} History ({custHistory.length} visit{custHistory.length>1?"s":""})
+                  <button onClick={()=>setShowHist(s=>!s)} style={{...S.btnS,width:"auto",padding:"4px 12px",marginBottom:0,fontSize:11,color:"#1B4FA8",borderColor:"#BFDBFE",display:"inline-flex",alignItems:"center",gap:5}}>
+                    <ClipboardList size={12}/> {showHist?"Hide":"See"} History ({custHistory.length} visit{custHistory.length>1?"s":""})
                   </button>
                   {showHist&&<div style={{background:"#F0F9FF",border:"0.5px solid #BAE6FD",borderRadius:12,padding:12,marginTop:8}}>
                     {custFav&&<p style={{margin:"0 0 8px",fontSize:12,color:"#0369A1",fontWeight:500}}>⭐ Usually gets: <b>{custFav}</b></p>}
@@ -2818,14 +2818,14 @@ export default function App(){
                   </div>}
                 </>;
               })()}
-              {act.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:10,padding:"6px 14px",fontWeight:800,fontSize:13}}>✓ Ready</span>}
+              {act.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:10,padding:"6px 14px",fontWeight:800,fontSize:13,display:"inline-flex",alignItems:"center",gap:6}}><Check size={13}/> Ready</span>}
             </div>
             {act.status==="Ready for Payment"&&<div style={{background:"#fef9ec",border:"1px solid #e0b85a",borderRadius:11,padding:12,marginBottom:10,fontSize:13}}>Ready for checkout.<button style={{...S.btnS,marginTop:8,width:"auto",padding:"7px 14px"}} onClick={reopen}>{t("reopen")}</button></div>}
             {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<>
               <div style={S.r2}><select style={S.inp} value={svCat} onChange={e=>{setSvCat(e.target.value);setSvSub("All");setSvSvcId("");}}>{cats.map(c=><option key={c}>{c}</option>)}</select><select style={S.inp} value={svSub} onChange={e=>{setSvSub(e.target.value);setSvSvcId("");}}>{svSubs.map(x=><option key={x}>{x}</option>)}</select></div>
               <select style={S.inp} value={svSvcId} onChange={e=>setSvSvcId(e.target.value)}><option value="">Select a service...</option>{svAvail.map(s=><option key={s.id} value={String(s.id)}>{s.name} — {money(s.price)}</option>)}</select>
               <button style={S.btnS} onClick={addSvc}>{t("addService")}</button>
-              {act.services.some(l=>l.status==="On Hold")&&<div style={{background:"#f3e8ff",border:"1px solid #c084fc",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#6b21a8",fontWeight:600}}>⏸ Some services are On Hold — they will auto-activate when the current service is completed and this customer gets priority.</div>}
+              {act.services.some(l=>l.status==="On Hold")&&<div style={{background:"#f3e8ff",border:"1px solid #c084fc",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#6b21a8",fontWeight:600,display:"flex",alignItems:"flex-start",gap:6}}><PauseCircle size={14} style={{flexShrink:0,marginTop:1}}/> Some services are On Hold — they will auto-activate when the current service is completed and this customer gets priority.</div>}
             </>}
             <SLines visit={act} emps={emps} mode="supervisor" onUpd={(l,f,v)=>updLine(act.id,l,f,v)} onRem={l=>remLine(act.id,l)} onMove={(l,d)=>moveLine(act.id,l,d)}/>
             {!["Paid & Closed","Ready for Payment"].includes(act.status)&&<button style={S.btnG} onClick={markReady}>{t("markReady")}</button>}
@@ -2840,20 +2840,20 @@ export default function App(){
           {coList.map(v=><button key={v.id} style={actId===v.id?S.liA:S.liB} onClick={()=>setActId(v.id)}><span>#{v.queue} — {v.name}</span><span style={SB(v.status)}>{v.status==="Ready for Payment"?"Ready — "+money(v.totalService):v.status}</span></button>)}
         </section>
         <section style={S.card}>
-          {!act?<EMP>← Select customer to process payment.</EMP>
+          {!act?<EMP><ArrowLeft size={13} style={{marginRight:6,verticalAlign:"-2px"}}/>Select customer to process payment.</EMP>
            :act.status==="Paid & Closed"?<div>
-            <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10}}>✓ Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
-            <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}>{t("printReceipt")}</button>
+            <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10,display:"flex",alignItems:"center",gap:8}}><CheckCircle2 size={17}/> Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
+            <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}><Printer size={13}/> {t("printReceipt")}</button>
             {act.services&&act.services.some(l=>l.sub==="Spa"||l.employeeSection==="Spa")&&!act.beautyQueueNum&&
-              <button style={{...S.btnS,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:500}}
+              <button style={{...S.btnS,color:"#1B4FA8",borderColor:"#BFDBFE",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
                 onClick={()=>giveBeautyQueueFromVisit(act)}>
-                💇 Get Beauty Salon Queue + Transfer Services
+                <Waves size={13}/> Get Beauty Salon Queue + Transfer Services
               </button>}
             {act.beautyQueueNum&&<div style={{background:"#EBF2FD",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{color:"#1B4FA8",fontWeight:500,fontSize:13}}>💇 Beauty Salon Queue #{act.beautyQueueNum}</span>
-              <span style={{fontSize:11,color:"#64748B"}}>Services transferred ✓</span>
+              <span style={{color:"#1B4FA8",fontWeight:500,fontSize:13,display:"flex",alignItems:"center",gap:5}}><Waves size={12}/> Beauty Salon Queue #{act.beautyQueueNum}</span>
+              <span style={{fontSize:11,color:"#64748B",display:"flex",alignItems:"center",gap:4}}>Services transferred <Check size={11}/></span>
             </div>}
-            <button style={{...S.btnS,color:"#dc2626",borderColor:"#fca5a5"}} onClick={()=>{setShowRefund(v=>!v);setRefundLines([]);}}>↩ Issue Refund</button>
+            <button style={{...S.btnS,color:"#dc2626",borderColor:"#fca5a5",display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={()=>{setShowRefund(v=>!v);setRefundLines([]);}}><Undo2 size={13}/> Issue Refund</button>
             {showRefund&&(()=>{
               const refundable=(act.services||[]).filter(l=>l.status!=="Cancelled"&&!l.refunded);
               const selectedTotal=refundable.filter(l=>refundLines.includes(l.lineId)).reduce((s,l)=>s+lineIncome(l),0);
