@@ -2591,7 +2591,6 @@ export default function App(){
         {refreshing?"Refreshing...":pullY>60?"Release to refresh":"Pull to refresh"}
       </div>
     </div>}
-    <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap');`}</style>
     <Notifs items={notifs} dismiss={dismiss}/>
     {showGS&&<div style={{position:"fixed",inset:0,background:"rgba(27,46,75,0.7)",zIndex:9990,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"80px 16px 16px"}} onClick={e=>e.target===e.currentTarget&&setShowGS(false)}>
       <div style={{background:"#fff",borderRadius:16,padding:20,width:"100%",maxWidth:560,maxHeight:"70vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
