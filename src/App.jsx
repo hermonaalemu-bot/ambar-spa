@@ -1592,7 +1592,7 @@ export default function App(){
         const upcoming=bks.filter(b=>b.date===todayStr()&&b.time===in30Str&&["Pending","Confirmed"].includes(b.status));
         upcoming.forEach(b=>{
           push("Booking in 30 min: "+b.customerName+" — "+b.serviceName,"booking");
-          nativePush("📅 Booking Reminder",b.customerName+" — "+b.serviceName+" at "+b.time,"booking-"+b.id);
+          nativePush("Booking Reminder",b.customerName+" — "+b.serviceName+" at "+b.time,"booking-"+b.id);
         });
       }
     },60000);
@@ -1626,7 +1626,7 @@ export default function App(){
       if(result==="granted"){
         push("Notifications enabled","success");
         // Send a test notification
-        nativePush("✅ Ambar Spa Notifications","You will now receive alerts for bookings and payments.","test");
+        nativePush("Ambar Spa Notifications","You will now receive alerts for bookings and payments.","test");
       } else {
         push("Notifications blocked. Enable in phone Settings → Safari → "+window.location.hostname,"warning");
       }
@@ -1723,7 +1723,7 @@ export default function App(){
         setVisits(prev=>prev.map(x=>x.id===p.new.id?dbVis(p.new):x));
         if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push(p.new.name+" paid","success");
         if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push(p.new.name+" ready for payment","payment");
-              nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
+              nativePush("Ready for Payment",p.new.name+" — tap to process","payment");
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"visits"},p=>{setVisits(prev=>prev.filter(x=>x.id!==p.old.id));})
       .subscribe();
@@ -1945,7 +1945,7 @@ export default function App(){
     supabase.from("activity_log").insert({staff_id:profile.id,staff_name:profile.name,action:LANG.en["login"]||"login",detail:"Successful login",ts:new Date().toISOString()}).then(()=>{});
   }
   function logout(){supabase.auth.signOut();setUser(null);setTab("");}
-  function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg("✓ "+f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
+  function recall(){const f=custs.find(c=>c.phone===rPhone.trim());if(f){setRName(f.name);setRmsg(f.name+" ("+f.totalVisits+" visits)");}else setRmsg("New customer — not in system yet");}
   async function register(){
     if(!rName.trim())return alert("Enter customer name.");if(!rPhone.trim()||rPhone.trim().length<7)return alert("Enter a valid phone number (min 7 digits).");if(saving)return;setSaving(true);
     const cnt=Math.max(1,Number(rPpl||1)),gid=Date.now(),gn=cnt>1?rName.trim()+" (Group of "+cnt+")":"";
@@ -2187,7 +2187,7 @@ export default function App(){
       return alert("Cannot book a time that has already passed today.");
     // Hard block: same customer already booked at same date+time
     const sameCust=bks.find(b=>b.id!==(editBk?.id||0)&&b.customerPhone===bkF.customerPhone.trim()&&b.date===(bkF.date||bkDate).slice(0,10)&&b.time===bkF.time&&!["Cancelled","No-show","Completed"].includes(b.status));
-    if(sameCust)return alert("❌ "+bkF.customerName+" already has a booking at "+bkF.time+" on "+bkF.date+" ("+sameCust.serviceName+"). Cannot double-book the same customer at the same time.");
+    if(sameCust)return alert(bkF.customerName+" already has a booking at "+bkF.time+" on "+bkF.date+" ("+sameCust.serviceName+"). Cannot double-book the same customer at the same time.");
     const warn=checkConflict(bks,bkF,svcs);
     if(warn&&!window.confirm(warn+"\n\nProceed anyway?"))return;
     setSaving(true);
@@ -2640,15 +2640,15 @@ export default function App(){
     </div>}
     {moroccoModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{fontSize:36,marginBottom:12}}>🧖</div>
+        <Waves size={30} color="#5A8C72" style={{marginBottom:12}}/>
         <h3 style={{margin:"0 0 8px",fontSize:16,fontWeight:500,color:"#1B2E4B"}}>Morocco Bath</h3>
         <p style={{margin:"0 0 20px",fontSize:13,color:"#64748B"}}>Choose gender for the free included service:</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <button onClick={()=>moroccoModal.resolve("F")} style={{padding:"14px",borderRadius:12,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:14,fontWeight:500,color:"#1B2E4B"}}>
-            ♀ Female<br/><span style={{fontSize:11,color:"#64748B",fontWeight:400}}>Free Hair Ironing</span>
+            Female<br/><span style={{fontSize:11,color:"#64748B",fontWeight:400}}>Free Hair Ironing</span>
           </button>
           <button onClick={()=>moroccoModal.resolve("M")} style={{padding:"14px",borderRadius:12,border:"0.5px solid #CBD5E0",background:"#fff",cursor:"pointer",fontSize:14,fontWeight:500,color:"#1B2E4B"}}>
-            ♂ Male<br/><span style={{fontSize:11,color:"#64748B",fontWeight:400}}>Free Haircut</span>
+            Male<br/><span style={{fontSize:11,color:"#64748B",fontWeight:400}}>Free Haircut</span>
           </button>
         </div>
         <button onClick={()=>moroccoModal.resolve(null)} style={{marginTop:12,padding:"8px 20px",borderRadius:10,border:"0.5px solid #E2E8F0",background:"#F8FAFC",color:"#64748B",cursor:"pointer",fontSize:12}}>Skip free service</button>
@@ -2656,7 +2656,7 @@ export default function App(){
     </div>}
     {confirmDlg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{fontSize:36,textAlign:"center",marginBottom:12}}>{confirmDlg.danger?"⚠️":"❓"}</div>
+        <div style={{textAlign:"center",marginBottom:12}}>{confirmDlg.danger?<AlertTriangle size={32} color="#dc2626"/>:<HelpCircle size={32} color="#374151"/>}</div>
         <p style={{margin:"0 0 20px",fontSize:15,fontWeight:600,color:"#111827",textAlign:"center",lineHeight:1.5}}>{confirmDlg.msg}</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={()=>setConfirmDlg(null)} style={{padding:12,borderRadius:12,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontWeight:700,cursor:"pointer",fontSize:14}}>Cancel</button>
@@ -2707,7 +2707,7 @@ export default function App(){
       {tab==="Reception"&&<main style={{display:"grid",gridTemplateColumns:gc,gap:14}}>
         <section style={S.card}><h2 style={S.ct}>{t("registerCustomer")}</h2>
           <L>Phone *</L><div style={S.r2}><input style={S.inp} value={rPhone} onChange={e=>setRPhone(e.target.value)} onKeyDown={e=>e.key==="Enter"&&recall()} placeholder="Phone number"/><button style={S.btnS} onClick={recall}>{t("recall")}</button></div>
-          {rmsg&&<p style={{fontWeight:700,fontSize:13,color:rmsg.startsWith("✓")?"#166534":"#1e40af",marginBottom:8}}>{rmsg}</p>}
+          {rmsg&&<p style={{fontWeight:700,fontSize:13,color:rmsg.startsWith("New customer")?"#1e40af":"#166534",marginBottom:8}}>{rmsg}</p>}
           <L>Name *</L><input style={S.inp} value={rName} onChange={e=>setRName(e.target.value)} placeholder="Full name"/>
           <L>Number of People</L><input style={S.inp} type="number" min="1" value={rPpl} onChange={e=>setRPpl(e.target.value)}/>
           <L>Note</L><textarea style={S.ta} value={rNote} onChange={e=>setRNote(e.target.value)} rows={2}/>
