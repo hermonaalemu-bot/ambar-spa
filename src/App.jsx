@@ -597,7 +597,7 @@ const LANG={
     commissionPeriod:"Commission This Period",revenueByCategory:"Revenue by Category",
     employeePerformance:"Employee Performance This Period",
     dailyTarget:"Daily Revenue Target",setTarget:"Set target (Birr)",
-    targetReached:"🎉 Target reached!",
+    targetReached:"Target reached!",
     staffMgmt:"Staff & Password Management",username:"Username",
     displayName:"Display Name",role:"Role",password:"Password",
     newPassword:"New Password",saveAccount:"Save Account",updateAccount:"Update Account",
@@ -684,7 +684,7 @@ const LANG={
     commissionPeriod:"የዚህ ወቅት ኮሚሽን",revenueByCategory:"ገቢ በምድብ",
     employeePerformance:"የሰራተኛ አፈጻጸም",
     dailyTarget:"የዕለት ገቢ ኢላማ",setTarget:"ኢላማ አስቀምጥ (ብር)",
-    targetReached:"🎉 ኢላማ ተደርሷል!",
+    targetReached:"ኢላማ ተደርሷል!",
     staffMgmt:"የሰራተኞች & የይለፍ ቃል",username:"የተጠቃሚ ስም",
     displayName:"የሚታይ ስም",role:"ሚና",password:"የይለፍ ቃል",
     newPassword:"አዲስ የይለፍ ቃል",saveAccount:"መለያ አስቀምጥ",updateAccount:"መለያ አዘምን",
@@ -1005,7 +1005,7 @@ function BarberTab({visits,emps,svcs,user,supabase,sc,S,SB,money,todayStr,logAct
     if(error){push("Payment failed: "+error.message,"error");return;}
     setVisits(p=>p.map(x=>x.id===vid?{...x,status:"Paid & Closed",totalPaid:total,paymentMethod:method,tips}:x));
     logAct(user,"Barbershop Payment",v.name+" — "+total.toLocaleString()+" Birr via "+method);
-    push("✓ "+v.name+" paid "+total.toLocaleString()+" Birr via "+method,"success");setSelId(null);
+    push(v.name+" paid "+total.toLocaleString()+" Birr via "+method,"success");setSelId(null);
   }
   async function toggleQ(val){setQueueEnabled(val);await supabase.from("settings").upsert({key:"queueEnabled",value:String(val)});push("Queue "+(val?"ON":"OFF"),"success");}
   const gc=sc.mob?"1fr":"270px 1fr";
@@ -1560,7 +1560,7 @@ export default function App(){
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
       setRefreshing(true);push("Refreshing...","info");
       await loadAll();
-      setRefreshing(false);push("Updated ✓","success");
+      setRefreshing(false);push("Updated","success");
     } else {
       setPulling(false);setPullY(0);pullRef.current={startY:0,pulling:false};
     }
@@ -1591,7 +1591,7 @@ export default function App(){
         const in30Str=String(in30.getHours()).padStart(2,"0")+":"+String(in30.getMinutes()).padStart(2,"0");
         const upcoming=bks.filter(b=>b.date===todayStr()&&b.time===in30Str&&["Pending","Confirmed"].includes(b.status));
         upcoming.forEach(b=>{
-          push("📅 Booking in 30 min: "+b.customerName+" — "+b.serviceName,"booking");
+          push("Booking in 30 min: "+b.customerName+" — "+b.serviceName,"booking");
           nativePush("📅 Booking Reminder",b.customerName+" — "+b.serviceName+" at "+b.time,"booking-"+b.id);
         });
       }
@@ -1624,7 +1624,7 @@ export default function App(){
       const result=await Notification.requestPermission();
       setNotifPerm(result);
       if(result==="granted"){
-        push("✅ Notifications enabled!","success");
+        push("Notifications enabled","success");
         // Send a test notification
         nativePush("✅ Ambar Spa Notifications","You will now receive alerts for bookings and payments.","test");
       } else {
@@ -1671,7 +1671,7 @@ export default function App(){
         if(stale.length===0&&now.getHours()===22&&now.getMinutes()<2){
           const paid=visits.filter(v=>v.date===todayStr()&&v.status==="Paid & Closed");
           const rev=paid.reduce((s,v)=>s+Number(v.totalService||0),0);
-          push("📊 End of Day: "+paid.length+" customers served, "+money(rev)+" revenue","success");
+          push("End of Day: "+paid.length+" customers served, "+money(rev)+" revenue","success");
         }
       }
     },60000);
@@ -1721,8 +1721,8 @@ export default function App(){
       })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"visits"},p=>{
         setVisits(prev=>prev.map(x=>x.id===p.new.id?dbVis(p.new):x));
-        if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push("✅ "+p.new.name+" paid","success");
-        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push("💳 "+p.new.name+" ready for payment","payment");
+        if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push(p.new.name+" paid","success");
+        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push(p.new.name+" ready for payment","payment");
               nativePush("💳 Ready for Payment",p.new.name+" — tap to process","payment");
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"visits"},p=>{setVisits(prev=>prev.filter(x=>x.id!==p.old.id));})
@@ -1730,8 +1730,8 @@ export default function App(){
     const bs=supabase.channel("bookings_"+uid)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"bookings"},p=>{
         setBks(prev=>{if(prev.find(x=>x.id===p.new.id))return prev;return[...prev,dbBk(p.new)];});
-        if(role===ROLES.SUPERVISOR||role===ROLES.MANAGER)push("📅 Booking: "+p.new.customer_name+" at "+p.new.time,"booking");
-        if(role===ROLES.RECEPTION)push("📅 Booking added: "+p.new.customer_name,"booking");
+        if(role===ROLES.SUPERVISOR||role===ROLES.MANAGER)push("Booking: "+p.new.customer_name+" at "+p.new.time,"booking");
+        if(role===ROLES.RECEPTION)push("Booking added: "+p.new.customer_name,"booking");
       })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"bookings"},p=>{setBks(prev=>prev.map(x=>x.id===p.new.id?dbBk(p.new):x));})
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"bookings"},p=>{setBks(prev=>prev.filter(x=>x.id!==p.old.id));})
@@ -1766,7 +1766,7 @@ export default function App(){
     setTimeout(()=>{
       const todayBookings=bks.filter(b=>b.date===todayStr()&&!["Cancelled","No-show","Completed"].includes(b.status));
       if(todayBookings.length>0){
-        push("📅 Today has "+todayBookings.length+" booking"+( todayBookings.length>1?"s":"")+" — check Bookings tab","booking");
+        push("Today has "+todayBookings.length+" booking"+( todayBookings.length>1?"s":"")+" — check Bookings tab","booking");
       }
     },2000);
   },[user]);
@@ -1930,7 +1930,7 @@ export default function App(){
       const newCount=(att.count||0)+1;
       loginAttempts.current[u]={count:newCount,lockedUntil:newCount>=3?now+5*60000:0};
       const rem=Math.max(0,3-newCount);
-      setLerr(newCount>=3?"🔒 Account locked for 5 minutes.":"Invalid username or password. "+rem+" attempt"+(rem===1?"":"s")+" remaining.");
+      setLerr(newCount>=3?"Account locked for 5 minutes.":"Invalid username or password. "+rem+" attempt"+(rem===1?"":"s")+" remaining.");
       supabase.from("activity_log").insert({staff_id:u||"unknown",staff_name:u||"unknown",action:"Failed Login",detail:"Failed attempt for: "+u,ts:new Date().toISOString()}).then(()=>{});
       return;
     }
@@ -1996,7 +1996,7 @@ export default function App(){
       if(gender){
         const isMale=gender.trim().toUpperCase()==="M";
         extraLines.push({lineId:Date.now()+1,name:isMale?"Free Haircut (Morocco Special)":"Free Hair Ironing (Morocco Special)",category:"Barbershop",sub:isMale?"Barbershop":"Hair Styling",price:0,qty:1,discount:0,free:true,commission:10,employeeSection:isMale?"Barbershop":"Hair Styling",employee:"",preferredEmployee:"",status:"Waiting",wigDeduction:0,moroccoFree:true,moroccoBasePrice:isMale?300:500});
-        push("✓ Free "+(isMale?"Haircut":"Hair Ironing")+" added for Morocco customer","success");
+        push("Free "+(isMale?"Haircut":"Hair Ironing")+" added for Morocco customer","success");
       }
     }
     const upd=[...act.services,line,...extraLines];
@@ -3677,7 +3677,7 @@ export default function App(){
               <input type="number" value={dailyTarget||""} onChange={e=>{const v=Number(e.target.value)||0;setDailyTarget(v);try{localStorage.setItem("ambar_target",v);}catch(e){}}} placeholder="Set target (Birr)" style={{...S.ii,width:160}}/>
             </div>
           </div>
-          {dailyTarget>0&&(()=>{const rev=todayV.filter(v=>v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0);const pct=Math.min(100,Math.round((rev/dailyTarget)*100));const col=pct>=100?"#166534":pct>=60?"#92400e":"#991b1b";return(<><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}><span style={{color:col,fontWeight:700}}>{pct}% of target reached</span><span style={{color:"#374151"}}>{money(rev)} / {money(dailyTarget)}</span></div><div style={{background:"#e5e7eb",borderRadius:8,height:14,overflow:"hidden"}}><div style={{background:pct>=100?"#166534":pct>=60?"#e0b85a":"#ef4444",height:"100%",width:pct+"%",borderRadius:8,transition:"width 0.5s"}}/></div>{pct>=100&&<p style={{color:"#166534",fontWeight:800,fontSize:13,margin:"6px 0 0"}}>🎉 Target reached!</p>}</>);})()}
+          {dailyTarget>0&&(()=>{const rev=todayV.filter(v=>v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0);const pct=Math.min(100,Math.round((rev/dailyTarget)*100));const col=pct>=100?"#166534":pct>=60?"#92400e":"#991b1b";return(<><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}><span style={{color:col,fontWeight:700}}>{pct}% of target reached</span><span style={{color:"#374151"}}>{money(rev)} / {money(dailyTarget)}</span></div><div style={{background:"#e5e7eb",borderRadius:8,height:14,overflow:"hidden"}}><div style={{background:pct>=100?"#166534":pct>=60?"#e0b85a":"#ef4444",height:"100%",width:pct+"%",borderRadius:8,transition:"width 0.5s"}}/></div>{pct>=100&&<p style={{color:"#166534",fontWeight:800,fontSize:13,margin:"6px 0 0",display:"flex",alignItems:"center",gap:6}}><PartyPopper size={14}/> Target reached!</p>}</>);})()}
         </div>
         <HR/>
         {(()=>{
