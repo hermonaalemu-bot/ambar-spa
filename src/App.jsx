@@ -2845,6 +2845,7 @@ export default function App(){
         </section>
         <section style={S.card}>
           {!act?<EMP><ArrowLeft size={13} style={{marginRight:6,verticalAlign:"-2px"}}/>Select customer to process payment.</EMP>
+           :!["Ready for Payment","Paid & Closed"].includes(act.status)?<EMP><Clock size={13} style={{marginRight:6,verticalAlign:"-2px"}}/>{act.name} isn't ready for payment yet (currently: {act.status}). Supervisor must mark them ready first.</EMP>
            :act.status==="Paid & Closed"?<div>
             <div style={{background:"#dcfce7",color:"#166534",borderRadius:11,padding:16,fontSize:15,fontWeight:700,marginBottom:10,display:"flex",alignItems:"center",gap:8}}><CheckCircle2 size={17}/> Paid — {money(act.totalPaid)} via {act.paymentMethod}</div>
             <button style={{...S.btnS,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}} onClick={()=>printReceipt(act,emps)}><Printer size={13}/> {t("printReceipt")}</button>
