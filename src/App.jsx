@@ -820,7 +820,7 @@ const DEFAULT_INVENTORY=[
 ];
 function QueueSummary({visits,emps,sc}){
   const[open,setOpen]=React.useState(false);
-  const today=visits.filter(v=>v.date===new Date().toISOString().slice(0,10));
+  const today=visits.filter(v=>v.date===todayStr());
   const active=today.filter(v=>!["Paid & Closed","Cancelled"].includes(v.status));
   const sections={};
   active.forEach(v=>{
@@ -870,7 +870,7 @@ function QueueSummary({visits,emps,sc}){
 function SvcDuration({svcLog,emps,sc,S,CLOSE_HOUR}){
   const[selEmp,setSelEmp]=React.useState("all");
   const[selSvc,setSelSvc]=React.useState("all");
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayStr();
   const logs=(svcLog||[]).filter(l=>l.date===today);
   const empNames=[...new Set(logs.map(l=>l.employee).filter(Boolean))];
   const svcNames=[...new Set(logs.map(l=>l.service).filter(Boolean))];
@@ -1430,7 +1430,7 @@ export default function App(){
   // Load inventory from Supabase — overrides defaults with saved data
   useEffect(()=>{
     supabase.from("settings").select("*").eq("key","queueEnabled").single().then(({data})=>{if(data?.value!=null)setQueueEnabled(data.value==="true"||data.value===true);}).catch(()=>{});
-    const bqToday=new Date().toISOString().slice(0,10);
+    const bqToday=todayStr();
     Promise.all([supabase.from("settings").select("*").eq("key","barberQueueDate").single(),supabase.from("settings").select("*").eq("key","barberQueueNum").single()]).then(([dr,nr])=>{if(dr?.data?.value===bqToday){setBarberQueueNum(Number(nr?.data?.value||1));}else{supabase.from("settings").upsert({key:"barberQueueDate",value:bqToday}).then(()=>{});supabase.from("settings").upsert({key:"barberQueueNum",value:"1"}).then(()=>{});setBarberQueueNum(1);}}).catch(()=>{setBarberQueueNum(1);});
     supabase.from("settings").select("*").eq("key","inventory").single()
       .then(({data})=>{
@@ -1722,8 +1722,10 @@ export default function App(){
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"visits"},p=>{
         setVisits(prev=>prev.map(x=>x.id===p.new.id?dbVis(p.new):x));
         if(role===ROLES.RECEPTION&&p.new.status==="Paid & Closed")push(p.new.name+" paid","success");
-        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment")push(p.new.name+" ready for payment","payment");
-              nativePush("Ready for Payment",p.new.name+" — tap to process","payment");
+        if((role===ROLES.RECEPTION||role===ROLES.MANAGER)&&p.new.status==="Ready for Payment"){
+          push(p.new.name+" ready for payment","payment");
+          nativePush("Ready for Payment",p.new.name+" — tap to process","payment");
+        }
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"visits"},p=>{setVisits(prev=>prev.filter(x=>x.id!==p.old.id));})
       .subscribe();
@@ -2726,6 +2728,7 @@ export default function App(){
             const isInProgress=v.status==="In Service"||(v.services||[]).some(l=>l.status==="In Progress");
             const isWithSupervisor=v.status==="With Supervisor"&&!isInProgress;
             const isWaiting=v.status==="Waiting for Supervisor";
+            const isCancelled=v.status==="Cancelled";
             const isDone=["Paid & Closed","Cancelled"].includes(v.status);
             return <div key={v.id} style={{...S.li,borderLeft:"4px solid "+(isDone?"#E2E8F0":isInProgress?"#1B4FA8":"#5A8C72"),background:isDone?"#F8FAFC":isInProgress?"#EBF2FD":"#F0FDF4"}}>
               <div style={{flex:1}}>
@@ -2735,7 +2738,8 @@ export default function App(){
                   {isWithSupervisor&&<span style={{background:"#0369a1",color:"#fff",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><User size={11}/> With Supervisor</span>}
                   {!isDone&&!isInProgress&&v.status!=="Ready for Payment"&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><Clock size={11}/> Waiting</span>}
                   {v.status==="Ready for Payment"&&<span style={{background:"#dcfce7",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><CreditCard size={11}/> Ready</span>}
-                  {isDone&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><Check size={11}/> Done</span>}
+                  {isCancelled&&<span style={{background:"#fee2e2",color:"#991b1b",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><X size={11}/> Cancelled</span>}
+                  {isDone&&!isCancelled&&<span style={{background:"#f0fdf4",color:"#166534",borderRadius:8,padding:"2px 10px",fontSize:11,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><Check size={11}/> Done</span>}
                 </div>
                 {v.groupName&&<p style={{...S.hlp,color:"#374151"}}>{v.groupName}</p>}
                 {v.note&&<p style={{...S.hlp,color:v.note.includes("From Spa")?"#1B4FA8":"#374151",fontWeight:v.note.includes("From Spa")?500:400,display:"flex",alignItems:"center",gap:4}}>{v.note.includes("From Spa")?<Waves size={10}/>:null}{v.note}</p>}
@@ -3732,7 +3736,7 @@ export default function App(){
           // Last 7 days revenue chart
           const days=Array.from({length:7},(_,i)=>{
             const d=new Date(Date.now()-i*86400000);
-            const ds=d.toISOString().slice(0,10);
+            const ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
             const rev=visits.filter(v=>v.date===ds&&v.status==="Paid & Closed").reduce((s,v)=>s+Number(v.totalService||0),0);
             return{date:ds,label:d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric"}),rev};
           }).reverse();
