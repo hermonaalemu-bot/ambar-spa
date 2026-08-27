@@ -2020,6 +2020,9 @@ export default function App(){
     // When a service is marked Completed → unlock On Hold services for this customer
     if(f==="status"&&v==="Completed"){
       const line=vis.services.find(l=>l.lineId===lid2);
+      // Already completed — re-selecting "Completed" (mis-click, or toggling the dropdown)
+      // must not re-run inventory deduction / completion logging a second time.
+      if(!line||line.status==="Completed")return;
       // Auto-deduct inventory using service-product links
       const linkedProds=svcProducts.filter(sp=>
         sp.serviceSubs.includes(line.sub)||sp.serviceSubs.includes(line.employeeSection)
